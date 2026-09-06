@@ -58,6 +58,11 @@ public class AntMojoTest {
     }
 
     @Test
+    public void testProjectWithBnd() throws Exception {
+        invokeAntMojo("ant-bnd-test");
+    }
+
+    @Test
     public void testProjectWithJavadoc() throws Exception {
         invokeAntMojo("ant-javadoc-test");
     }
@@ -81,6 +86,11 @@ public class AntMojoTest {
         File srcDir = new File(testPom, "src");
         if (srcDir.exists()) {
             org.codehaus.plexus.util.FileUtils.copyDirectoryStructure(srcDir, new File(antBasedir, "src"));
+        }
+
+        File bndFile = new File(testPom, "bnd.bnd");
+        if (bndFile.exists()) {
+            org.codehaus.plexus.util.FileUtils.copyFile(bndFile, new File(antBasedir, "bnd.bnd"));
         }
 
         AntWrapper.invoke(antBuild);

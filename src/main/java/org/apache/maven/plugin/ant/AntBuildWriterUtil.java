@@ -61,6 +61,7 @@ import org.codehaus.plexus.util.PathTool;
 import org.codehaus.plexus.util.StringUtils;
 import org.codehaus.plexus.util.xml.XMLWriter;
 import org.codehaus.plexus.util.xml.XmlWriterUtil;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
@@ -1458,6 +1459,58 @@ public class AntBuildWriterUtil {
         if (nl.getLength() > 0) {
             return nl.item(0).getTextContent();
         }
+        return null;
+    }
+
+    private static Xpp3Dom getPluginConfigurationDOM(MavenProject project, String pluginArtifactId) {
+        if (project.getBuild() != null && project.getBuild().getPlugins() != null) {
+            for (Object o : project.getBuild().getPlugins()) {
+                Plugin plugin = (Plugin) o;
+                if (pluginArtifactId.equals(plugin.getArtifactId())) {
+                    return (Xpp3Dom) plugin.getConfiguration();
+                }
+            }
+        }
+        if (project.getBuild() != null
+                && project.getBuild().getPluginManagement() != null
+                && project.getBuild().getPluginManagement().getPlugins() != null) {
+            for (Object o : project.getBuild().getPluginManagement().getPlugins()) {
+                Plugin plugin = (Plugin) o;
+                if (pluginArtifactId.equals(plugin.getArtifactId())) {
+                    return (Xpp3Dom) plugin.getConfiguration();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Extracts in-line bnd instructions from bnd-maven-plugin or maven-bundle-plugin.
+     */
+    public static String getBndInstructions(MavenProject project) {
+        Xpp3Dom bndConfigDom = getPluginConfigurationDOM(project, "bnd-maven-plugin");
+        if (bndConfigDom != null) {
+            Xpp3Dom bndNode = bndConfigDom.getChild("bnd");
+            if (bndNode != null) {
+                return bndNode.getValue().trim();
+            }
+        }
+
+        Xpp3Dom bundleConfigDom = getPluginConfigurationDOM(project, "maven-bundle-plugin");
+        if (bundleConfigDom != null) {
+            Xpp3Dom instNode = bundleConfigDom.getChild("instructions");
+            if (instNode != null) {
+                StringBuilder sb = new StringBuilder();
+                for (Xpp3Dom child : instNode.getChildren()) {
+                    sb.append(child.getName())
+                            .append(": ")
+                            .append(child.getValue())
+                            .append("\n");
+                }
+                return sb.toString().trim();
+            }
+        }
+
         return null;
     }
 }
