@@ -113,6 +113,8 @@ public class AntBuildWriter {
 
     private final Properties executionProperties;
 
+    private final AntExtensionWriter extensionWriter;
+
     /**
      * @param project {@link MavenProject}
      * @param artifactResolverWrapper {@link ArtifactResolverWrapper}
@@ -133,6 +135,7 @@ public class AntBuildWriter {
         this.settings = settings;
         this.overwrite = overwrite;
         this.executionProperties = (executionProperties != null) ? executionProperties : new Properties();
+        this.extensionWriter = new AntExtensionWriter(project);
     }
 
     /**
@@ -147,7 +150,7 @@ public class AntBuildWriter {
     }
 
     private void writeBndFile() throws IOException {
-        if (isBndProject()) {
+        if (extensionWriter.isBndProject()) {
             File bndFile = new File(project.getBasedir(), "bnd.bnd");
             if (!bndFile.exists()) {
                 String instructions = AntBuildWriterUtil.getBndInstructions(project);
@@ -376,15 +379,15 @@ public class AntBuildWriter {
         // ----------------------------------------------------------------------
         // <target name="sisu" />
         // ----------------------------------------------------------------------
-        if (isSisuProject()) {
-            writeSisuTarget(writer);
+        if (extensionWriter.isSisuProject()) {
+            extensionWriter.writeSisuTarget(writer);
         }
 
         // ----------------------------------------------------------------------
         // <target name="bnd" />
         // ----------------------------------------------------------------------
-        if (isBndProject()) {
-            writeBndTarget(writer);
+        if (extensionWriter.isBndProject()) {
+            extensionWriter.writeBndTarget(writer);
         }
 
         // ----------------------------------------------------------------------
@@ -725,7 +728,7 @@ public class AntBuildWriter {
             writer.endElement(); // pathelement
         }
 
-        if (isSisuProject() && !sisuInjectPresent && "build.classpath".equals(id)) {
+        if (extensionWriter.isSisuProject() && !sisuInjectPresent && "build.classpath".equals(id)) {
             Artifact sisuArtifact = artifactResolverWrapper
                     .getFactory()
                     .createArtifact(
@@ -742,7 +745,7 @@ public class AntBuildWriter {
             }
         }
 
-        if (isBndProject() && !bndAntPresent && "build.classpath".equals(id)) {
+        if (extensionWriter.isBndProject() && !bndAntPresent && "build.classpath".equals(id)) {
             Artifact bndArtifact = artifactResolverWrapper
                     .getFactory()
                     .createArtifact("biz.aQute.bnd", "biz.aQute.bnd.ant", "7.4.0", Artifact.SCOPE_RUNTIME, "jar");
@@ -916,7 +919,7 @@ public class AntBuildWriter {
                     writer.addAttribute("if", "jdk" + ver + ".supported");
                     writer.addAttribute("description", "Compile the Java " + ver + " code");
 
-                    writeCompileMRTasks(writer, "${maven.build.outputDir}", ver, compilerExecutions);
+                    extensionWriter.writeCompileMRTasks(writer, "${maven.build.outputDir}", ver, compilerExecutions);
 
                     writer.endElement(); // target
                     XmlWriterUtil.writeLineBreak(writer);
@@ -934,151 +937,6 @@ public class AntBuildWriter {
         }
 
         XmlWriterUtil.writeLineBreak(writer);
-    }
-
-    private void writeCompileMRTasks(
-            XMLWriter writer, String outputDirectory, int intVer, List<CompilerExecution> compilerExecutions)
-            throws IOException {
-        for (CompilerExecution exec : compilerExecutions) {
-            String ver = exec.getRelease();
-            if (ver == null) {
-                ver = exec.getTarget();
-            }
-            if (ver != null) {
-                try {
-                    int currentVer = (int) Double.parseDouble(ver);
-                    if (currentVer == intVer && !exec.getCompileSourceRoots().isEmpty()) {
-                        boolean isModuleInfoOnly = false;
-                        for (String root : exec.getCompileSourceRoots()) {
-                            if (project.getCompileSourceRoots().contains(root)) {
-                                isModuleInfoOnly = true;
-                                break;
-                            }
-                        }
-
-                        String mrOutputDir =
-                                isModuleInfoOnly ? outputDirectory : (outputDirectory + "/META-INF/versions/" + intVer);
-
-                        writer.startElement("mkdir");
-                        writer.addAttribute("dir", mrOutputDir);
-                        writer.endElement(); // mkdir
-
-                        writer.startElement("javac");
-                        writer.addAttribute("destdir", mrOutputDir);
-
-                        if (exec.getIncludes() != null) {
-                            AntBuildWriterUtil.addWrapAttribute(
-                                    writer,
-                                    "javac",
-                                    "includes",
-                                    getCommaSeparatedList(exec.getIncludes(), "include"),
-                                    3);
-                        }
-                        if (exec.getExcludes() != null) {
-                            AntBuildWriterUtil.addWrapAttribute(
-                                    writer,
-                                    "javac",
-                                    "excludes",
-                                    getCommaSeparatedList(exec.getExcludes(), "exclude"),
-                                    3);
-                        }
-
-                        AntBuildWriterUtil.addWrapAttribute(writer, "javac", "release", String.valueOf(intVer), 3);
-
-                        AntBuildWriterUtil.addWrapAttribute(
-                                writer,
-                                "javac",
-                                "encoding",
-                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "encoding", null),
-                                3);
-                        AntBuildWriterUtil.addWrapAttribute(
-                                writer,
-                                "javac",
-                                "nowarn",
-                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "showWarnings", "false"),
-                                3);
-                        AntBuildWriterUtil.addWrapAttribute(
-                                writer,
-                                "javac",
-                                "debug",
-                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "debug", "true"),
-                                3);
-                        AntBuildWriterUtil.addWrapAttribute(
-                                writer,
-                                "javac",
-                                "optimize",
-                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "optimize", "false"),
-                                3);
-                        AntBuildWriterUtil.addWrapAttribute(
-                                writer,
-                                "javac",
-                                "deprecation",
-                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(
-                                        project, "showDeprecation", "true"),
-                                3);
-
-                        boolean isModuleInfo = exec.isModuleInfo(project);
-
-                        for (String root : exec.getCompileSourceRoots()) {
-                            writer.startElement("src");
-                            writer.startElement("pathelement");
-                            writer.addAttribute("location", AntBuildWriterUtil.toRelative(project.getBasedir(), root));
-                            writer.endElement(); // pathelement
-                            writer.endElement(); // src
-                        }
-
-                        if (isModuleInfo) {
-                            for (Object rootObj : project.getCompileSourceRoots()) {
-                                String baseRoot = (String) rootObj;
-                                if (!exec.getCompileSourceRoots().contains(baseRoot)) {
-                                    writer.startElement("src");
-                                    writer.startElement("pathelement");
-                                    writer.addAttribute(
-                                            "location", AntBuildWriterUtil.toRelative(project.getBasedir(), baseRoot));
-                                    writer.endElement(); // pathelement
-                                    writer.endElement(); // src
-                                }
-                            }
-                        }
-
-                        String pathTag = isModuleInfo ? "modulepath" : "classpath";
-                        writer.startElement(pathTag);
-                        writer.startElement("pathelement");
-                        writer.addAttribute("location", outputDirectory);
-                        writer.endElement(); // pathelement
-
-                        for (CompilerExecution prevExec : compilerExecutions) {
-                            String prevVerStr = prevExec.getRelease();
-                            if (prevVerStr == null) {
-                                prevVerStr = prevExec.getTarget();
-                            }
-                            if (prevVerStr != null) {
-                                try {
-                                    int prevVer = (int) Double.parseDouble(prevVerStr);
-                                    if (prevVer > 8 && prevVer < intVer) {
-                                        writer.startElement("pathelement");
-                                        writer.addAttribute(
-                                                "location", outputDirectory + "/META-INF/versions/" + prevVer);
-                                        writer.endElement(); // pathelement
-                                    }
-                                } catch (NumberFormatException e) {
-                                    // ignore
-                                }
-                            }
-                        }
-
-                        writer.startElement("path");
-                        writer.addAttribute("refid", "build.classpath");
-                        writer.endElement(); // path
-                        writer.endElement(); // modulepath or classpath
-
-                        writer.endElement(); // javac
-                    }
-                } catch (NumberFormatException e) {
-                    // ignore
-                }
-            }
-        }
     }
 
     /**
@@ -1384,9 +1242,9 @@ public class AntBuildWriter {
 
         if (!AntBuildWriterUtil.isPomPackaging(project)) {
             String dependsList;
-            if (isBndProject()) {
+            if (extensionWriter.isBndProject()) {
                 dependsList = "bnd,test";
-            } else if (isSisuProject()) {
+            } else if (extensionWriter.isSisuProject()) {
                 dependsList = "sisu,test";
             } else {
                 dependsList = "compile,test";
@@ -1438,106 +1296,6 @@ public class AntBuildWriter {
 
             XmlWriterUtil.writeLineBreak(writer);
         }
-    }
-
-    private void writeSisuTarget(XMLWriter writer) {
-        XmlWriterUtil.writeCommentText(writer, "Sisu javax.inject.Named generation target", 1);
-
-        writer.startElement("target");
-        writer.addAttribute("name", "sisu");
-        writer.addAttribute("depends", "compile");
-        writer.addAttribute("description", "Generate javax.inject.Name index");
-
-        writer.startElement("sequential");
-
-        writer.startElement("mkdir");
-        writer.addAttribute("dir", "META-INF");
-        writer.endElement(); // mkdir
-
-        writer.startElement("java");
-        writer.addAttribute("classname", "org.eclipse.sisu.space.SisuIndex");
-        writer.addAttribute("failonerror", "true");
-        writer.addAttribute("fork", "true");
-
-        writer.startElement("classpath");
-        writer.startElement("path");
-        writer.addAttribute("refid", "build.classpath");
-        writer.endElement(); // path
-        writer.endElement(); // classpath
-
-        writer.startElement("arg");
-        writer.addAttribute("value", "${maven.build.outputDir}");
-        writer.endElement(); // arg
-
-        writer.endElement(); // java
-
-        writer.startElement("move");
-        writer.addAttribute("todir", "${maven.build.outputDir}/META-INF");
-        writer.startElement("fileset");
-        writer.addAttribute("dir", "META-INF");
-        writer.endElement(); // fileset
-        writer.endElement(); // move
-
-        writer.endElement(); // sequential
-
-        writer.endElement(); // target
-
-        XmlWriterUtil.writeLineBreak(writer);
-    }
-
-    private boolean isSisuProject() {
-        if (project.getBuildPlugins() != null) {
-            for (Object o : project.getBuildPlugins()) {
-                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
-                if ("sisu-maven-plugin".equals(plugin.getArtifactId())) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private boolean isBndProject() {
-        if (project.getBuildPlugins() != null) {
-            for (Object o : project.getBuildPlugins()) {
-                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
-                if ("bnd-maven-plugin".equals(plugin.getArtifactId())
-                        || "maven-bundle-plugin".equals(plugin.getArtifactId())) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private void writeBndTarget(XMLWriter writer) {
-        XmlWriterUtil.writeCommentText(writer, "Bnd OSGi Bundle generation target", 1);
-
-        writer.startElement("target");
-        writer.addAttribute("name", "bnd");
-        writer.addAttribute("depends", isSisuProject() ? "sisu" : "compile");
-        writer.addAttribute("description", "Generate OSGi Bundle");
-
-        writer.startElement("sequential");
-
-        writer.startElement("taskdef");
-        writer.addAttribute("resource", "aQute/bnd/ant/taskdef.properties");
-        writer.addAttribute("classpathref", "build.classpath");
-        writer.endElement(); // taskdef
-
-        writer.startElement("bnd");
-        writer.addAttribute("classpath", "${maven.build.outputDir}");
-        writer.addAttribute("failok", "false");
-        writer.addAttribute("exceptions", "true");
-        writer.addAttribute("files", "bnd.bnd");
-        writer.addAttribute("output", "${maven.build.dir}/${maven.build.finalName}.jar");
-        writer.endElement(); // bnd
-
-        writer.endElement(); // sequential
-
-        writer.endElement(); // target
-
-        XmlWriterUtil.writeLineBreak(writer);
     }
 
     @SuppressWarnings("checkstyle:MethodLength")
