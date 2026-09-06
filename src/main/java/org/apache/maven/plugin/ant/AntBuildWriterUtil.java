@@ -52,6 +52,8 @@ import java.util.Map;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Plugin;
+import org.apache.maven.model.PluginExecution;
+import org.apache.maven.model.Profile;
 import org.apache.maven.model.ReportPlugin;
 import org.apache.maven.project.MavenProject;
 import org.apache.xpath.XPathAPI;
@@ -423,17 +425,46 @@ public class AntBuildWriterUtil {
         }
         addWrapAttribute(writer, "jar", "basedir", "${maven.build.outputDir}", 3);
         addWrapAttribute(writer, "jar", "excludes", "**/package.html", 3);
-        if (getMavenPluginOption(project, "maven-jar-plugin", "archive//manifest", null) != null) {
+
+        boolean hasMultiRelease = false;
+        List<CompilerExecution> compilerExecutions = getCompilerExecutions(project);
+        for (CompilerExecution exec : compilerExecutions) {
+            String ver = exec.getRelease();
+            if (ver == null) {
+                ver = exec.getTarget();
+            }
+            if (ver != null) {
+                try {
+                    if ((int) Double.parseDouble(ver) > 8
+                            && !exec.getCompileSourceRoots().isEmpty()) {
+                        hasMultiRelease = true;
+                        break;
+                    }
+                } catch (NumberFormatException e) {
+                    // ignore
+                }
+            }
+        }
+
+        if (hasMultiRelease || getMavenPluginOption(project, "maven-jar-plugin", "archive//manifest", null) != null) {
             writer.startElement("manifest");
-            writer.startElement("attribute");
-            writer.addAttribute("name", "Main-Class");
-            addWrapAttribute(
-                    writer,
-                    "attribute",
-                    "value",
-                    getMavenJarPluginBasicOption(project, "archive//manifest//mainClass", null),
-                    5);
-            writer.endElement(); // attribute
+            if (getMavenPluginOption(project, "maven-jar-plugin", "archive//manifest", null) != null) {
+                writer.startElement("attribute");
+                writer.addAttribute("name", "Main-Class");
+                addWrapAttribute(
+                        writer,
+                        "attribute",
+                        "value",
+                        getMavenJarPluginBasicOption(project, "archive//manifest//mainClass", null),
+                        5);
+                writer.endElement(); // attribute
+            }
+            if (hasMultiRelease) {
+                writer.startElement("attribute");
+                writer.addAttribute("name", "Multi-Release");
+                writer.addAttribute("value", "true");
+                writer.endElement(); // attribute
+            }
             writer.endElement(); // manifest
         }
         writer.endElement(); // jar
@@ -1273,5 +1304,160 @@ public class AntBuildWriterUtil {
             result = '.' + result;
         }
         return result;
+    }
+
+    /**
+     * Parse all maven-compiler-plugin executions, including those inside inactive profiles.
+     */
+    public static List<CompilerExecution> getCompilerExecutions(MavenProject project) {
+        List<CompilerExecution> executions = new ArrayList<CompilerExecution>();
+
+        // 1. Process active build plugins
+        if (project.getBuild() != null && project.getBuild().getPlugins() != null) {
+            for (Object o : project.getBuild().getPlugins()) {
+                Plugin plugin = (Plugin) o;
+                if ("maven-compiler-plugin".equals(plugin.getArtifactId())) {
+                    CompilerExecution defaultExec = parseCompilerConfiguration(
+                            "default", plugin.getConfiguration(), project.getCompileSourceRoots(), project);
+                    if (defaultExec != null) {
+                        executions.add(defaultExec);
+                    }
+                    if (plugin.getExecutions() != null) {
+                        for (Object execObj : plugin.getExecutions()) {
+                            PluginExecution exec = (PluginExecution) execObj;
+                            CompilerExecution compilerExec =
+                                    parseCompilerConfiguration(exec.getId(), exec.getConfiguration(), null, project);
+                            if (compilerExec != null) {
+                                executions.add(compilerExec);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Process profiles (both active and inactive)
+        if (project.getModel() != null && project.getModel().getProfiles() != null) {
+            for (Profile profile : project.getModel().getProfiles()) {
+                if (profile.getBuild() != null && profile.getBuild().getPlugins() != null) {
+                    for (Plugin plugin : profile.getBuild().getPlugins()) {
+                        if ("maven-compiler-plugin".equals(plugin.getArtifactId())) {
+                            CompilerExecution profileExec = parseCompilerConfiguration(
+                                    profile.getId() + "-default", plugin.getConfiguration(), null, project);
+                            if (profileExec != null) {
+                                executions.add(profileExec);
+                            }
+                            if (plugin.getExecutions() != null) {
+                                for (Object execObj : plugin.getExecutions()) {
+                                    PluginExecution exec = (PluginExecution) execObj;
+                                    CompilerExecution compilerExec = parseCompilerConfiguration(
+                                            profile.getId() + "-" + exec.getId(),
+                                            exec.getConfiguration(),
+                                            null,
+                                            project);
+                                    if (compilerExec != null) {
+                                        executions.add(compilerExec);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return executions;
+    }
+
+    private static CompilerExecution parseCompilerConfiguration(
+            String id, Object pluginConf, List<String> compileSourceRoots, MavenProject project) {
+        if (pluginConf == null) {
+            return null;
+        }
+        try {
+            Document doc = DocumentBuilderFactory.newInstance()
+                    .newDocumentBuilder()
+                    .parse(new ByteArrayInputStream(pluginConf.toString().getBytes("UTF-8")));
+
+            String release = getElementText(doc, "release");
+            String source = getElementText(doc, "source");
+            String target = getElementText(doc, "target");
+
+            List<String> roots = new ArrayList<String>();
+            if (compileSourceRoots != null) {
+                roots.addAll(compileSourceRoots);
+            }
+            NodeList rootsNode = doc.getElementsByTagName("compileSourceRoots");
+            if (rootsNode.getLength() > 0) {
+                NodeList childs = rootsNode.item(0).getChildNodes();
+                for (int i = 0; i < childs.getLength(); i++) {
+                    Node child = childs.item(i);
+                    if (child.getNodeType() == Node.ELEMENT_NODE && "compileSourceRoot".equals(child.getNodeName())) {
+                        String path = child.getTextContent();
+                        if (path.contains("${project.basedir}")) {
+                            path = path.replace(
+                                    "${project.basedir}", project.getBasedir().getAbsolutePath());
+                        }
+                        if (path.contains("${basedir}")) {
+                            path = path.replace(
+                                    "${basedir}", project.getBasedir().getAbsolutePath());
+                        }
+                        roots.add(path);
+                    }
+                }
+            }
+
+            Map[] includes = parseCompilerPluginOptions(doc, "includes");
+            Map[] excludes = parseCompilerPluginOptions(doc, "excludes");
+
+            return new CompilerExecution(id, release, source, target, roots, includes, excludes);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static Map[] parseCompilerPluginOptions(Document doc, String optionName) {
+        try {
+            NodeList nodeList = doc.getElementsByTagName(optionName);
+            if (nodeList.getLength() > 0) {
+                Node optionNode = nodeList.item(0);
+                if (isList(optionNode)) {
+                    List optionNames = new ArrayList();
+                    NodeList childs = optionNode.getChildNodes();
+                    for (int i = 0; i < childs.getLength(); i++) {
+                        Node child = childs.item(i);
+                        if (child.getNodeType() == Node.ELEMENT_NODE) {
+                            Map<String, Object> option = new HashMap<String, Object>();
+                            if (isElementContent(child)) {
+                                Map<String, String> properties = new HashMap<String, String>();
+                                NodeList childs2 = child.getChildNodes();
+                                for (int j = 0; j < childs2.getLength(); j++) {
+                                    Node child2 = childs2.item(j);
+                                    if (child2.getNodeType() == Node.ELEMENT_NODE) {
+                                        properties.put(child2.getNodeName(), getTextContent(child2));
+                                    }
+                                }
+                                option.put(child.getNodeName(), properties);
+                            } else {
+                                option.put(child.getNodeName(), getTextContent(child));
+                            }
+                            optionNames.add(option);
+                        }
+                    }
+                    return (Map[]) optionNames.toArray(new Map[optionNames.size()]);
+                }
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return null;
+    }
+
+    private static String getElementText(Document doc, String tagName) {
+        NodeList nl = doc.getElementsByTagName(tagName);
+        if (nl.getLength() > 0) {
+            return nl.item(0).getTextContent();
+        }
+        return null;
     }
 }

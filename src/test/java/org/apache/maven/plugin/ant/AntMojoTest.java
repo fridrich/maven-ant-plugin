@@ -43,6 +43,16 @@ public class AntMojoTest {
     }
 
     @Test
+    public void testProjectWithMultiRelease() throws Exception {
+        invokeAntMojo("ant-multirelease-test");
+    }
+
+    @Test
+    public void testProjectWithModuleInfo() throws Exception {
+        invokeAntMojo("ant-moduleinfo-test");
+    }
+
+    @Test
     public void testProjectWithJavadoc() throws Exception {
         invokeAntMojo("ant-javadoc-test");
     }
@@ -61,6 +71,11 @@ public class AntMojoTest {
         if (!currentProject.getPackaging().toLowerCase().equals("pom")) {
             File antProperties = new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_PROPERTIES_FILENAME);
             org.junit.Assert.assertTrue(antProperties.exists());
+        }
+
+        File srcDir = new File(testPom, "src");
+        if (srcDir.exists()) {
+            org.codehaus.plexus.util.FileUtils.copyDirectoryStructure(srcDir, new File(antBasedir, "src"));
         }
 
         AntWrapper.invoke(antBuild);

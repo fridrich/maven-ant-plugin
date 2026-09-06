@@ -47,8 +47,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
@@ -440,6 +442,7 @@ public class AntBuildWriter {
      *
      * @param writer
      */
+    @SuppressWarnings("checkstyle:MethodLength")
     private void writeProperties(XMLWriter writer) {
         if (AntBuildWriterUtil.isPomPackaging(project)) {
             return;
@@ -587,6 +590,38 @@ public class AntBuildWriter {
         writer.addAttribute("name", "maven.settings.interactiveMode");
         writer.addAttribute("value", String.valueOf(settings.isInteractiveMode()));
         writer.endElement(); // property
+
+        List<CompilerExecution> compilerExecutions = AntBuildWriterUtil.getCompilerExecutions(project);
+        Set<Integer> jreVersions = new TreeSet<Integer>();
+        for (CompilerExecution exec : compilerExecutions) {
+            String ver = exec.getRelease();
+            if (ver == null) {
+                ver = exec.getTarget();
+            }
+            if (ver != null) {
+                try {
+                    int intVer = (int) Double.parseDouble(ver);
+                    if (intVer > 8) {
+                        jreVersions.add(intVer);
+                    }
+                } catch (NumberFormatException e) {
+                    // ignore
+                }
+            }
+        }
+
+        if (!jreVersions.isEmpty()) {
+            XmlWriterUtil.writeLineBreak(writer, 2, 1);
+            XmlWriterUtil.writeCommentText(writer, "Multi-Release JDK Support", 1);
+            for (int ver : jreVersions) {
+                writer.startElement("condition");
+                writer.addAttribute("property", "jdk" + ver + ".supported");
+                writer.startElement("javaversion");
+                writer.addAttribute("atleast", String.valueOf(ver));
+                writer.endElement(); // javaversion
+                writer.endElement(); // condition
+            }
+        }
 
         XmlWriterUtil.writeLineBreak(writer);
     }
@@ -746,23 +781,229 @@ public class AntBuildWriter {
             }
             writer.endElement(); // target
         } else {
-            writer.startElement("target");
-            writer.addAttribute("name", "compile");
-            writer.addAttribute("depends", "get-deps");
-            writer.addAttribute("description", "Compile the code");
+            List<CompilerExecution> compilerExecutions = AntBuildWriterUtil.getCompilerExecutions(project);
+            Set<Integer> mrVersions = new TreeSet<Integer>();
+            for (CompilerExecution exec : compilerExecutions) {
+                String ver = exec.getRelease();
+                if (ver == null) {
+                    ver = exec.getTarget();
+                }
+                if (ver != null) {
+                    try {
+                        int intVer = (int) Double.parseDouble(ver);
+                        if (intVer > 8 && !exec.getCompileSourceRoots().isEmpty()) {
+                            mrVersions.add(intVer);
+                        }
+                    } catch (NumberFormatException e) {
+                        // ignore
+                    }
+                }
+            }
 
-            writeCompileTasks(
-                    writer,
-                    "${maven.build.outputDir}",
-                    compileSourceRoots,
-                    project.getBuild().getResources(),
-                    null,
-                    false);
+            if (mrVersions.isEmpty()) {
+                writer.startElement("target");
+                writer.addAttribute("name", "compile");
+                writer.addAttribute("depends", "get-deps");
+                writer.addAttribute("description", "Compile the code");
 
-            writer.endElement(); // target
+                writeCompileTasks(
+                        writer,
+                        "${maven.build.outputDir}",
+                        compileSourceRoots,
+                        project.getBuild().getResources(),
+                        null,
+                        false);
+
+                writer.endElement(); // target
+            } else {
+                writer.startElement("target");
+                writer.addAttribute("name", "compile-base");
+                writer.addAttribute("depends", "get-deps");
+                writer.addAttribute("description", "Compile the base code");
+
+                writeCompileTasks(
+                        writer,
+                        "${maven.build.outputDir}",
+                        compileSourceRoots,
+                        project.getBuild().getResources(),
+                        null,
+                        false);
+
+                writer.endElement(); // target
+                XmlWriterUtil.writeLineBreak(writer);
+
+                String prevTarget = "compile-base";
+                StringBuilder dependsList = new StringBuilder("compile-base");
+                for (int ver : mrVersions) {
+                    writer.startElement("target");
+                    writer.addAttribute("name", "compile-java" + ver);
+                    writer.addAttribute("depends", prevTarget);
+                    writer.addAttribute("if", "jdk" + ver + ".supported");
+                    writer.addAttribute("description", "Compile the Java " + ver + " code");
+
+                    writeCompileMRTasks(writer, "${maven.build.outputDir}", ver, compilerExecutions);
+
+                    writer.endElement(); // target
+                    XmlWriterUtil.writeLineBreak(writer);
+
+                    dependsList.append(",compile-java").append(ver);
+                    prevTarget = "compile-java" + ver;
+                }
+
+                writer.startElement("target");
+                writer.addAttribute("name", "compile");
+                writer.addAttribute("depends", dependsList.toString());
+                writer.addAttribute("description", "Compile the code");
+                writer.endElement(); // target
+            }
         }
 
         XmlWriterUtil.writeLineBreak(writer);
+    }
+
+    private void writeCompileMRTasks(
+            XMLWriter writer, String outputDirectory, int intVer, List<CompilerExecution> compilerExecutions)
+            throws IOException {
+        for (CompilerExecution exec : compilerExecutions) {
+            String ver = exec.getRelease();
+            if (ver == null) {
+                ver = exec.getTarget();
+            }
+            if (ver != null) {
+                try {
+                    int currentVer = (int) Double.parseDouble(ver);
+                    if (currentVer == intVer && !exec.getCompileSourceRoots().isEmpty()) {
+                        boolean isModuleInfoOnly = false;
+                        for (String root : exec.getCompileSourceRoots()) {
+                            if (project.getCompileSourceRoots().contains(root)) {
+                                isModuleInfoOnly = true;
+                                break;
+                            }
+                        }
+
+                        String mrOutputDir =
+                                isModuleInfoOnly ? outputDirectory : (outputDirectory + "/META-INF/versions/" + intVer);
+
+                        writer.startElement("mkdir");
+                        writer.addAttribute("dir", mrOutputDir);
+                        writer.endElement(); // mkdir
+
+                        writer.startElement("javac");
+                        writer.addAttribute("destdir", mrOutputDir);
+
+                        if (exec.getIncludes() != null) {
+                            AntBuildWriterUtil.addWrapAttribute(
+                                    writer,
+                                    "javac",
+                                    "includes",
+                                    getCommaSeparatedList(exec.getIncludes(), "include"),
+                                    3);
+                        }
+                        if (exec.getExcludes() != null) {
+                            AntBuildWriterUtil.addWrapAttribute(
+                                    writer,
+                                    "javac",
+                                    "excludes",
+                                    getCommaSeparatedList(exec.getExcludes(), "exclude"),
+                                    3);
+                        }
+
+                        AntBuildWriterUtil.addWrapAttribute(writer, "javac", "release", String.valueOf(intVer), 3);
+
+                        AntBuildWriterUtil.addWrapAttribute(
+                                writer,
+                                "javac",
+                                "encoding",
+                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "encoding", null),
+                                3);
+                        AntBuildWriterUtil.addWrapAttribute(
+                                writer,
+                                "javac",
+                                "nowarn",
+                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "showWarnings", "false"),
+                                3);
+                        AntBuildWriterUtil.addWrapAttribute(
+                                writer,
+                                "javac",
+                                "debug",
+                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "debug", "true"),
+                                3);
+                        AntBuildWriterUtil.addWrapAttribute(
+                                writer,
+                                "javac",
+                                "optimize",
+                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "optimize", "false"),
+                                3);
+                        AntBuildWriterUtil.addWrapAttribute(
+                                writer,
+                                "javac",
+                                "deprecation",
+                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(
+                                        project, "showDeprecation", "true"),
+                                3);
+
+                        boolean isModuleInfo = exec.isModuleInfo(project);
+
+                        for (String root : exec.getCompileSourceRoots()) {
+                            writer.startElement("src");
+                            writer.startElement("pathelement");
+                            writer.addAttribute("location", AntBuildWriterUtil.toRelative(project.getBasedir(), root));
+                            writer.endElement(); // pathelement
+                            writer.endElement(); // src
+                        }
+
+                        if (isModuleInfo) {
+                            for (Object rootObj : project.getCompileSourceRoots()) {
+                                String baseRoot = (String) rootObj;
+                                if (!exec.getCompileSourceRoots().contains(baseRoot)) {
+                                    writer.startElement("src");
+                                    writer.startElement("pathelement");
+                                    writer.addAttribute(
+                                            "location", AntBuildWriterUtil.toRelative(project.getBasedir(), baseRoot));
+                                    writer.endElement(); // pathelement
+                                    writer.endElement(); // src
+                                }
+                            }
+                        }
+
+                        String pathTag = isModuleInfo ? "modulepath" : "classpath";
+                        writer.startElement(pathTag);
+                        writer.startElement("pathelement");
+                        writer.addAttribute("location", outputDirectory);
+                        writer.endElement(); // pathelement
+
+                        for (CompilerExecution prevExec : compilerExecutions) {
+                            String prevVerStr = prevExec.getRelease();
+                            if (prevVerStr == null) {
+                                prevVerStr = prevExec.getTarget();
+                            }
+                            if (prevVerStr != null) {
+                                try {
+                                    int prevVer = (int) Double.parseDouble(prevVerStr);
+                                    if (prevVer > 8 && prevVer < intVer) {
+                                        writer.startElement("pathelement");
+                                        writer.addAttribute(
+                                                "location", outputDirectory + "/META-INF/versions/" + prevVer);
+                                        writer.endElement(); // pathelement
+                                    }
+                                } catch (NumberFormatException e) {
+                                    // ignore
+                                }
+                            }
+                        }
+
+                        writer.startElement("path");
+                        writer.addAttribute("refid", "build.classpath");
+                        writer.endElement(); // path
+                        writer.endElement(); // modulepath or classpath
+
+                        writer.endElement(); // javac
+                    }
+                } catch (NumberFormatException e) {
+                    // ignore
+                }
+            }
+        }
     }
 
     /**
