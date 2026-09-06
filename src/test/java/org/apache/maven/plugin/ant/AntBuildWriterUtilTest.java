@@ -1,5 +1,3 @@
-package org.apache.maven.plugin.ant;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -18,156 +16,95 @@ package org.apache.maven.plugin.ant;
  * specific language governing permissions and limitations
  * under the License.
  */
-
-import org.apache.maven.embedder.MavenEmbedder;
-import org.apache.maven.embedder.MavenEmbedderConsoleLogger;
-import org.apache.maven.project.MavenProject;
-import org.codehaus.plexus.PlexusTestCase;
+package org.apache.maven.plugin.ant;
 
 import java.io.File;
 import java.util.Map;
 
-/**
- * Test cases for 'org.apache.maven.plugin.ant.AntBuildWriterUtil'
- *
- * @author <a href="mailto:vincent.siveton@gmail.com">Vincent Siveton</a>
- * @version $Id: AntBuildWriterUtilTest.java 1517969 2013-08-27 20:14:02Z krosenvold $
- */
-public class AntBuildWriterUtilTest
-    extends PlexusTestCase
-{
-    /**
-     * Test method for 'org.apache.maven.plugin.ant.AntBuildWriterUtil.getMavenCompilerPluginConfiguration(MavenProject, String, String)'
-     *
-     * @throws Exception
-     */
-    public void testGetMavenCompilerPluginConfiguration()
-        throws Exception
-    {
-        File testPom = new File( getBasedir(), "src/test/resources/unit/ant-compiler-config-test/pom.xml" );
+import org.apache.maven.plugin.testing.MojoRule;
+import org.apache.maven.project.MavenProject;
+import org.junit.Rule;
+import org.junit.Test;
 
-        MavenEmbedder maven = new MavenEmbedder();
-        maven.setClassLoader( Thread.currentThread().getContextClassLoader() );
-        maven.setLogger( new MavenEmbedderConsoleLogger() );
-        maven.setLocalRepositoryDirectory( getTestFile( "target/local-repo" ) );
-        maven.setOffline( true );
-        maven.start();
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
-        MavenProject project = maven.readProject( testPom );
+public class AntBuildWriterUtilTest {
 
-        assertEquals( AntBuildWriterUtil.getMavenCompilerPluginBasicOption( project, "debug", null ), "true" );
+    @Rule
+    public MojoRule rule = new MojoRule();
 
-        assertNotNull( AntBuildWriterUtil.getMavenCompilerPluginOptions( project, "includes", null ) );
-        assertEquals( AntBuildWriterUtil.getMavenCompilerPluginOptions( project, "includes", null ).length, 2 );
-        assertNotNull( AntBuildWriterUtil.getMavenCompilerPluginOptions( project, "excludes", null ) );
-        assertEquals( AntBuildWriterUtil.getMavenCompilerPluginOptions( project, "excludes", null ).length, 1 );
+    @Test
+    public void testGetMavenCompilerPluginConfiguration() throws Exception {
+        File testPom = new File("src/test/resources/unit/ant-compiler-config-test");
+        MavenProject project = rule.readMavenProject(testPom);
 
-        maven.stop();
+        assertEquals("true", AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "debug", null));
+
+        assertNotNull(AntBuildWriterUtil.getMavenCompilerPluginOptions(project, "includes", null));
+        assertEquals(2, AntBuildWriterUtil.getMavenCompilerPluginOptions(project, "includes", null).length);
+        assertNotNull(AntBuildWriterUtil.getMavenCompilerPluginOptions(project, "excludes", null));
+        assertEquals(1, AntBuildWriterUtil.getMavenCompilerPluginOptions(project, "excludes", null).length);
     }
 
-    /**
-     * Test method for 'org.apache.maven.plugin.ant.AntBuildWriterUtil.getMavenWarPluginConfiguration(MavenProject, String, String)'
-     *
-     * @throws Exception
-     */
-    public void testGetMavenWarPluginConfiguration()
-        throws Exception
-    {
-        File testPom = new File( getBasedir(), "src/test/resources/unit/ant-war-config-test/pom.xml" );
+    @Test
+    public void testGetMavenWarPluginConfiguration() throws Exception {
+        File testPom = new File("src/test/resources/unit/ant-war-config-test");
+        MavenProject project = rule.readMavenProject(testPom);
 
-        MavenEmbedder maven = new MavenEmbedder();
-        maven.setClassLoader( Thread.currentThread().getContextClassLoader() );
-        maven.setLogger( new MavenEmbedderConsoleLogger() );
-        maven.setLocalRepositoryDirectory( getTestFile( "target/local-repo" ) );
-        maven.setOffline( true );
-        maven.start();
-
-        MavenProject project = maven.readProject( testPom );
-
-        assertEquals( AntBuildWriterUtil.getMavenWarPluginBasicOption( project, "warName", null ), "mywebapp" );
-        assertTrue( AntBuildWriterUtil.getMavenWarPluginBasicOption( project, "webXml", null ).endsWith(
-            "/src/main/webapp/WEB-INF/web.xml" ) );
-
-        maven.stop();
+        assertEquals("mywebapp", AntBuildWriterUtil.getMavenWarPluginBasicOption(project, "warName", null));
+        assertTrue(AntBuildWriterUtil.getMavenWarPluginBasicOption(project, "webXml", null)
+                .endsWith("/src/main/webapp/WEB-INF/web.xml"));
     }
 
-    /**
-     * Test method for 'org.apache.maven.plugin.ant.AntBuildWriterUtil.getMavenJavadocPluginConfiguration(MavenProject, String, String)'
-     *
-     * @throws Exception
-     */
-    public void testGetMavenJavadocPluginConfiguration()
-        throws Exception
-    {
-        File testPom = new File( getBasedir(), "src/test/resources/unit/ant-javadoc-test/pom.xml" );
+    @Test
+    public void testGetMavenJavadocPluginConfiguration() throws Exception {
+        File testPom = new File("src/test/resources/unit/ant-javadoc-test");
+        MavenProject project = rule.readMavenProject(testPom);
 
-        MavenEmbedder maven = new MavenEmbedder();
-        maven.setClassLoader( Thread.currentThread().getContextClassLoader() );
-        maven.setLogger( new MavenEmbedderConsoleLogger() );
-        maven.setLocalRepositoryDirectory( getTestFile( "target/local-repo" ) );
-        maven.setOffline( true );
-        maven.start();
+        assertEquals(
+                "gr.spinellis.umlgraph.doclet.UmlGraphDoc",
+                AntBuildWriterUtil.getMavenJavadocPluginBasicOption(project, "doclet", null));
 
-        MavenProject project = maven.readProject( testPom );
+        assertNotNull(AntBuildWriterUtil.getMavenJavadocPluginOptions(project, "links", null));
+        assertEquals(2, AntBuildWriterUtil.getMavenJavadocPluginOptions(project, "links", null).length);
 
-        assertEquals( AntBuildWriterUtil.getMavenJavadocPluginBasicOption( project, "doclet", null ),
-                      "gr.spinellis.umlgraph.doclet.UmlGraphDoc" );
+        assertNotNull(AntBuildWriterUtil.getMavenJavadocPluginOptions(project, "docletArtifacts", null));
+        assertEquals(2, AntBuildWriterUtil.getMavenJavadocPluginOptions(project, "docletArtifacts", null).length);
 
-        assertNotNull( AntBuildWriterUtil.getMavenJavadocPluginOptions( project, "links", null ) );
-        assertEquals( AntBuildWriterUtil.getMavenJavadocPluginOptions( project, "links", null ).length, 2 );
-
-        assertNotNull( AntBuildWriterUtil.getMavenJavadocPluginOptions( project, "docletArtifacts", null ) );
-        assertEquals( AntBuildWriterUtil.getMavenJavadocPluginOptions( project, "docletArtifacts", null ).length, 2 );
-
-        Map[] options = AntBuildWriterUtil.getMavenJavadocPluginOptions( project, "tags", null );
-        assertNotNull( options );
-        assertEquals( options.length, 1 );
-        assertEquals( 1, options[0].size() );
-        Map properties = (Map) options[0].get( "tag" );
-        assertNotNull( properties );
-        assertEquals( "requirement", properties.get( "name" ) );
-        assertEquals( "a", properties.get( "placement" ) );
-        assertEquals( "Software Requirement:", properties.get( "head" ) );
-
-        maven.stop();
+        Map[] options = AntBuildWriterUtil.getMavenJavadocPluginOptions(project, "tags", null);
+        assertNotNull(options);
+        assertEquals(1, options.length);
+        assertEquals(1, options[0].size());
+        Map properties = (Map) options[0].get("tag");
+        assertNotNull(properties);
+        assertEquals("requirement", properties.get("name"));
+        assertEquals("a", properties.get("placement"));
+        assertEquals("Software Requirement:", properties.get("head"));
     }
 
-    /**
-     * Test method for <code>AntBuildWriterUtil.getSingularForm(String)}</code>.
-     *
-     * @throws Exception
-     */
-    public static void testGetSingularForm()
-        throws Exception
-    {
-        assertEquals( "property", AntBuildWriterUtil.getSingularForm( "properties" ) );
-        assertEquals( "branch", AntBuildWriterUtil.getSingularForm( "branches" ) );
-        assertEquals( "report", AntBuildWriterUtil.getSingularForm( "reports" ) );
-        assertEquals( "", AntBuildWriterUtil.getSingularForm( "singular" ) );
-        assertEquals( "", AntBuildWriterUtil.getSingularForm( null ) );
+    @Test
+    public void testGetSingularForm() throws Exception {
+        assertEquals("property", AntBuildWriterUtil.getSingularForm("properties"));
+        assertEquals("branch", AntBuildWriterUtil.getSingularForm("branches"));
+        assertEquals("report", AntBuildWriterUtil.getSingularForm("reports"));
+        assertEquals("", AntBuildWriterUtil.getSingularForm("singular"));
+        assertEquals("", AntBuildWriterUtil.getSingularForm(null));
     }
 
-    /**
-     * Test method for <code>AntBuildWriterUtil.toRelative(File, String)</code>.
-     *
-     * @throws Exception
-     */
-    public static void testToRelative()
-        throws Exception
-    {
-        assertEquals( "relative", AntBuildWriterUtil.toRelative( new File( "/home" ), "relative" ) );
-        assertEquals( "dir",
-                      AntBuildWriterUtil.toRelative( new File( "home" ), new File( "home/dir" ).getAbsolutePath() ) );
-        assertEquals( "dir",
-                      AntBuildWriterUtil.toRelative( new File( "/home" ), new File( "/home/dir" ).getAbsolutePath() ) );
-        assertEquals( "dir/", AntBuildWriterUtil.toRelative( new File( "/home" ),
-                                                             new File( "/home/dir" ).getAbsolutePath() + "/" ) );
-        assertEquals( "dir/sub", AntBuildWriterUtil.toRelative( new File( "/home" ),
-                                                                new File( "/home/dir/sub" ).getAbsolutePath() ) );
-        assertEquals( ".",
-                      AntBuildWriterUtil.toRelative( new File( "/home" ), new File( "/home" ).getAbsolutePath() ) );
-        assertEquals( "./", AntBuildWriterUtil.toRelative( new File( "/home" ),
-                                                           new File( "/home" ).getAbsolutePath() + "/" ) );
+    @Test
+    public void testToRelative() throws Exception {
+        assertEquals("relative", AntBuildWriterUtil.toRelative(new File("/home"), "relative"));
+        assertEquals("dir", AntBuildWriterUtil.toRelative(new File("home"), new File("home/dir").getAbsolutePath()));
+        assertEquals("dir", AntBuildWriterUtil.toRelative(new File("/home"), new File("/home/dir").getAbsolutePath()));
+        assertEquals(
+                "dir/",
+                AntBuildWriterUtil.toRelative(new File("/home"), new File("/home/dir").getAbsolutePath() + "/"));
+        assertEquals(
+                "dir/sub",
+                AntBuildWriterUtil.toRelative(new File("/home"), new File("/home/dir/sub").getAbsolutePath()));
+        assertEquals(".", AntBuildWriterUtil.toRelative(new File("/home"), new File("/home").getAbsolutePath()));
+        assertEquals("./", AntBuildWriterUtil.toRelative(new File("/home"), new File("/home").getAbsolutePath() + "/"));
     }
-
 }
