@@ -39,7 +39,7 @@ package org.apache.maven.plugin.ant;
 
 import java.io.File;
 
-import junit.framework.TestCase;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Tests <code>AntBuildWriter</code>.
@@ -47,7 +47,7 @@ import junit.framework.TestCase;
  * @author Benjamin Bentmann
  * @version $Id: AntBuildWriterTest.java 1517969 2013-08-27 20:14:02Z krosenvold $
  */
-public class AntBuildWriterTest extends TestCase {
+public class AntBuildWriterTest {
 
     public void testGetProjectRepoDirectory() {
         String basedir = new File(System.getProperty("java.io.tmpdir")).getPath();
