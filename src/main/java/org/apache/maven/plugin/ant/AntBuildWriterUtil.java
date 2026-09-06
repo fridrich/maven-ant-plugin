@@ -215,11 +215,9 @@ public class AntBuildWriterUtil {
                 "destdir",
                 getMavenJavadocPluginBasicOption(project, "destdir", "${maven.reporting.outputDirectory}/apidocs"),
                 3);
-        addWrapAttribute(writer, "javadoc", "extdirs", getMavenJavadocPluginBasicOption(project, "extdirs", null), 3);
         addWrapAttribute(writer, "javadoc", "overview", getMavenJavadocPluginBasicOption(project, "overview", null), 3);
         addWrapAttribute(
                 writer, "javadoc", "access", getMavenJavadocPluginBasicOption(project, "show", "protected"), 3);
-        addWrapAttribute(writer, "javadoc", "old", getMavenJavadocPluginBasicOption(project, "old", "false"), 3);
         addWrapAttribute(
                 writer, "javadoc", "verbose", getMavenJavadocPluginBasicOption(project, "verbose", "false"), 3);
         addWrapAttribute(writer, "javadoc", "locale", getMavenJavadocPluginBasicOption(project, "locale", null), 3);

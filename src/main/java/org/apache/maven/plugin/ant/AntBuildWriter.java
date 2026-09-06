@@ -1173,7 +1173,7 @@ public class AntBuildWriter {
                     writer,
                     "javac",
                     "target",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "target", "1.1"),
+                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "target", "1.8"),
                     3);
             AntBuildWriterUtil.addWrapAttribute(
                     writer,
@@ -1203,7 +1203,13 @@ public class AntBuildWriter {
                     writer,
                     "javac",
                     "source",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "source", "1.3"),
+                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "source", "1.8"),
+                    3);
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer,
+                    "javac",
+                    "release",
+                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "release", "8"),
                     3);
 
             String[] compileSourceRootsArray =
