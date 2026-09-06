@@ -39,7 +39,9 @@ package org.apache.maven.plugin.ant;
 
 import java.io.File;
 
-import static org.junit.Assert.assertEquals;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * Tests <code>AntBuildWriter</code>.
@@ -49,6 +51,7 @@ import static org.junit.Assert.assertEquals;
  */
 public class AntBuildWriterTest {
 
+    @Test
     public void testGetProjectRepoDirectory() {
         String basedir = new File(System.getProperty("java.io.tmpdir")).getPath();
 
