@@ -353,6 +353,13 @@ public class AntBuildWriter {
         writeJavadocTarget(writer);
 
         // ----------------------------------------------------------------------
+        // <target name="sisu" />
+        // ----------------------------------------------------------------------
+        if (isSisuProject()) {
+            writeSisuTarget(writer);
+        }
+
+        // ----------------------------------------------------------------------
         // <target name="package" />
         // ----------------------------------------------------------------------
         writePackageTarget(writer);
@@ -666,8 +673,12 @@ public class AntBuildWriter {
         writer.startElement("path");
         writer.addAttribute("id", id);
 
+        boolean sisuInjectPresent = false;
         for (Object artifact1 : artifacts) {
             Artifact artifact = (Artifact) artifact1;
+            if ("org.eclipse.sisu.inject".equals(artifact.getArtifactId())) {
+                sisuInjectPresent = true;
+            }
 
             writer.startElement("pathelement");
 
@@ -680,6 +691,23 @@ public class AntBuildWriter {
             writer.addAttribute("location", path);
 
             writer.endElement(); // pathelement
+        }
+
+        if (isSisuProject() && !sisuInjectPresent && "build.classpath".equals(id)) {
+            Artifact sisuArtifact = artifactResolverWrapper
+                    .getFactory()
+                    .createArtifact(
+                            "org.eclipse.sisu", "org.eclipse.sisu.inject", "1.0.1", Artifact.SCOPE_RUNTIME, "jar");
+            try {
+                artifactResolverWrapper.getArtifactAbsolutePath("org.eclipse.sisu", "org.eclipse.sisu.inject", "1.0.1");
+                writer.startElement("pathelement");
+                writer.addAttribute(
+                        "location",
+                        "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(sisuArtifact));
+                writer.endElement(); // pathelement
+            } catch (IOException e) {
+                // ignore
+            }
         }
 
         writer.endElement(); // path
@@ -1308,7 +1336,7 @@ public class AntBuildWriter {
         writer.addAttribute("name", "package");
 
         if (!AntBuildWriterUtil.isPomPackaging(project)) {
-            writer.addAttribute("depends", "compile,test");
+            writer.addAttribute("depends", isSisuProject() ? "sisu,test" : "compile,test");
         }
         writer.addAttribute("description", "Package the application");
 
@@ -1355,6 +1383,63 @@ public class AntBuildWriter {
 
             XmlWriterUtil.writeLineBreak(writer);
         }
+    }
+
+    private boolean isSisuProject() {
+        if (project.getBuildPlugins() != null) {
+            for (Object o : project.getBuildPlugins()) {
+                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+                if ("sisu-maven-plugin".equals(plugin.getArtifactId())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void writeSisuTarget(XMLWriter writer) {
+        XmlWriterUtil.writeCommentText(writer, "Sisu javax.inject.Named generation target", 1);
+
+        writer.startElement("target");
+        writer.addAttribute("name", "sisu");
+        writer.addAttribute("depends", "compile");
+        writer.addAttribute("description", "Generate javax.inject.Name index");
+
+        writer.startElement("sequential");
+
+        writer.startElement("mkdir");
+        writer.addAttribute("dir", "META-INF");
+        writer.endElement(); // mkdir
+
+        writer.startElement("java");
+        writer.addAttribute("classname", "org.eclipse.sisu.space.SisuIndex");
+        writer.addAttribute("failonerror", "true");
+        writer.addAttribute("fork", "true");
+
+        writer.startElement("classpath");
+        writer.startElement("path");
+        writer.addAttribute("refid", "build.classpath");
+        writer.endElement(); // path
+        writer.endElement(); // classpath
+
+        writer.startElement("arg");
+        writer.addAttribute("value", "${maven.build.outputDir}");
+        writer.endElement(); // arg
+
+        writer.endElement(); // java
+
+        writer.startElement("move");
+        writer.addAttribute("todir", "${maven.build.outputDir}/META-INF");
+        writer.startElement("fileset");
+        writer.addAttribute("dir", "META-INF");
+        writer.endElement(); // fileset
+        writer.endElement(); // move
+
+        writer.endElement(); // sequential
+
+        writer.endElement(); // target
+
+        XmlWriterUtil.writeLineBreak(writer);
     }
 
     @SuppressWarnings("checkstyle:MethodLength")

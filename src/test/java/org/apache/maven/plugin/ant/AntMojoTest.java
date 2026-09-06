@@ -53,6 +53,11 @@ public class AntMojoTest {
     }
 
     @Test
+    public void testProjectWithSisu() throws Exception {
+        invokeAntMojo("ant-sisu-test");
+    }
+
+    @Test
     public void testProjectWithJavadoc() throws Exception {
         invokeAntMojo("ant-javadoc-test");
     }
