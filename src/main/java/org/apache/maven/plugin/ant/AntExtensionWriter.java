@@ -255,8 +255,17 @@ public class AntExtensionWriter {
 
             writer.startElement("sequential");
 
-            String jjtreeMain = "org.javacc.jjtree.Main";
-            String javaccMain = "org.javacc.parser.Main";
+            writer.startElement("taskdef");
+            writer.addAttribute("name", "javacc");
+            writer.addAttribute("classname", "org.apache.tools.ant.taskdefs.optional.javacc.JavaCC");
+            writer.addAttribute("classpathref", "build.classpath");
+            writer.endElement(); // taskdef
+
+            writer.startElement("taskdef");
+            writer.addAttribute("name", "jjtree");
+            writer.addAttribute("classname", "org.apache.tools.ant.taskdefs.optional.javacc.JJTree");
+            writer.addAttribute("classpathref", "build.classpath");
+            writer.endElement(); // taskdef
 
             List<JavaccExecution> executions = getJavaccExecutions();
             for (JavaccExecution exec : executions) {
@@ -278,11 +287,11 @@ public class AntExtensionWriter {
                 writer.endElement(); // mkdir
 
                 if ("jjtree".equals(goal) || "jjtree-javacc".equals(goal)) {
-                    writeJjtreeTask(writer, jjtreeMain, sourceDirectory, outputDirectory, config);
+                    writeJjtreeTask(writer, sourceDirectory, outputDirectory, config);
                 }
 
                 if ("javacc".equals(goal) || "jjtree-javacc".equals(goal)) {
-                    writeJavaccTask(writer, javaccMain, sourceDirectory, outputDirectory, config, goal);
+                    writeJavaccTask(writer, sourceDirectory, outputDirectory, config, goal);
                 }
             }
 
@@ -293,8 +302,7 @@ public class AntExtensionWriter {
         }
     }
 
-    private void writeJjtreeTask(
-            XMLWriter writer, String jjtreeMain, String sourceDirectory, String outputDirectory, Xpp3Dom config)
+    private void writeJjtreeTask(XMLWriter writer, String sourceDirectory, String outputDirectory, Xpp3Dom config)
             throws IOException {
         List<String> includes = new ArrayList<String>();
         String includeOption = getIncludeFile(config, null);
@@ -304,41 +312,34 @@ public class AntExtensionWriter {
             includes.addAll(getGrammarFiles(project.getBasedir().getAbsolutePath() + "/" + sourceDirectory, ".jjt"));
         }
 
+        if (!includes.isEmpty()) {
+            writer.startElement("copy");
+            writer.addAttribute("file", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc-7.0.12.jar");
+            writer.addAttribute("tofile", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc.jar");
+            writer.addAttribute("preservelastmodified", "true");
+            writer.addAttribute("failonerror", "false");
+            writer.endElement(); // copy
+        }
+
         for (String include : includes) {
-            writer.startElement("java");
-            writer.addAttribute("classname", jjtreeMain);
-            writer.addAttribute("fork", "true");
-            writer.addAttribute("failonerror", "true");
-
-            writer.startElement("classpath");
-            writer.startElement("path");
-            writer.addAttribute("refid", "build.classpath");
-            writer.endElement(); // path
-            writer.endElement(); // classpath
-
-            addExecArg(writer, "-GRAMMAR_ENCODING", getOption(config, "grammarEncoding", "UTF-8"));
-            addExecArg(writer, "-STATIC", getOption(config, "isStatic", "false"));
-            addExecArg(writer, "-MULTI", getOption(config, "multi", "true"));
-            addExecArg(writer, "-NODE_PACKAGE", getOption(config, "nodePackage", null));
-            addExecArg(writer, "-NODE_USES_PARSER", getOption(config, "nodeUsesParser", "true"));
-            addExecArg(writer, "-BUILD_NODE_FILES", getOption(config, "buildNodeFiles", "false"));
-            addExecArg(writer, "-OUTPUT_DIRECTORY", outputDirectory);
-
-            writer.startElement("arg");
-            writer.addAttribute("value", sourceDirectory + "/" + include);
-            writer.endElement(); // arg
-
-            writer.endElement(); // java
+            writer.startElement("jjtree");
+            writer.addAttribute("target", sourceDirectory + "/" + include);
+            writer.addAttribute("outputdirectory", outputDirectory);
+            writer.addAttribute("javacchome", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12");
+            writer.addAttribute("static", getOption(config, "isStatic", "false"));
+            writer.addAttribute("multi", getOption(config, "multi", "true"));
+            String nodePackage = getOption(config, "nodePackage", null);
+            if (nodePackage != null) {
+                writer.addAttribute("nodepackage", nodePackage);
+            }
+            writer.addAttribute("nodeusesparser", getOption(config, "nodeUsesParser", "true"));
+            writer.addAttribute("buildnodefiles", getOption(config, "buildNodeFiles", "false"));
+            writer.endElement(); // jjtree
         }
     }
 
     private void writeJavaccTask(
-            XMLWriter writer,
-            String javaccMain,
-            String sourceDirectory,
-            String outputDirectory,
-            Xpp3Dom config,
-            String goal)
+            XMLWriter writer, String sourceDirectory, String outputDirectory, Xpp3Dom config, String goal)
             throws IOException {
         List<String> includes = new ArrayList<String>();
         String includeOption = getIncludeFile(config, null);
@@ -354,34 +355,28 @@ public class AntExtensionWriter {
             includes.addAll(getGrammarFiles(resolvedInputDir, ".jj"));
         }
 
+        if (!includes.isEmpty()) {
+            writer.startElement("copy");
+            writer.addAttribute("file", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc-7.0.12.jar");
+            writer.addAttribute("tofile", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc.jar");
+            writer.addAttribute("preservelastmodified", "true");
+            writer.addAttribute("failonerror", "false");
+            writer.endElement(); // copy
+        }
+
         for (String include : includes) {
-            writer.startElement("java");
-            writer.addAttribute("classname", javaccMain);
-            writer.addAttribute("fork", "true");
-            writer.addAttribute("failonerror", "true");
-
-            writer.startElement("classpath");
-            writer.startElement("path");
-            writer.addAttribute("refid", "build.classpath");
-            writer.endElement(); // path
-            writer.endElement(); // classpath
-
-            addExecArg(writer, "-GRAMMAR_ENCODING", getOption(config, "grammarEncoding", "UTF-8"));
-            addExecArg(writer, "-STATIC", getOption(config, "isStatic", "false"));
-            addExecArg(writer, "-BUILD_PARSER", getOption(config, "buildParser", "true"));
-            addExecArg(writer, "-DEBUG_PARSER", getOption(config, "debugParser", "false"));
-            addExecArg(writer, "-DEBUG_LOOKAHEAD", getOption(config, "debugLookAhead", "false"));
-            addExecArg(writer, "-DEBUG_TOKEN_MANAGER", getOption(config, "debugTokenManager", "false"));
-            addExecArg(writer, "-TOKEN_MANAGER_USES_PARSER", getOption(config, "tokenManagerUsesParser", "true"));
-            addExecArg(writer, "-OUTPUT_DIRECTORY", outputDirectory);
-
+            writer.startElement("javacc");
             String inputDir =
                     "jjtree-javacc".equals(goal) ? "${maven.build.dir}/generated-sources/jjtree" : sourceDirectory;
-            writer.startElement("arg");
-            writer.addAttribute("value", inputDir + "/" + include);
-            writer.endElement(); // arg
-
-            writer.endElement(); // java
+            writer.addAttribute("target", inputDir + "/" + include);
+            writer.addAttribute("outputdirectory", outputDirectory);
+            writer.addAttribute("javacchome", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12");
+            writer.addAttribute("static", getOption(config, "isStatic", "false"));
+            writer.addAttribute("buildparser", getOption(config, "buildParser", "true"));
+            writer.addAttribute("debugparser", getOption(config, "debugParser", "false"));
+            writer.addAttribute("debuglookahead", getOption(config, "debugLookAhead", "false"));
+            writer.addAttribute("debugtokenmanager", getOption(config, "debugTokenManager", "false"));
+            writer.endElement(); // javacc
         }
     }
 
@@ -416,14 +411,6 @@ public class AntExtensionWriter {
             }
         }
         return defaultFile;
-    }
-
-    private void addExecArg(XMLWriter writer, String name, String value) {
-        if (value != null && value.trim().length() > 0) {
-            writer.startElement("arg");
-            writer.addAttribute("value", name + "=" + value);
-            writer.endElement(); // arg
-        }
     }
 
     public void writeSisuTarget(XMLWriter writer) {
