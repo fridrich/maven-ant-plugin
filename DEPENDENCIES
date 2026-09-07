@@ -7,123 +7,131 @@ Apache Maven Ant Plugin
 
 
 From: 'an unknown organization'
-  - Codec  commons-codec:commons-codec:jar:1.2
 
-  - Neko HTML (http://nekohtml.sourceforge.net/) nekohtml:nekohtml:jar:1.9.6.2
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - xercesMinimal  nekohtml:xercesMinimal:jar:1.9.6.2
+  - AOP alliance (http://aopalliance.sourceforge.net) aopalliance:aopalliance:jar:1.0
+    License: Public Domain 
 
-  - Plexus Cipher: encryption/decryption Component (http://spice.sonatype.org/plexus-cipher) org.sonatype.plexus:plexus-cipher:jar:1.4
-    License: Apache Public License 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
-  - Plexus Security Dispatcher Component (http://spice.sonatype.org/plexus-sec-dispatcher) org.sonatype.plexus:plexus-sec-dispatcher:jar:1.3
-    License: Apache Public License 2.0  (http://www.apache.org/licenses/LICENSE-2.0)
-  - xalan  xalan:xalan:jar:2.7.0
+  - Guava InternalFutureFailureAccess and InternalFutures (https://github.com/google/guava/failureaccess) com.google.guava:failureaccess:jar:1.0.3
+    License: Apache License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
 
+  - Guava: Google Core Libraries for Java (https://github.com/google/guava) com.google.guava:guava:bundle:33.6.0-jre
+    License: Apache License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
 
-From: 'Apache Software Foundation' (http://jakarta.apache.org/)
-  - HttpClient (http://jakarta.apache.org/commons/httpclient/) commons-httpclient:commons-httpclient:jar:3.0
-    License: Apache License  (http://www.apache.org/licenses/LICENSE-2.0)
-
-From: 'Apache Software Foundation' (http://www.apache.org/)
-  - XML Commons External Components XML APIs (http://xml.apache.org/commons/#external) xml-apis:xml-apis:jar:1.0.b2
+  - javax.inject (http://code.google.com/p/atinject/) javax.inject:javax.inject:jar:1
     License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
 
-From: 'Codehaus' (http://www.codehaus.org/)
-  - Default Plexus Container  org.codehaus.plexus:plexus-container-default:jar:1.0-alpha-9-stable-1
+  - JSpecify annotations (http://jspecify.org/) org.jspecify:jspecify:jar:1.0.0
+    License: The Apache License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
 
-  - Plexus Default Interactivity Handler  org.codehaus.plexus:plexus-interactivity-api:jar:1.0-alpha-4
+  - xalan  xalan:xalan:jar:2.7.3
 
-  - Plexus Interpolation API (http://plexus.codehaus.org/plexus-components/plexus-interpolation) org.codehaus.plexus:plexus-interpolation:jar:1.11
+
+From: 'Codehaus Plexus' (https://codehaus-plexus.github.io/)
+
+  - Plexus Cipher: encryption/decryption Component (https://codehaus-plexus.github.io/plexus-cipher/) org.codehaus.plexus:plexus-cipher:jar:2.0
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Plexus Classworlds (https://codehaus-plexus.github.io/plexus-classworlds/) org.codehaus.plexus:plexus-classworlds:bundle:2.11.0
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Plexus :: Component Annotations (deprecated) (https://codehaus-plexus.github.io/plexus-containers/plexus-component-annotations/) org.codehaus.plexus:plexus-component-annotations:jar:2.2.0
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Plexus Interpolation API (https://codehaus-plexus.github.io/plexus-pom/plexus-interpolation/) org.codehaus.plexus:plexus-interpolation:bundle:1.29
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Plexus Security Dispatcher Component (https://codehaus-plexus.github.io/plexus-sec-dispatcher/) org.codehaus.plexus:plexus-sec-dispatcher:jar:2.0
+    License: Apache License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Plexus Common Utilities (https://codehaus-plexus.github.io/plexus-utils/) org.codehaus.plexus:plexus-utils:jar:4.1.0
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Plexus XML Utilities (https://codehaus-plexus.github.io/plexus-xml/) org.codehaus.plexus:plexus-xml:jar:3.0.1
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+
+From: 'Google, Inc.' (http://www.google.com)
+
+  - Google Guice - Core Library (https://github.com/google/guice/guice) com.google.inject:guice:jar:5.1.0
     License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Plexus Common Utilities (http://plexus.codehaus.org/plexus-utils) org.codehaus.plexus:plexus-utils:jar:3.0.20
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
 
-From: 'Dawid Kurzyniec' (http://www.mathcs.emory.edu/~dawidk/)
-  - Backport of JSR 166 (http://backport-jsr166.sourceforge.net/) backport-util-concurrent:backport-util-concurrent:jar:3.1
-    License: Public Domain  (http://creativecommons.org/licenses/publicdomain)
 
-From: 'jcraft' (http://www.jcraft.com/jsch)
-  - JSch (http://www.jcraft.com/jsch/) com.jcraft:jsch:jar:0.1.38
-    License: BSD  (http://www.jcraft.com/jsch/LICENSE.txt)
+From: 'OW2' (http://www.ow2.org/)
+
+  - asm (http://asm.ow2.io/) org.ow2.asm:asm:jar:9.9.1
+    License: BSD-3-Clause  (https://asm.ow2.io/license.html)
+
 
 From: 'QOS.ch' (http://www.qos.ch)
-  - JCL 1.1.1 implemented over SLF4J (http://www.slf4j.org) org.slf4j:jcl-over-slf4j:jar:1.5.6
 
-  - SLF4J API Module (http://www.slf4j.org) org.slf4j:slf4j-api:jar:1.5.6
-
-  - SLF4J JDK14 Binding (http://www.slf4j.org) org.slf4j:slf4j-jdk14:jar:1.5.6
-
-  - SLF4J NOP Binding (http://www.slf4j.org) org.slf4j:slf4j-nop:jar:1.5.3
+  - SLF4J API Module (http://www.slf4j.org) org.slf4j:slf4j-api:jar:1.7.36
+    License: MIT License  (http://www.opensource.org/licenses/mit-license.php)
 
 
-From: 'The Apache Software Foundation' (http://www.apache.org/)
-  - Commons CLI (http://commons.apache.org/cli/) commons-cli:commons-cli:jar:1.2
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Apache Ant Core (http://ant.apache.org/) org.apache.ant:ant:jar:1.9.4
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Apache Ant Launcher (http://ant.apache.org/) org.apache.ant:ant-launcher:jar:1.9.4
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Jackrabbit JCR Commons (http://jackrabbit.apache.org/jackrabbit-jcr-commons/) org.apache.jackrabbit:jackrabbit-jcr-commons:bundle:1.5.0
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Jackrabbit WebDAV Library (http://jackrabbit.apache.org/jackrabbit-webdav/) org.apache.jackrabbit:jackrabbit-webdav:jar:1.5.0
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Artifact (http://maven.apache.org/maven-artifact) org.apache.maven:maven-artifact:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Artifact Manager (http://maven.apache.org/maven-artifact-manager) org.apache.maven:maven-artifact-manager:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Core (http://maven.apache.org/maven-core) org.apache.maven:maven-core:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Error Diagnostics (http://maven.apache.org/maven-error-diagnostics) org.apache.maven:maven-error-diagnostics:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Model (http://maven.apache.org/maven-model) org.apache.maven:maven-model:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Monitor (http://maven.apache.org/maven-monitor) org.apache.maven:maven-monitor:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Plugin API (http://maven.apache.org/maven-plugin-api) org.apache.maven:maven-plugin-api:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Plugin Descriptor Model (http://maven.apache.org/maven-plugin-descriptor) org.apache.maven:maven-plugin-descriptor:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Plugin Parameter Documenter API (http://maven.apache.org/maven-plugin-parameter-documenter) org.apache.maven:maven-plugin-parameter-documenter:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Plugin Registry Model (http://maven.apache.org/maven-plugin-registry) org.apache.maven:maven-plugin-registry:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Profile Model (http://maven.apache.org/maven-profile) org.apache.maven:maven-profile:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Project Builder (http://maven.apache.org/maven-project) org.apache.maven:maven-project:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Repository Metadata Model (http://maven.apache.org/maven-repository-metadata) org.apache.maven:maven-repository-metadata:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Local Settings Model (http://maven.apache.org/maven-settings) org.apache.maven:maven-settings:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Doxia :: Logging API (http://maven.apache.org/doxia/doxia/doxia-logging-api) org.apache.maven.doxia:doxia-logging-api:jar:1.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Doxia :: Sink API (http://maven.apache.org/doxia/doxia/doxia-sink-api) org.apache.maven.doxia:doxia-sink-api:jar:1.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Reporting API (http://maven.apache.org/maven-reporting/maven-reporting-api) org.apache.maven.reporting:maven-reporting-api:jar:2.2.1
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Wagon File Provider (http://maven.apache.org/wagon/wagon-providers/wagon-file) org.apache.maven.wagon:wagon-file:jar:1.0-beta-6
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Wagon HTTP Provider (http://maven.apache.org/wagon/wagon-providers/wagon-http) org.apache.maven.wagon:wagon-http:jar:1.0-beta-6
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Wagon Lightweight HTTP Provider (http://maven.apache.org/wagon/wagon-providers/wagon-http-lightweight) org.apache.maven.wagon:wagon-http-lightweight:jar:1.0-beta-6
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Wagon HTTP Shared Library (http://maven.apache.org/wagon/wagon-providers/wagon-http-shared) org.apache.maven.wagon:wagon-http-shared:jar:1.0-beta-6
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Wagon API (http://maven.apache.org/wagon/wagon-provider-api) org.apache.maven.wagon:wagon-provider-api:jar:1.0-beta-6
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Wagon SSH Provider (http://maven.apache.org/wagon/wagon-providers/wagon-ssh) org.apache.maven.wagon:wagon-ssh:jar:1.0-beta-6
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Wagon SSH Common Library (http://maven.apache.org/wagon/wagon-providers/wagon-ssh-common) org.apache.maven.wagon:wagon-ssh-common:jar:1.0-beta-6
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Wagon SSH External Provider (http://maven.apache.org/wagon/wagon-providers/wagon-ssh-external) org.apache.maven.wagon:wagon-ssh-external:jar:1.0-beta-6
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
-  - Maven Wagon WebDav Provider (http://maven.apache.org/wagon/wagon-providers/wagon-webdav-jackrabbit) org.apache.maven.wagon:wagon-webdav-jackrabbit:jar:1.0-beta-6
-    License: The Apache Software License, Version 2.0  (http://www.apache.org/licenses/LICENSE-2.0.txt)
+From: 'The Apache Software Foundation' (https://www.apache.org/)
 
-From: 'The Codehaus' (http://codehaus.org/)
-  - classworlds (http://classworlds.codehaus.org/) classworlds:classworlds:jar:1.1
+  - Apache Ant Core (https://ant.apache.org/) org.apache.ant:ant:jar:1.10.18
+    License: The Apache Software License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Apache Ant Launcher (https://ant.apache.org/) org.apache.ant:ant-launcher:jar:1.10.18
+    License: The Apache Software License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Artifact (https://maven.apache.org/ref/3.9.16/maven-artifact/) org.apache.maven:maven-artifact:jar:3.9.16
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Builder Support (https://maven.apache.org/ref/3.9.16/maven-builder-support/) org.apache.maven:maven-builder-support:jar:3.9.16
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Compat (https://maven.apache.org/ref/3.9.16/maven-compat/) org.apache.maven:maven-compat:jar:3.9.16
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Core (https://maven.apache.org/ref/3.9.16/maven-core/) org.apache.maven:maven-core:jar:3.9.16
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Model (https://maven.apache.org/ref/3.9.16/maven-model/) org.apache.maven:maven-model:jar:3.9.16
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Model Builder (https://maven.apache.org/ref/3.9.16/maven-model-builder/) org.apache.maven:maven-model-builder:jar:3.9.16
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Plugin API (https://maven.apache.org/ref/3.9.16/maven-plugin-api/) org.apache.maven:maven-plugin-api:jar:3.9.16
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Repository Metadata Model (https://maven.apache.org/ref/3.9.16/maven-repository-metadata/) org.apache.maven:maven-repository-metadata:jar:3.9.16
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Artifact Resolver Provider (https://maven.apache.org/ref/3.9.16/maven-resolver-provider/) org.apache.maven:maven-resolver-provider:jar:3.9.16
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Settings (https://maven.apache.org/ref/3.9.16/maven-settings/) org.apache.maven:maven-settings:jar:3.9.16
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Settings Builder (https://maven.apache.org/ref/3.9.16/maven-settings-builder/) org.apache.maven:maven-settings-builder:jar:3.9.16
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Artifact Resolver API (https://maven.apache.org/resolver/maven-resolver-api/) org.apache.maven.resolver:maven-resolver-api:jar:1.9.27
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Artifact Resolver Implementation (https://maven.apache.org/resolver/maven-resolver-impl/) org.apache.maven.resolver:maven-resolver-impl:jar:1.9.27
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Artifact Resolver Named Locks (https://maven.apache.org/resolver/maven-resolver-named-locks/) org.apache.maven.resolver:maven-resolver-named-locks:jar:1.9.27
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Artifact Resolver SPI (https://maven.apache.org/resolver/maven-resolver-spi/) org.apache.maven.resolver:maven-resolver-spi:jar:1.9.27
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Maven Artifact Resolver Utilities (https://maven.apache.org/resolver/maven-resolver-util/) org.apache.maven.resolver:maven-resolver-util:jar:1.9.27
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Apache Maven Shared Utils (https://maven.apache.org/shared/maven-shared-utils/) org.apache.maven.shared:maven-shared-utils:jar:3.4.2
+    License: Apache-2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
+  - Apache Maven Wagon :: API (https://maven.apache.org/wagon/wagon-provider-api) org.apache.maven.wagon:wagon-provider-api:jar:3.5.3
+    License: Apache License, Version 2.0  (https://www.apache.org/licenses/LICENSE-2.0.txt)
 
 
+From: 'The Eclipse Foundation' (http://www.eclipse.org/)
 
-
-
+  - org.eclipse.sisu:org.eclipse.sisu.inject (https://eclipse.dev/sisu/org.eclipse.sisu.inject/) org.eclipse.sisu:org.eclipse.sisu.inject:jar:1.0.1
+    License: Eclipse Public License, Version 2.0  (https://www.eclipse.org/legal/epl-v20.html)
