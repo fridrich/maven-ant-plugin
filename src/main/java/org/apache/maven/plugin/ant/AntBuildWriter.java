@@ -149,8 +149,7 @@ public class AntBuildWriter {
         if (reactorProjects != null) {
             for (MavenProject reactorProj : reactorProjects) {
                 if (reactorProj.getGroupId().equals(artifact.getGroupId())
-                        && reactorProj.getArtifactId().equals(artifact.getArtifactId())
-                        && reactorProj.getVersion().equals(artifact.getVersion())) {
+                        && reactorProj.getArtifactId().equals(artifact.getArtifactId())) {
                     return reactorProj;
                 }
             }
