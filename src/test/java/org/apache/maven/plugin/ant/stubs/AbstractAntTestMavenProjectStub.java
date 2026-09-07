@@ -122,6 +122,11 @@ public abstract class AbstractAntTestMavenProjectStub extends MavenProjectStub {
         return build;
     }
 
+    @Override
+    public List getBuildPlugins() {
+        return getModel().getBuild() != null ? getModel().getBuild().getPlugins() : Collections.emptyList();
+    }
+
     /**
      * @see org.apache.maven.project.MavenProject#getBasedir()
      */

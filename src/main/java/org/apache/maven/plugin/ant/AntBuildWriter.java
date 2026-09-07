@@ -67,6 +67,7 @@ import org.codehaus.plexus.util.StringUtils;
 import org.codehaus.plexus.util.xml.PrettyPrintXMLWriter;
 import org.codehaus.plexus.util.xml.XMLWriter;
 import org.codehaus.plexus.util.xml.XmlWriterUtil;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 
 /**
  * Write Ant build files from <code>Maven Project</code> for <a href="http://ant.apache.org">Ant</a> 1.6.2 or above:
@@ -349,6 +350,13 @@ public class AntBuildWriter {
         // ----------------------------------------------------------------------
 
         writeCleanTarget(writer);
+
+        // ----------------------------------------------------------------------
+        // <target name="gen-sources" />
+        // ----------------------------------------------------------------------
+        if (extensionWriter.isJavaccProject() || extensionWriter.isTemplatingProject()) {
+            extensionWriter.writeGenSourcesTarget(writer);
+        }
 
         // ----------------------------------------------------------------------
         // <target name="compile" />
@@ -706,6 +714,7 @@ public class AntBuildWriter {
 
         boolean sisuInjectPresent = false;
         boolean bndAntPresent = false;
+        boolean javaccPresent = false;
         for (Object artifact1 : artifacts) {
             Artifact artifact = (Artifact) artifact1;
             if ("org.eclipse.sisu.inject".equals(artifact.getArtifactId())) {
@@ -713,6 +722,9 @@ public class AntBuildWriter {
             }
             if ("biz.aQute.bnd.ant".equals(artifact.getArtifactId())) {
                 bndAntPresent = true;
+            }
+            if ("javacc".equals(artifact.getArtifactId())) {
+                javaccPresent = true;
             }
 
             writer.startElement("pathelement");
@@ -729,34 +741,69 @@ public class AntBuildWriter {
         }
 
         if (extensionWriter.isSisuProject() && !sisuInjectPresent && "build.classpath".equals(id)) {
-            Artifact sisuArtifact = artifactResolverWrapper
-                    .getFactory()
-                    .createArtifact(
-                            "org.eclipse.sisu", "org.eclipse.sisu.inject", "1.0.1", Artifact.SCOPE_RUNTIME, "jar");
             try {
-                artifactResolverWrapper.getArtifactAbsolutePath("org.eclipse.sisu", "org.eclipse.sisu.inject", "1.0.1");
-                writer.startElement("pathelement");
-                writer.addAttribute(
-                        "location",
-                        "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(sisuArtifact));
-                writer.endElement(); // pathelement
-            } catch (IOException e) {
-                // ignore
+                Set resolved = artifactResolverWrapper.resolveTransitively(
+                        "org.eclipse.sisu", "org.eclipse.sisu.inject", "1.0.1");
+                for (Object artObj : resolved) {
+                    Artifact art = (Artifact) artObj;
+                    writer.startElement("pathelement");
+                    writer.addAttribute(
+                            "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
+                    writer.endElement(); // pathelement
+                }
+            } catch (Exception e) {
+                System.err.println("Sisu resolution failed: " + e.getMessage());
+                e.printStackTrace();
             }
         }
 
         if (extensionWriter.isBndProject() && !bndAntPresent && "build.classpath".equals(id)) {
-            Artifact bndArtifact = artifactResolverWrapper
-                    .getFactory()
-                    .createArtifact("biz.aQute.bnd", "biz.aQute.bnd.ant", "7.4.0", Artifact.SCOPE_RUNTIME, "jar");
             try {
-                artifactResolverWrapper.getArtifactAbsolutePath("biz.aQute.bnd", "biz.aQute.bnd.ant", "7.4.0");
-                writer.startElement("pathelement");
-                writer.addAttribute(
-                        "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(bndArtifact));
-                writer.endElement(); // pathelement
-            } catch (IOException e) {
-                // ignore
+                Set resolved = new java.util.HashSet();
+                resolved.addAll(
+                        artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bnd.ant", "7.4.0"));
+                resolved.addAll(
+                        artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bndlib", "7.4.0"));
+                resolved.addAll(
+                        artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bnd.util", "7.4.0"));
+                resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.core", "6.0.0"));
+                resolved.addAll(artifactResolverWrapper.resolveTransitively("org.slf4j", "slf4j-api", "1.7.36"));
+                resolved.addAll(artifactResolverWrapper.resolveTransitively("org.slf4j", "slf4j-simple", "1.7.36"));
+                resolved.addAll(artifactResolverWrapper.resolveTransitively(
+                        "org.osgi", "org.osgi.service.repository", "1.1.0"));
+                resolved.addAll(
+                        artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.service.log", "1.4.0"));
+                resolved.addAll(
+                        artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.util.promise", "1.2.0"));
+                resolved.addAll(
+                        artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.util.function", "1.2.0"));
+
+                for (Object artObj : resolved) {
+                    Artifact art = (Artifact) artObj;
+                    writer.startElement("pathelement");
+                    writer.addAttribute(
+                            "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
+                    writer.endElement(); // pathelement
+                }
+            } catch (Exception e) {
+                System.err.println("Bnd resolution failed: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+
+        if (extensionWriter.isJavaccProject() && !javaccPresent && "build.classpath".equals(id)) {
+            try {
+                Set resolved = artifactResolverWrapper.resolveTransitively("net.java.dev.javacc", "javacc", "7.0.12");
+                for (Object artObj : resolved) {
+                    Artifact art = (Artifact) artObj;
+                    writer.startElement("pathelement");
+                    writer.addAttribute(
+                            "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
+                    writer.endElement(); // pathelement
+                }
+            } catch (Exception e) {
+                System.err.println("JavaCC resolution failed: " + e.getMessage());
+                e.printStackTrace();
             }
         }
 
@@ -878,10 +925,14 @@ public class AntBuildWriter {
                 }
             }
 
+            String baseDepends = (extensionWriter.isJavaccProject() || extensionWriter.isTemplatingProject())
+                    ? "gen-sources"
+                    : "get-deps";
+
             if (mrVersions.isEmpty()) {
                 writer.startElement("target");
                 writer.addAttribute("name", "compile");
-                writer.addAttribute("depends", "get-deps");
+                writer.addAttribute("depends", baseDepends);
                 writer.addAttribute("description", "Compile the code");
 
                 writeCompileTasks(
@@ -896,7 +947,7 @@ public class AntBuildWriter {
             } else {
                 writer.startElement("target");
                 writer.addAttribute("name", "compile-base");
-                writer.addAttribute("depends", "get-deps");
+                writer.addAttribute("depends", baseDepends);
                 writer.addAttribute("description", "Compile the base code");
 
                 writeCompileTasks(
@@ -1406,6 +1457,28 @@ public class AntBuildWriter {
                 }
                 writer.endElement(); // pathelement
                 writer.endElement(); // src
+            }
+
+            if (extensionWriter.isJavaccProject() && !isTest) {
+                List<JavaccExecution> executions = extensionWriter.getJavaccExecutions();
+                for (JavaccExecution exec : executions) {
+                    Xpp3Dom config = exec.getConfiguration();
+                    String goal = exec.getGoal();
+                    String javaccOutputDir = config.getChild("outputDirectory") != null
+                            ? config.getChild("outputDirectory").getValue()
+                            : "${project.build.directory}/generated-sources/"
+                                    + (goal.contains("jjtree") ? "jjtree" : "javacc");
+
+                    if (javaccOutputDir.contains("${project.build.directory}")) {
+                        javaccOutputDir = javaccOutputDir.replace("${project.build.directory}", "${maven.build.dir}");
+                    }
+
+                    writer.startElement("src");
+                    writer.startElement("pathelement");
+                    writer.addAttribute("location", javaccOutputDir);
+                    writer.endElement(); // pathelement
+                    writer.endElement(); // src
+                }
             }
 
             if (additionalClassesDirectory == null) {

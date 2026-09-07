@@ -79,6 +79,12 @@ public class AntMojo extends AbstractMojo {
     @Component
     private ArtifactFactory factory;
 
+    /**
+     * Metadata source for resolving artifact metadata.
+     */
+    @Component
+    private org.apache.maven.artifact.metadata.ArtifactMetadataSource metadataSource;
+
     // ----------------------------------------------------------------------
     // Mojo parameters
     // ----------------------------------------------------------------------
@@ -123,8 +129,8 @@ public class AntMojo extends AbstractMojo {
      * {@inheritDoc}
      */
     public void execute() throws MojoExecutionException {
-        ArtifactResolverWrapper artifactResolverWrapper =
-                ArtifactResolverWrapper.getInstance(resolver, factory, localRepository, remoteRepositories);
+        ArtifactResolverWrapper artifactResolverWrapper = ArtifactResolverWrapper.getInstance(
+                resolver, factory, localRepository, remoteRepositories, metadataSource);
 
         Properties executionProperties = (session != null) ? session.getExecutionProperties() : null;
 

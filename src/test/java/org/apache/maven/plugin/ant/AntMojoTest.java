@@ -63,6 +63,11 @@ public class AntMojoTest {
     }
 
     @Test
+    public void testProjectWithJavacc() throws Exception {
+        invokeAntMojo("ant-javacc-test");
+    }
+
+    @Test
     public void testProjectWithJavadoc() throws Exception {
         invokeAntMojo("ant-javadoc-test");
     }

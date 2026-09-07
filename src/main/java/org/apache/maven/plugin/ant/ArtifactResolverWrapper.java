@@ -38,13 +38,17 @@ package org.apache.maven.plugin.ant;
  */
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.factory.ArtifactFactory;
+import org.apache.maven.artifact.metadata.ArtifactMetadataSource;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.resolver.ArtifactNotFoundException;
 import org.apache.maven.artifact.resolver.ArtifactResolutionException;
+import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
 import org.apache.maven.artifact.resolver.ArtifactResolver;
 
 /**
@@ -75,35 +79,79 @@ public class ArtifactResolverWrapper {
     private List remoteRepositories;
 
     /**
+     * Metadata source for resolving artifact metadata.
+     */
+    private ArtifactMetadataSource metadataSource;
+
+    /**
      * @param resolver
      * @param factory
      * @param localRepository
      * @param remoteRepositories
+     * @param metadataSource
      */
     private ArtifactResolverWrapper(
             ArtifactResolver resolver,
             ArtifactFactory factory,
             ArtifactRepository localRepository,
-            List remoteRepositories) {
+            List remoteRepositories,
+            ArtifactMetadataSource metadataSource) {
         this.resolver = resolver;
         this.factory = factory;
         this.localRepository = localRepository;
         this.remoteRepositories = remoteRepositories;
+        this.metadataSource = metadataSource;
     }
 
     /**
      * @param resolver {@link ArtifactResolver}
      * @param factory {@link ArtifactFactory}
      * @param localRepository {@link ArtifactRepository}
-     * @param remoteRepositories {@link XX}.
+     * @param remoteRepositories {@link List}.
+     * @param metadataSource {@link ArtifactMetadataSource}
      * @return an instance of ArtifactResolverWrapper
      */
     public static ArtifactResolverWrapper getInstance(
             ArtifactResolver resolver,
             ArtifactFactory factory,
             ArtifactRepository localRepository,
-            List remoteRepositories) {
-        return new ArtifactResolverWrapper(resolver, factory, localRepository, remoteRepositories);
+            List remoteRepositories,
+            ArtifactMetadataSource metadataSource) {
+        return new ArtifactResolverWrapper(resolver, factory, localRepository, remoteRepositories, metadataSource);
+    }
+
+    /**
+     * Resolve an artifact transitively and return all resolved dependencies.
+     *
+     * @param groupId The groupId.
+     * @param artifactId The artifactId.
+     * @param version The version.
+     * @return set of resolved artifacts.
+     * @throws IOException if resolution fails.
+     */
+    public Set resolveTransitively(String groupId, String artifactId, String version) throws IOException {
+        Artifact artifact = factory.createArtifact(groupId, artifactId, version, Artifact.SCOPE_COMPILE, "jar");
+        Set artifacts = new HashSet();
+        artifacts.add(artifact);
+        try {
+            // First resolve the main artifact itself
+            resolver.resolve(artifact, remoteRepositories, localRepository);
+
+            // Then resolve all transitive dependencies
+            ArtifactResolutionResult result = resolver.resolveTransitively(
+                    artifacts, artifact, remoteRepositories, localRepository, metadataSource);
+
+            Set allResolved = new HashSet();
+            allResolved.add(artifact);
+            if (result.getArtifacts() != null) {
+                allResolved.addAll(result.getArtifacts());
+            }
+            return allResolved;
+        } catch (ArtifactResolutionException e) {
+            throw new IOException("Unable to transitively resolve: " + groupId + ":" + artifactId + ":" + version, e);
+        } catch (ArtifactNotFoundException e) {
+            throw new IOException("Unable to transitively find: " + groupId + ":" + artifactId + ":" + version, e);
+        }
     }
 
     /**

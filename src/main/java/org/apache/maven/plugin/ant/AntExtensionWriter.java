@@ -37,7 +37,9 @@ package org.apache.maven.plugin.ant;
  * under the License.
  */
 
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -45,6 +47,7 @@ import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.util.StringUtils;
 import org.codehaus.plexus.util.xml.XMLWriter;
 import org.codehaus.plexus.util.xml.XmlWriterUtil;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 
 /**
  * Write Ant extensions (such as JEP 238 Multi-Release compiles, Sisu indices, and OSGi Bundles).
@@ -81,6 +84,267 @@ public class AntExtensionWriter {
         return false;
     }
 
+    public boolean isJavaccProject() {
+        if (project.getBuildPlugins() != null) {
+            for (Object o : project.getBuildPlugins()) {
+                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+                if ("javacc-maven-plugin".equals(plugin.getArtifactId())
+                        || "ph-javacc-maven-plugin".equals(plugin.getArtifactId())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public boolean isTemplatingProject() {
+        if (project.getBuildPlugins() != null) {
+            for (Object o : project.getBuildPlugins()) {
+                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+                if ("templating-maven-plugin".equals(plugin.getArtifactId())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    public List<JavaccExecution> getJavaccExecutions() {
+        List<JavaccExecution> executions = new ArrayList<JavaccExecution>();
+        if (project.getBuildPlugins() != null) {
+            for (Object o : project.getBuildPlugins()) {
+                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+                if ("javacc-maven-plugin".equals(plugin.getArtifactId())
+                        || "ph-javacc-maven-plugin".equals(plugin.getArtifactId())) {
+                    Xpp3Dom pluginConfig = (Xpp3Dom) plugin.getConfiguration();
+                    if (plugin.getExecutions() != null) {
+                        for (Object execObj : plugin.getExecutions()) {
+                            org.apache.maven.model.PluginExecution exec =
+                                    (org.apache.maven.model.PluginExecution) execObj;
+                            Xpp3Dom execConfig = (Xpp3Dom) exec.getConfiguration();
+                            Xpp3Dom mergedConfig = mergeConfigurations(execConfig, pluginConfig);
+                            for (String goal : exec.getGoals()) {
+                                if ("javacc".equals(goal) || "jjtree".equals(goal) || "jjtree-javacc".equals(goal)) {
+                                    executions.add(new JavaccExecution(exec.getId(), goal, mergedConfig));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return executions;
+    }
+
+    private Xpp3Dom mergeConfigurations(Xpp3Dom execConfig, Xpp3Dom pluginConfig) {
+        if (execConfig == null) {
+            return pluginConfig;
+        }
+        if (pluginConfig == null) {
+            return execConfig;
+        }
+        return Xpp3Dom.mergeXpp3Dom(execConfig, pluginConfig);
+    }
+
+    private List<String> getGrammarFiles(String sourceDirectory, String extension) {
+        List<String> files = new ArrayList<String>();
+        File dir = new File(sourceDirectory);
+        if (dir.exists() && dir.isDirectory()) {
+            File[] list = dir.listFiles();
+            if (list != null) {
+                for (File f : list) {
+                    if (f.isFile() && f.getName().endsWith(extension)) {
+                        files.add(f.getName());
+                    }
+                }
+            }
+        }
+        return files;
+    }
+
+    public void writeGenSourcesTarget(XMLWriter writer) throws IOException {
+        XmlWriterUtil.writeCommentText(writer, "Source generation target", 1);
+
+        writer.startElement("target");
+        writer.addAttribute("name", "gen-sources");
+        writer.addAttribute("depends", "get-deps");
+        writer.addAttribute("description", "Generate the sources");
+
+        if (isTemplatingProject()) {
+            writer.startElement("mkdir");
+            writer.addAttribute("dir", "${maven.build.dir}/generated-sources/java-templates");
+            writer.endElement(); // mkdir
+
+            writer.startElement("copy");
+            writer.addAttribute("todir", "${maven.build.dir}/generated-sources/java-templates");
+
+            writer.startElement("fileset");
+            writer.addAttribute("dir", "src/main/java-templates");
+            writer.endElement(); // fileset
+
+            writer.startElement("filterchain");
+            writer.startElement("expandproperties");
+            writer.endElement(); // expandproperties
+            writer.endElement(); // filterchain
+
+            writer.endElement(); // copy
+        }
+
+        String jjtreeMain = "org.javacc.jjtree.Main";
+        String javaccMain = "org.javacc.parser.Main";
+
+        List<JavaccExecution> executions = getJavaccExecutions();
+        for (JavaccExecution exec : executions) {
+            Xpp3Dom config = exec.getConfiguration();
+            String goal = exec.getGoal();
+
+            String sourceDirectory = config.getChild("sourceDirectory") != null
+                    ? config.getChild("sourceDirectory").getValue()
+                    : "src/main/javacc";
+            String outputDirectory = config.getChild("outputDirectory") != null
+                    ? config.getChild("outputDirectory").getValue()
+                    : "${maven.build.dir}/generated-sources/" + (goal.contains("jjtree") ? "jjtree" : "javacc");
+
+            sourceDirectory = interpolate(sourceDirectory);
+            outputDirectory = interpolate(outputDirectory);
+
+            writer.startElement("mkdir");
+            writer.addAttribute("dir", outputDirectory);
+            writer.endElement(); // mkdir
+
+            if ("jjtree".equals(goal) || "jjtree-javacc".equals(goal)) {
+                List<String> includes = new ArrayList<String>();
+                String includeOption = getIncludeFile(config, null);
+                if (includeOption != null) {
+                    includes.add(includeOption);
+                } else {
+                    includes.addAll(
+                            getGrammarFiles(project.getBasedir().getAbsolutePath() + "/" + sourceDirectory, ".jjt"));
+                }
+
+                for (String include : includes) {
+                    writer.startElement("java");
+                    writer.addAttribute("classname", jjtreeMain);
+                    writer.addAttribute("fork", "true");
+                    writer.addAttribute("failonerror", "true");
+
+                    writer.startElement("classpath");
+                    writer.startElement("path");
+                    writer.addAttribute("refid", "build.classpath");
+                    writer.endElement(); // path
+                    writer.endElement(); // classpath
+
+                    addExecArg(writer, "-GRAMMAR_ENCODING", getOption(config, "grammarEncoding", "UTF-8"));
+                    addExecArg(writer, "-STATIC", getOption(config, "isStatic", "false"));
+                    addExecArg(writer, "-MULTI", getOption(config, "multi", "true"));
+                    addExecArg(writer, "-NODE_PACKAGE", getOption(config, "nodePackage", null));
+                    addExecArg(writer, "-NODE_USES_PARSER", getOption(config, "nodeUsesParser", "true"));
+                    addExecArg(writer, "-BUILD_NODE_FILES", getOption(config, "buildNodeFiles", "false"));
+                    addExecArg(writer, "-OUTPUT_DIRECTORY", outputDirectory);
+
+                    writer.startElement("arg");
+                    writer.addAttribute("value", sourceDirectory + "/" + include);
+                    writer.endElement(); // arg
+
+                    writer.endElement(); // java
+                }
+            }
+
+            if ("javacc".equals(goal) || "jjtree-javacc".equals(goal)) {
+                List<String> includes = new ArrayList<String>();
+                String includeOption = getIncludeFile(config, null);
+                if (includeOption != null) {
+                    includes.add(includeOption);
+                } else {
+                    String inputDir = "jjtree-javacc".equals(goal)
+                            ? "${maven.build.dir}/generated-sources/jjtree"
+                            : (project.getBasedir().getAbsolutePath() + "/" + sourceDirectory);
+                    String resolvedInputDir = "jjtree-javacc".equals(goal)
+                            ? (project.getBasedir().getAbsolutePath() + "/target/generated-sources/jjtree")
+                            : inputDir;
+                    includes.addAll(getGrammarFiles(resolvedInputDir, ".jj"));
+                }
+
+                for (String include : includes) {
+                    writer.startElement("java");
+                    writer.addAttribute("classname", javaccMain);
+                    writer.addAttribute("fork", "true");
+                    writer.addAttribute("failonerror", "true");
+
+                    writer.startElement("classpath");
+                    writer.startElement("path");
+                    writer.addAttribute("refid", "build.classpath");
+                    writer.endElement(); // path
+                    writer.endElement(); // classpath
+
+                    addExecArg(writer, "-GRAMMAR_ENCODING", getOption(config, "grammarEncoding", "UTF-8"));
+                    addExecArg(writer, "-STATIC", getOption(config, "isStatic", "false"));
+                    addExecArg(writer, "-BUILD_PARSER", getOption(config, "buildParser", "true"));
+                    addExecArg(writer, "-DEBUG_PARSER", getOption(config, "debugParser", "false"));
+                    addExecArg(writer, "-DEBUG_LOOKAHEAD", getOption(config, "debugLookAhead", "false"));
+                    addExecArg(writer, "-DEBUG_TOKEN_MANAGER", getOption(config, "debugTokenManager", "false"));
+                    addExecArg(
+                            writer, "-TOKEN_MANAGER_USES_PARSER", getOption(config, "tokenManagerUsesParser", "true"));
+                    addExecArg(writer, "-OUTPUT_DIRECTORY", outputDirectory);
+
+                    String inputDir = "jjtree-javacc".equals(goal)
+                            ? "${maven.build.dir}/generated-sources/jjtree"
+                            : sourceDirectory;
+                    writer.startElement("arg");
+                    writer.addAttribute("value", inputDir + "/" + include);
+                    writer.endElement(); // arg
+
+                    writer.endElement(); // java
+                }
+            }
+        }
+
+        writer.endElement(); // target
+
+        XmlWriterUtil.writeLineBreak(writer);
+    }
+
+    private String interpolate(String value) {
+        if (value == null) {
+            return null;
+        }
+        if (value.contains("${project.build.directory}")) {
+            value = value.replace("${project.build.directory}", "${maven.build.dir}");
+        }
+        if (value.contains("${project.build.sourceEncoding}")) {
+            value = value.replace("${project.build.sourceEncoding}", "UTF-8");
+        }
+        return value;
+    }
+
+    private String getOption(Xpp3Dom config, String name, String defaultValue) {
+        if (config != null && config.getChild(name) != null) {
+            return config.getChild(name).getValue();
+        }
+        return defaultValue;
+    }
+
+    private String getIncludeFile(Xpp3Dom config, String defaultFile) {
+        if (config != null) {
+            Xpp3Dom inclNode = config.getChild("includes");
+            if (inclNode != null) {
+                Xpp3Dom child = inclNode.getChild("include");
+                if (child != null) {
+                    return child.getValue();
+                }
+            }
+        }
+        return defaultFile;
+    }
+
+    private void addExecArg(XMLWriter writer, String name, String value) {
+        if (value != null && value.trim().length() > 0) {
+            writer.startElement("arg");
+            writer.addAttribute("value", name + "=" + value);
+            writer.endElement(); // arg
+        }
+    }
+
     public void writeSisuTarget(XMLWriter writer) {
         XmlWriterUtil.writeCommentText(writer, "Sisu javax.inject.Named generation target", 1);
 
@@ -91,13 +355,34 @@ public class AntExtensionWriter {
 
         writer.startElement("sequential");
 
+        writer.startElement("available");
+        writer.addAttribute("classname", "org.eclipse.sisu.space.SisuIndex");
+        writer.addAttribute("property", "sisu.present");
+        writer.addAttribute("classpathref", "build.classpath");
+        writer.endElement(); // available
+
+        writer.startElement("antcall");
+        writer.addAttribute("target", "sisu-index");
+        writer.endElement(); // antcall
+
+        writer.endElement(); // sequential
+        writer.endElement(); // target
+
+        XmlWriterUtil.writeLineBreak(writer);
+
+        writer.startElement("target");
+        writer.addAttribute("name", "sisu-index");
+        writer.addAttribute("if", "sisu.present");
+
+        writer.startElement("sequential");
+
         writer.startElement("mkdir");
         writer.addAttribute("dir", "META-INF");
         writer.endElement(); // mkdir
 
         writer.startElement("java");
         writer.addAttribute("classname", "org.eclipse.sisu.space.SisuIndex");
-        writer.addAttribute("failonerror", "true");
+        writer.addAttribute("failonerror", "false");
         writer.addAttribute("fork", "true");
 
         writer.startElement("classpath");
@@ -120,7 +405,6 @@ public class AntExtensionWriter {
         writer.endElement(); // move
 
         writer.endElement(); // sequential
-
         writer.endElement(); // target
 
         XmlWriterUtil.writeLineBreak(writer);
@@ -133,6 +417,27 @@ public class AntExtensionWriter {
         writer.addAttribute("name", "bnd");
         writer.addAttribute("depends", isSisuProject() ? "sisu" : "compile");
         writer.addAttribute("description", "Generate OSGi Bundle");
+
+        writer.startElement("sequential");
+
+        writer.startElement("available");
+        writer.addAttribute("resource", "aQute/bnd/ant/taskdef.properties");
+        writer.addAttribute("property", "bnd.present");
+        writer.addAttribute("classpathref", "build.classpath");
+        writer.endElement(); // available
+
+        writer.startElement("antcall");
+        writer.addAttribute("target", "bnd-bundle");
+        writer.endElement(); // antcall
+
+        writer.endElement(); // sequential
+        writer.endElement(); // target
+
+        XmlWriterUtil.writeLineBreak(writer);
+
+        writer.startElement("target");
+        writer.addAttribute("name", "bnd-bundle");
+        writer.addAttribute("if", "bnd.present");
 
         writer.startElement("sequential");
 
@@ -150,7 +455,6 @@ public class AntExtensionWriter {
         writer.endElement(); // bnd
 
         writer.endElement(); // sequential
-
         writer.endElement(); // target
 
         XmlWriterUtil.writeLineBreak(writer);
