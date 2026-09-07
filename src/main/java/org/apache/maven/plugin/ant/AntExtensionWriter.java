@@ -345,7 +345,23 @@ public class AntExtensionWriter {
 
         writer.endElement(); // target
 
-        XmlWriterUtil.writeLineBreak(writer);
+        // plain writeLineBreak() leaves the writer's indent state broken for whatever element
+        // comes right after (no writeCommentText() in between to reset it) - see writeLineBreak(3
+        // args) below, which also emits the indent text itself.
+        XmlWriterUtil.writeLineBreak(writer, 1, 1);
+    }
+
+    /**
+     * Plain writeLineBreak() leaves the writer's indent state broken for whatever element comes
+     * right after, unless writeCommentText() follows to reset it - see writeLineBreak(3 args),
+     * which also emits the indent text itself.
+     */
+    private void writeTargetSeparator(XMLWriter writer, boolean bareTargetFollows) {
+        if (bareTargetFollows) {
+            XmlWriterUtil.writeLineBreak(writer, 1, 1);
+        } else {
+            XmlWriterUtil.writeLineBreak(writer);
+        }
     }
 
     public void writeGenSourcesTarget(XMLWriter writer) throws IOException {
@@ -431,7 +447,7 @@ public class AntExtensionWriter {
 
         writer.endElement(); // target
 
-        XmlWriterUtil.writeLineBreak(writer);
+        writeTargetSeparator(writer, isJavaccProject() || isJflexProject() || isCupProject());
 
         if (isJavaccProject()) {
             writer.startElement("target");
@@ -483,7 +499,7 @@ public class AntExtensionWriter {
             writer.endElement(); // sequential
             writer.endElement(); // target
 
-            XmlWriterUtil.writeLineBreak(writer);
+            writeTargetSeparator(writer, isJflexProject() || isCupProject());
         }
 
         if (isJflexProject()) {
@@ -549,7 +565,7 @@ public class AntExtensionWriter {
         writer.endElement(); // sequential
         writer.endElement(); // target
 
-        XmlWriterUtil.writeLineBreak(writer);
+        writeTargetSeparator(writer, isCupProject());
     }
 
     public void writeCupCompileTarget(XMLWriter writer) throws IOException {
@@ -605,6 +621,7 @@ public class AntExtensionWriter {
         writer.endElement(); // sequential
         writer.endElement(); // target
 
+        // always last in the gen-sources chain; writeCompileTarget() follows with its own comment.
         XmlWriterUtil.writeLineBreak(writer);
     }
 
@@ -807,6 +824,7 @@ public class AntExtensionWriter {
         writer.endElement(); // sequential
         writer.endElement(); // target
 
+        // whatever follows (writeBndTarget() or writePackageTarget()) starts with its own comment.
         XmlWriterUtil.writeLineBreak(writer);
     }
 
@@ -891,6 +909,7 @@ public class AntExtensionWriter {
         writer.endElement(); // sequential
         writer.endElement(); // target
 
+        // writePackageTarget() follows next with its own comment.
         XmlWriterUtil.writeLineBreak(writer);
     }
 
