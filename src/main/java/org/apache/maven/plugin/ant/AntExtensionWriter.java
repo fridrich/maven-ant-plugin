@@ -84,6 +84,120 @@ public class AntExtensionWriter {
         return "1.1.0"; // default fallback
     }
 
+    public boolean isJflexProject() {
+        if (project.getBuildPlugins() != null) {
+            for (Object o : project.getBuildPlugins()) {
+                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+                if ("jflex-maven-plugin".equals(plugin.getArtifactId())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Pinned, not the jflex-maven-plugin version - separate artifact, unrelated release cycle.
+    public String getJflexVersion() {
+        return "1.9.1";
+    }
+
+    public static class JflexExecution {
+        private final String id;
+        private final Xpp3Dom configuration;
+
+        public JflexExecution(String id, Xpp3Dom configuration) {
+            this.id = id;
+            this.configuration = configuration;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public Xpp3Dom getConfiguration() {
+            return configuration;
+        }
+    }
+
+    public List<JflexExecution> getJflexExecutions() {
+        List<JflexExecution> executions = new ArrayList<JflexExecution>();
+        if (project.getBuildPlugins() != null) {
+            for (Object o : project.getBuildPlugins()) {
+                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+                if ("jflex-maven-plugin".equals(plugin.getArtifactId())) {
+                    if (plugin.getExecutions() != null) {
+                        for (Object execObj : plugin.getExecutions()) {
+                            org.apache.maven.model.PluginExecution exec =
+                                    (org.apache.maven.model.PluginExecution) execObj;
+                            executions.add(new JflexExecution(exec.getId(), (Xpp3Dom) exec.getConfiguration()));
+                        }
+                    } else if (plugin.getConfiguration() != null) {
+                        executions.add(new JflexExecution("default", (Xpp3Dom) plugin.getConfiguration()));
+                    }
+                }
+            }
+        }
+        return executions;
+    }
+
+    public boolean isCupProject() {
+        if (project.getBuildPlugins() != null) {
+            for (Object o : project.getBuildPlugins()) {
+                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+                if ("cup-maven-plugin".equals(plugin.getArtifactId())
+                        || "javacup-maven-plugin".equals(plugin.getArtifactId())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Pinned, not the cup/javacup-maven-plugin version - separate artifact, unrelated versioning.
+    public String getCupVersion() {
+        return "11b-20160615-2";
+    }
+
+    public static class CupExecution {
+        private final String id;
+        private final Xpp3Dom configuration;
+
+        public CupExecution(String id, Xpp3Dom configuration) {
+            this.id = id;
+            this.configuration = configuration;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public Xpp3Dom getConfiguration() {
+            return configuration;
+        }
+    }
+
+    public List<CupExecution> getCupExecutions() {
+        List<CupExecution> executions = new ArrayList<CupExecution>();
+        if (project.getBuildPlugins() != null) {
+            for (Object o : project.getBuildPlugins()) {
+                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+                if ("cup-maven-plugin".equals(plugin.getArtifactId())
+                        || "javacup-maven-plugin".equals(plugin.getArtifactId())) {
+                    if (plugin.getExecutions() != null) {
+                        for (Object execObj : plugin.getExecutions()) {
+                            org.apache.maven.model.PluginExecution exec =
+                                    (org.apache.maven.model.PluginExecution) execObj;
+                            executions.add(new CupExecution(exec.getId(), (Xpp3Dom) exec.getConfiguration()));
+                        }
+                    } else if (plugin.getConfiguration() != null) {
+                        executions.add(new CupExecution("default", (Xpp3Dom) plugin.getConfiguration()));
+                    }
+                }
+            }
+        }
+        return executions;
+    }
+
     public boolean isBndProject() {
         if (project.getBuildPlugins() != null) {
             for (Object o : project.getBuildPlugins()) {
@@ -204,6 +318,26 @@ public class AntExtensionWriter {
         return files;
     }
 
+    /**
+     * Resolves a single grammar file path or a "dir/*.ext" wildcard to concrete file paths that
+     * exist on disk right now, relative to the project basedir.
+     */
+    private List<String> resolveGrammarFiles(String pathOrPattern) {
+        if (!pathOrPattern.contains("*")) {
+            return java.util.Collections.singletonList(pathOrPattern);
+        }
+        int lastSlash = pathOrPattern.lastIndexOf('/');
+        String dir = lastSlash != -1 ? pathOrPattern.substring(0, lastSlash) : ".";
+        String pattern = lastSlash != -1 ? pathOrPattern.substring(lastSlash + 1) : pathOrPattern;
+        String extension = pattern.startsWith("*") ? pattern.substring(1) : pattern;
+
+        List<String> resolved = new ArrayList<String>();
+        for (String fileName : getGrammarFiles(project.getBasedir().getAbsolutePath() + "/" + dir, extension)) {
+            resolved.add(dir + "/" + fileName);
+        }
+        return resolved;
+    }
+
     public void writeGenSourcesTarget(XMLWriter writer) throws IOException {
         XmlWriterUtil.writeCommentText(writer, "Source generation target", 1);
 
@@ -241,6 +375,30 @@ public class AntExtensionWriter {
 
             writer.startElement("antcall");
             writer.addAttribute("target", "-javacc-compile");
+            writer.endElement(); // antcall
+        }
+
+        if (isJflexProject()) {
+            writer.startElement("available");
+            writer.addAttribute("classname", "jflex.anttask.JFlexTask");
+            writer.addAttribute("property", "jflex.present");
+            writer.addAttribute("classpathref", "build.classpath");
+            writer.endElement(); // available
+
+            writer.startElement("antcall");
+            writer.addAttribute("target", "-jflex-compile");
+            writer.endElement(); // antcall
+        }
+
+        if (isCupProject()) {
+            writer.startElement("available");
+            writer.addAttribute("classname", "java_cup.anttask.CUPTask");
+            writer.addAttribute("property", "cup.present");
+            writer.addAttribute("classpathref", "build.classpath");
+            writer.endElement(); // available
+
+            writer.startElement("antcall");
+            writer.addAttribute("target", "-cup-compile");
             writer.endElement(); // antcall
         }
 
@@ -300,6 +458,127 @@ public class AntExtensionWriter {
 
             XmlWriterUtil.writeLineBreak(writer);
         }
+
+        if (isJflexProject()) {
+            writeJflexCompileTarget(writer);
+        }
+
+        if (isCupProject()) {
+            writeCupCompileTarget(writer);
+        }
+    }
+
+    public void writeJflexCompileTarget(XMLWriter writer) throws IOException {
+        writer.startElement("target");
+        writer.addAttribute("name", "-jflex-compile");
+        writer.addAttribute("if", "jflex.present");
+
+        writer.startElement("sequential");
+
+        writer.startElement("taskdef");
+        writer.addAttribute("name", "jflex");
+        writer.addAttribute("classname", "jflex.anttask.JFlexTask");
+        writer.addAttribute("classpathref", "build.classpath");
+        writer.endElement(); // taskdef
+
+        List<JflexExecution> executions = getJflexExecutions();
+        for (JflexExecution exec : executions) {
+            Xpp3Dom config = exec.getConfiguration();
+            // matches jflex-maven-plugin 1.9.1's real defaults
+            String outputDirectory = "${maven.build.dir}/generated-sources/jflex";
+            if (config != null && config.getChild("outputDirectory") != null) {
+                outputDirectory = config.getChild("outputDirectory").getValue();
+            }
+            outputDirectory = interpolate(outputDirectory);
+
+            writer.startElement("mkdir");
+            writer.addAttribute("dir", outputDirectory);
+            writer.endElement(); // mkdir
+
+            List<String> lexFiles = new ArrayList<String>();
+            if (config != null && config.getChild("lexDefinitions") != null) {
+                Xpp3Dom lexDefs = config.getChild("lexDefinitions");
+                for (Xpp3Dom lexFile : lexDefs.getChildren("lexFile")) {
+                    lexFiles.add(lexFile.getValue());
+                }
+            } else if (config != null && config.getChild("lexFile") != null) {
+                lexFiles.add(config.getChild("lexFile").getValue());
+            } else {
+                lexFiles.add("src/main/jflex/*.flex");
+            }
+
+            for (String lexFile : lexFiles) {
+                lexFile = interpolate(lexFile);
+                // JFlexTask has no fileset support; expand wildcards at generation time
+                for (String resolved : resolveGrammarFiles(lexFile)) {
+                    writer.startElement("jflex");
+                    writer.addAttribute("file", resolved);
+                    writer.addAttribute("destdir", outputDirectory);
+                    writer.endElement(); // jflex
+                }
+            }
+        }
+
+        writer.endElement(); // sequential
+        writer.endElement(); // target
+
+        XmlWriterUtil.writeLineBreak(writer);
+    }
+
+    public void writeCupCompileTarget(XMLWriter writer) throws IOException {
+        writer.startElement("target");
+        writer.addAttribute("name", "-cup-compile");
+        writer.addAttribute("if", "cup.present");
+
+        writer.startElement("sequential");
+
+        writer.startElement("taskdef");
+        writer.addAttribute("name", "cup");
+        writer.addAttribute("classname", "java_cup.anttask.CUPTask");
+        writer.addAttribute("classpathref", "build.classpath");
+        writer.endElement(); // taskdef
+
+        List<CupExecution> executions = getCupExecutions();
+        for (CupExecution exec : executions) {
+            Xpp3Dom config = exec.getConfiguration();
+            // unverified default: no single canonical cup/javacup-maven-plugin implementation
+            String outputDirectory = "${maven.build.dir}/generated-sources/cup";
+            if (config != null && config.getChild("outputDirectory") != null) {
+                outputDirectory = config.getChild("outputDirectory").getValue();
+            }
+            outputDirectory = interpolate(outputDirectory);
+
+            writer.startElement("mkdir");
+            writer.addAttribute("dir", outputDirectory);
+            writer.endElement(); // mkdir
+
+            List<String> cupFiles = new ArrayList<String>();
+            if (config != null && config.getChild("cupDefinition") != null) {
+                cupFiles.add(config.getChild("cupDefinition").getValue());
+            } else if (config != null && config.getChild("cupFile") != null) {
+                cupFiles.add(config.getChild("cupFile").getValue());
+            } else {
+                cupFiles.add("src/main/cup/*.cup"); // unverified, see outputDirectory above
+                cupFiles.add("src/grammar/*.cup");
+            }
+
+            for (String cupFile : cupFiles) {
+                cupFile = interpolate(cupFile);
+                // CUPTask has no fileset support; expand wildcards at generation time
+                for (String resolved : resolveGrammarFiles(cupFile)) {
+                    writer.startElement("cup");
+                    writer.addAttribute("srcfile", resolved);
+                    writer.addAttribute("destdir", outputDirectory);
+                    writer.addAttribute("interface", "true");
+                    writer.endElement(); // cup
+                }
+            }
+        }
+
+        writer.endElement(); // sequential
+        writer.endElement(); // target
+
+        XmlWriterUtil.writeLineBreak(writer);
     }
 
     private void writeJjtreeTask(XMLWriter writer, String sourceDirectory, String outputDirectory, Xpp3Dom config)

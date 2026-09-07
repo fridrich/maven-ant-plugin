@@ -352,7 +352,10 @@ public class AntBuildWriter {
         // ----------------------------------------------------------------------
         // <target name="gen-sources" />
         // ----------------------------------------------------------------------
-        if (extensionWriter.isJavaccProject() || extensionWriter.isTemplatingProject()) {
+        if (extensionWriter.isJavaccProject()
+                || extensionWriter.isTemplatingProject()
+                || extensionWriter.isJflexProject()
+                || extensionWriter.isCupProject()) {
             extensionWriter.writeGenSourcesTarget(writer);
         }
 
@@ -762,37 +765,7 @@ public class AntBuildWriter {
         }
 
         if (extensionWriter.isBndProject() && !bndAntPresent && "build.classpath".equals(id)) {
-            try {
-                Set resolved = new java.util.HashSet();
-                resolved.addAll(
-                        artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bnd.ant", "7.4.0"));
-                resolved.addAll(
-                        artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bndlib", "7.4.0"));
-                resolved.addAll(
-                        artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bnd.util", "7.4.0"));
-                resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.core", "6.0.0"));
-                resolved.addAll(artifactResolverWrapper.resolveTransitively("org.slf4j", "slf4j-api", "1.7.36"));
-                resolved.addAll(artifactResolverWrapper.resolveTransitively("org.slf4j", "slf4j-simple", "1.7.36"));
-                resolved.addAll(artifactResolverWrapper.resolveTransitively(
-                        "org.osgi", "org.osgi.service.repository", "1.1.0"));
-                resolved.addAll(
-                        artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.service.log", "1.4.0"));
-                resolved.addAll(
-                        artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.util.promise", "1.2.0"));
-                resolved.addAll(
-                        artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.util.function", "1.2.0"));
-                injectedArtifacts.addAll(resolved);
-
-                for (Object artObj : resolved) {
-                    Artifact art = (Artifact) artObj;
-                    writer.startElement("pathelement");
-                    writer.addAttribute(
-                            "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
-                    writer.endElement(); // pathelement
-                }
-            } catch (Exception e) {
-                // ignore
-            }
+            resolveBndClasspaths(writer);
         }
 
         if (extensionWriter.isJavaccProject() && !javaccPresent && "build.classpath".equals(id)) {
@@ -813,7 +786,75 @@ public class AntBuildWriter {
             }
         }
 
+        if (extensionWriter.isJflexProject() && "build.classpath".equals(id)) {
+            try {
+                // jflex-generated lexers always implement java_cup.runtime.Scanner, even without
+                // CUP; transitive resolution misses it (version property in jflex's parent pom).
+                Set resolved = new java.util.HashSet();
+                resolved.addAll(artifactResolverWrapper.resolveTransitively(
+                        "de.jflex", "jflex", extensionWriter.getJflexVersion()));
+                resolved.addAll(artifactResolverWrapper.resolveTransitively(
+                        "com.github.vbmacher", "java-cup-runtime", "11b-20160615-1"));
+                injectedArtifacts.addAll(resolved);
+                for (Object artObj : resolved) {
+                    Artifact art = (Artifact) artObj;
+                    writer.startElement("pathelement");
+                    writer.addAttribute(
+                            "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
+                    writer.endElement(); // pathelement
+                }
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+
+        if (extensionWriter.isCupProject() && "build.classpath".equals(id)) {
+            try {
+                String cupVer = extensionWriter.getCupVersion();
+                Set resolved = artifactResolverWrapper.resolveTransitively("com.github.vbmacher", "java-cup", cupVer);
+                injectedArtifacts.addAll(resolved);
+                for (Object artObj : resolved) {
+                    Artifact art = (Artifact) artObj;
+                    writer.startElement("pathelement");
+                    writer.addAttribute(
+                            "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
+                    writer.endElement(); // pathelement
+                }
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+
         writer.endElement(); // path
+    }
+
+    private void resolveBndClasspaths(XMLWriter writer) throws IOException {
+        try {
+            Set resolved = new java.util.HashSet();
+            resolved.addAll(artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bnd.ant", "7.4.0"));
+            resolved.addAll(artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bndlib", "7.4.0"));
+            resolved.addAll(
+                    artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bnd.util", "7.4.0"));
+            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.core", "6.0.0"));
+            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.slf4j", "slf4j-api", "1.7.36"));
+            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.slf4j", "slf4j-simple", "1.7.36"));
+            resolved.addAll(
+                    artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.service.repository", "1.1.0"));
+            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.service.log", "1.4.0"));
+            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.util.promise", "1.2.0"));
+            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.util.function", "1.2.0"));
+            injectedArtifacts.addAll(resolved);
+
+            for (Object artObj : resolved) {
+                Artifact art = (Artifact) artObj;
+                writer.startElement("pathelement");
+                writer.addAttribute(
+                        "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
+                writer.endElement(); // pathelement
+            }
+        } catch (Exception e) {
+            // ignore
+        }
     }
 
     private String getUninterpolatedSystemPath(Artifact artifact) {
@@ -931,7 +972,10 @@ public class AntBuildWriter {
                 }
             }
 
-            String baseDepends = (extensionWriter.isJavaccProject() || extensionWriter.isTemplatingProject())
+            String baseDepends = (extensionWriter.isJavaccProject()
+                            || extensionWriter.isTemplatingProject()
+                            || extensionWriter.isJflexProject()
+                            || extensionWriter.isCupProject())
                     ? "gen-sources"
                     : "get-deps";
 
@@ -1416,7 +1460,37 @@ public class AntBuildWriter {
             }
         }
 
+        if (extensionWriter.isJflexProject()) {
+            for (AntExtensionWriter.JflexExecution exec : extensionWriter.getJflexExecutions()) {
+                addParserOutputDir(
+                        dirs,
+                        compileSourceRoots,
+                        exec.getConfiguration(),
+                        "${maven.build.dir}/generated-sources/jflex");
+            }
+        }
+
+        if (extensionWriter.isCupProject()) {
+            for (AntExtensionWriter.CupExecution exec : extensionWriter.getCupExecutions()) {
+                addParserOutputDir(
+                        dirs, compileSourceRoots, exec.getConfiguration(), "${maven.build.dir}/generated-sources/cup");
+            }
+        }
+
         return dirs;
+    }
+
+    private void addParserOutputDir(List<String> dirs, List compileSourceRoots, Xpp3Dom config, String defaultDir) {
+        String outputDir = defaultDir;
+        if (config != null && config.getChild("outputDirectory") != null) {
+            outputDir = config.getChild("outputDirectory").getValue();
+        }
+        if (outputDir.contains("${project.build.directory}")) {
+            outputDir = outputDir.replace("${project.build.directory}", "${maven.build.dir}");
+        }
+        if (!isCompileSourceRoot(compileSourceRoots, outputDir) && !dirs.contains(outputDir)) {
+            dirs.add(outputDir);
+        }
     }
 
     private boolean isCompileSourceRoot(List compileSourceRoots, String dir) {
