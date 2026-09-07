@@ -1,5 +1,3 @@
-package test;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -18,6 +16,10 @@ package test;
  * specific language governing permissions and limitations
  * under the License.
  */
+
+package test;
+
+
 
 public class ExtendedLog
     extends Log

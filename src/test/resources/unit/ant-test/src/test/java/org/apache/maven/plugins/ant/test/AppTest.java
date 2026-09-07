@@ -1,5 +1,3 @@
-package org.apache.maven.plugins.ant.test;
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
  * or more contributor license agreements.  See the NOTICE file
@@ -18,6 +16,10 @@ package org.apache.maven.plugins.ant.test;
  * specific language governing permissions and limitations
  * under the License.
  */
+
+package org.apache.maven.plugins.ant.test;
+
+
 
 import junit.framework.Test;
 import junit.framework.TestCase;
