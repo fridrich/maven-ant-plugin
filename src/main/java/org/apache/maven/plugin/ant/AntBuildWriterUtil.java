@@ -18,25 +18,6 @@
  */
 package org.apache.maven.plugin.ant;
 
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
-
 import javax.xml.parsers.DocumentBuilderFactory;
 
 import java.io.ByteArrayInputStream;
@@ -57,6 +38,7 @@ import org.apache.maven.model.Profile;
 import org.apache.maven.model.ReportPlugin;
 import org.apache.maven.project.MavenProject;
 import org.apache.xpath.XPathAPI;
+import org.codehaus.plexus.util.FileUtils;
 import org.codehaus.plexus.util.PathTool;
 import org.codehaus.plexus.util.StringUtils;
 import org.codehaus.plexus.util.xml.XMLWriter;
@@ -416,6 +398,11 @@ public class AntBuildWriterUtil {
      */
     public static void writeJarTask(XMLWriter writer, MavenProject project) throws IOException {
         String manifestFile = getMavenJarPluginBasicOption(project, "archive//manifestFile", null);
+        // already Maven-interpolated to an absolute path by the time plugin.getConfiguration() sees
+        // it; relativize so the generated build stays portable, like every other path it writes.
+        if (manifestFile != null) {
+            manifestFile = toRelative(project.getBasedir(), manifestFile);
+        }
         if (manifestFile != null) {
             writer.startElement("mkdir");
             String normalizedPath = manifestFile.replace('\\', '/');
@@ -510,8 +497,9 @@ public class AntBuildWriterUtil {
             // Generated appxml
             addWrapAttribute(writer, "ear", "appxml", "${maven.build.dir}/application.xml", 3);
         }
-        if (getMavenEarPluginBasicOption(project, "manifestFile", null) != null) {
-            addWrapAttribute(writer, "ear", "manifest", getMavenEarPluginBasicOption(project, "manifestFile", null), 3);
+        String earManifestFile = getMavenEarPluginBasicOption(project, "manifestFile", null);
+        if (earManifestFile != null) {
+            addWrapAttribute(writer, "ear", "manifest", toRelative(project.getBasedir(), earManifestFile), 3);
         }
         writer.endElement(); // ear
     }
@@ -540,8 +528,9 @@ public class AntBuildWriterUtil {
         addWrapAttribute(
                 writer, "war", "compress", getMavenWarPluginBasicOption(project, "archive//compress", "true"), 3);
         addWrapAttribute(writer, "war", "webxml", webXml, 3);
-        if (getMavenWarPluginBasicOption(project, "manifestFile", null) != null) {
-            addWrapAttribute(writer, "war", "manifest", getMavenWarPluginBasicOption(project, "manifestFile", null), 3);
+        String warManifestFile = getMavenWarPluginBasicOption(project, "manifestFile", null);
+        if (warManifestFile != null) {
+            addWrapAttribute(writer, "war", "manifest", toRelative(project.getBasedir(), warManifestFile), 3);
         }
         writer.startElement("lib");
         writer.addAttribute("dir", "${maven.build.dir}/${maven.build.finalName}/WEB-INF/lib");
@@ -1526,7 +1515,9 @@ public class AntBuildWriterUtil {
     }
 
     /**
-     * Extracts in-line bnd instructions from bnd-maven-plugin or maven-bundle-plugin.
+     * Extracts inline bnd instructions from bnd-maven-plugin's &lt;bnd&gt; config or
+     * maven-bundle-plugin's &lt;instructions&gt; config. Null if neither is present - see
+     * {@link #hasBndFile(MavenProject)} for bnd-maven-plugin's actual default in that case.
      */
     public static String getBndInstructions(MavenProject project) {
         Xpp3Dom bndConfigDom = getPluginConfigurationDOM(project, "bnd-maven-plugin");
@@ -1553,5 +1544,20 @@ public class AntBuildWriterUtil {
         }
 
         return null;
+    }
+
+    /** Whether bnd-maven-plugin's default bnd.bnd file exists in the module basedir. */
+    public static boolean hasBndFile(MavenProject project) {
+        return new File(project.getBasedir(), "bnd.bnd").isFile();
+    }
+
+    /** Whether the module's bnd.bnd file already sets its own -includeresource. */
+    public static boolean bndFileHasIncludeResource(MavenProject project) {
+        try {
+            return FileUtils.fileRead(new File(project.getBasedir(), "bnd.bnd"), "UTF-8")
+                    .contains("-includeresource");
+        } catch (IOException e) {
+            return false;
+        }
     }
 }

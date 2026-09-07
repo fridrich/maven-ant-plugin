@@ -202,6 +202,10 @@ under the License.
         <configuration>
           <ignoredUnusedDeclaredDependencies>
             <ignoredUnusedDeclaredDependency>org.junit.jupiter:junit-jupiter-engine</ignoredUnusedDeclaredDependency>
+            <!-- needed on the test classpath for Ant's <junit> task, never imported in Java -->
+            <ignoredUnusedDeclaredDependency>org.apache.ant:ant-junit</ignoredUnusedDeclaredDependency>
+            <!-- classname only written as a string into generated build.xml, never compiled against -->
+            <ignoredUnusedDeclaredDependency>org.eclipse.sisu:org.eclipse.sisu.inject</ignoredUnusedDeclaredDependency>
           </ignoredUnusedDeclaredDependencies>
         </configuration>
       </plugin>

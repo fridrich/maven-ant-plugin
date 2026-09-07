@@ -18,25 +18,6 @@
  */
 package org.apache.maven.plugin.ant;
 
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- */
-
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -338,6 +319,35 @@ public class AntExtensionWriter {
         return resolved;
     }
 
+    /**
+     * A tool's if="x.present"-gated target otherwise fails silently, surfacing as a confusing
+     * error several steps later (missing generated sources, empty manifest, etc). Mirrors the
+     * existing junit-missing target: warn loudly instead.
+     */
+    private void writeToolMissingWarning(XMLWriter writer, String targetName, String presentProperty, String message) {
+        writer.startElement("target");
+        writer.addAttribute("name", targetName);
+        writer.addAttribute("unless", presentProperty);
+
+        // CHECKSTYLE_OFF: MagicNumber
+        writer.startElement("echo");
+        writer.writeText(StringUtils.repeat("=", 35) + " WARNING " + StringUtils.repeat("=", 35));
+        writer.endElement(); // echo
+
+        writer.startElement("echo");
+        writer.writeText(" " + message);
+        writer.endElement(); // echo
+
+        writer.startElement("echo");
+        writer.writeText(StringUtils.repeat("=", 79));
+        writer.endElement(); // echo
+        // CHECKSTYLE_ON: MagicNumber
+
+        writer.endElement(); // target
+
+        XmlWriterUtil.writeLineBreak(writer);
+    }
+
     public void writeGenSourcesTarget(XMLWriter writer) throws IOException {
         XmlWriterUtil.writeCommentText(writer, "Source generation target", 1);
 
@@ -373,6 +383,13 @@ public class AntExtensionWriter {
             writer.addAttribute("classpathref", "build.classpath");
             writer.endElement(); // available
 
+            // unlike tests, missing sources here means compile is doomed anyway - fail now with a
+            // clear reason instead of limping into a confusing "cannot find symbol" later.
+            writer.startElement("fail");
+            writer.addAttribute("unless", "javacc.present");
+            writer.writeText("JavaCC/JJTree not found on build.classpath; cannot generate parser sources.");
+            writer.endElement(); // fail
+
             writer.startElement("antcall");
             writer.addAttribute("target", "-javacc-compile");
             writer.endElement(); // antcall
@@ -385,6 +402,11 @@ public class AntExtensionWriter {
             writer.addAttribute("classpathref", "build.classpath");
             writer.endElement(); // available
 
+            writer.startElement("fail");
+            writer.addAttribute("unless", "jflex.present");
+            writer.writeText("JFlex not found on build.classpath; cannot generate lexer sources.");
+            writer.endElement(); // fail
+
             writer.startElement("antcall");
             writer.addAttribute("target", "-jflex-compile");
             writer.endElement(); // antcall
@@ -396,6 +418,11 @@ public class AntExtensionWriter {
             writer.addAttribute("property", "cup.present");
             writer.addAttribute("classpathref", "build.classpath");
             writer.endElement(); // available
+
+            writer.startElement("fail");
+            writer.addAttribute("unless", "cup.present");
+            writer.writeText("CUP not found on build.classpath; cannot generate parser sources.");
+            writer.endElement(); // fail
 
             writer.startElement("antcall");
             writer.addAttribute("target", "-cup-compile");
@@ -512,8 +539,8 @@ public class AntExtensionWriter {
                 // JFlexTask has no fileset support; expand wildcards at generation time
                 for (String resolved : resolveGrammarFiles(lexFile)) {
                     writer.startElement("jflex");
-                    writer.addAttribute("file", resolved);
-                    writer.addAttribute("destdir", outputDirectory);
+                    AntBuildWriterUtil.addWrapAttribute(writer, "jflex", "file", resolved, 3);
+                    AntBuildWriterUtil.addWrapAttribute(writer, "jflex", "destdir", outputDirectory, 3);
                     writer.endElement(); // jflex
                 }
             }
@@ -567,9 +594,9 @@ public class AntExtensionWriter {
                 // CUPTask has no fileset support; expand wildcards at generation time
                 for (String resolved : resolveGrammarFiles(cupFile)) {
                     writer.startElement("cup");
-                    writer.addAttribute("srcfile", resolved);
-                    writer.addAttribute("destdir", outputDirectory);
-                    writer.addAttribute("interface", "true");
+                    AntBuildWriterUtil.addWrapAttribute(writer, "cup", "srcfile", resolved, 3);
+                    AntBuildWriterUtil.addWrapAttribute(writer, "cup", "destdir", outputDirectory, 3);
+                    AntBuildWriterUtil.addWrapAttribute(writer, "cup", "interface", "true", 3);
                     writer.endElement(); // cup
                 }
             }
@@ -593,26 +620,33 @@ public class AntExtensionWriter {
 
         if (!includes.isEmpty()) {
             writer.startElement("copy");
-            writer.addAttribute("file", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc-7.0.12.jar");
-            writer.addAttribute("tofile", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc.jar");
-            writer.addAttribute("preservelastmodified", "true");
-            writer.addAttribute("failonerror", "false");
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer,
+                    "copy",
+                    "file",
+                    "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc-7.0.12.jar",
+                    3);
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer, "copy", "tofile", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc.jar", 3);
+            AntBuildWriterUtil.addWrapAttribute(writer, "copy", "preservelastmodified", "true", 3);
+            AntBuildWriterUtil.addWrapAttribute(writer, "copy", "failonerror", "false", 3);
             writer.endElement(); // copy
         }
 
         for (String include : includes) {
             writer.startElement("jjtree");
-            writer.addAttribute("target", sourceDirectory + "/" + include);
-            writer.addAttribute("outputdirectory", outputDirectory);
-            writer.addAttribute("javacchome", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12");
-            writer.addAttribute("static", getOption(config, "isStatic", "false"));
-            writer.addAttribute("multi", getOption(config, "multi", "true"));
-            String nodePackage = getOption(config, "nodePackage", null);
-            if (nodePackage != null) {
-                writer.addAttribute("nodepackage", nodePackage);
-            }
-            writer.addAttribute("nodeusesparser", getOption(config, "nodeUsesParser", "true"));
-            writer.addAttribute("buildnodefiles", getOption(config, "buildNodeFiles", "false"));
+            AntBuildWriterUtil.addWrapAttribute(writer, "jjtree", "target", sourceDirectory + "/" + include, 3);
+            AntBuildWriterUtil.addWrapAttribute(writer, "jjtree", "outputdirectory", outputDirectory, 3);
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer, "jjtree", "javacchome", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12", 3);
+            AntBuildWriterUtil.addWrapAttribute(writer, "jjtree", "static", getOption(config, "isStatic", "false"), 3);
+            AntBuildWriterUtil.addWrapAttribute(writer, "jjtree", "multi", getOption(config, "multi", "true"), 3);
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer, "jjtree", "nodepackage", getOption(config, "nodePackage", null), 3);
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer, "jjtree", "nodeusesparser", getOption(config, "nodeUsesParser", "true"), 3);
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer, "jjtree", "buildnodefiles", getOption(config, "buildNodeFiles", "false"), 3);
             writer.endElement(); // jjtree
         }
     }
@@ -636,10 +670,16 @@ public class AntExtensionWriter {
 
         if (!includes.isEmpty()) {
             writer.startElement("copy");
-            writer.addAttribute("file", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc-7.0.12.jar");
-            writer.addAttribute("tofile", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc.jar");
-            writer.addAttribute("preservelastmodified", "true");
-            writer.addAttribute("failonerror", "false");
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer,
+                    "copy",
+                    "file",
+                    "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc-7.0.12.jar",
+                    3);
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer, "copy", "tofile", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc.jar", 3);
+            AntBuildWriterUtil.addWrapAttribute(writer, "copy", "preservelastmodified", "true", 3);
+            AntBuildWriterUtil.addWrapAttribute(writer, "copy", "failonerror", "false", 3);
             writer.endElement(); // copy
         }
 
@@ -647,14 +687,19 @@ public class AntExtensionWriter {
             writer.startElement("javacc");
             String inputDir =
                     "jjtree-javacc".equals(goal) ? "${maven.build.dir}/generated-sources/jjtree" : sourceDirectory;
-            writer.addAttribute("target", inputDir + "/" + include);
-            writer.addAttribute("outputdirectory", outputDirectory);
-            writer.addAttribute("javacchome", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12");
-            writer.addAttribute("static", getOption(config, "isStatic", "false"));
-            writer.addAttribute("buildparser", getOption(config, "buildParser", "true"));
-            writer.addAttribute("debugparser", getOption(config, "debugParser", "false"));
-            writer.addAttribute("debuglookahead", getOption(config, "debugLookAhead", "false"));
-            writer.addAttribute("debugtokenmanager", getOption(config, "debugTokenManager", "false"));
+            AntBuildWriterUtil.addWrapAttribute(writer, "javacc", "target", inputDir + "/" + include, 3);
+            AntBuildWriterUtil.addWrapAttribute(writer, "javacc", "outputdirectory", outputDirectory, 3);
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer, "javacc", "javacchome", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12", 3);
+            AntBuildWriterUtil.addWrapAttribute(writer, "javacc", "static", getOption(config, "isStatic", "false"), 3);
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer, "javacc", "buildparser", getOption(config, "buildParser", "true"), 3);
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer, "javacc", "debugparser", getOption(config, "debugParser", "false"), 3);
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer, "javacc", "debuglookahead", getOption(config, "debugLookAhead", "false"), 3);
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer, "javacc", "debugtokenmanager", getOption(config, "debugTokenManager", "false"), 3);
             writer.endElement(); // javacc
         }
     }
@@ -712,8 +757,18 @@ public class AntExtensionWriter {
         writer.addAttribute("target", "sisu-index");
         writer.endElement(); // antcall
 
+        writer.startElement("antcall");
+        writer.addAttribute("target", "-sisu-missing");
+        writer.endElement(); // antcall
+
         writer.endElement(); // sequential
         writer.endElement(); // target
+
+        writeToolMissingWarning(
+                writer,
+                "-sisu-missing",
+                "sisu.present",
+                "Sisu is not present on the classpath. javax.inject.Named index not generated.");
 
         writer.startElement("target");
         writer.addAttribute("name", "sisu-index");
@@ -775,8 +830,18 @@ public class AntExtensionWriter {
         writer.addAttribute("target", "-bnd-bundle");
         writer.endElement(); // antcall
 
+        writer.startElement("antcall");
+        writer.addAttribute("target", "-bnd-missing");
+        writer.endElement(); // antcall
+
         writer.endElement(); // sequential
         writer.endElement(); // target
+
+        writeToolMissingWarning(
+                writer,
+                "-bnd-missing",
+                "bnd.present",
+                "Bnd is not present on the classpath. Jar will be packaged without an OSGi manifest.");
 
         // bnd always builds a full jar (Builder mode); only its MANIFEST.MF is kept, the real
         // <jar> task packs the classes - mirrors bnd-maven-plugin's bnd-process goal.
@@ -786,10 +851,7 @@ public class AntExtensionWriter {
 
         writer.startElement("sequential");
 
-        writer.startElement("echo");
-        writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
-        writer.writeText(getBndPropertiesText());
-        writer.endElement(); // echo
+        writeBndFileTarget(writer);
 
         writer.startElement("taskdef");
         writer.addAttribute("resource", "aQute/bnd/ant/taskdef.properties");
@@ -797,11 +859,11 @@ public class AntExtensionWriter {
         writer.endElement(); // taskdef
 
         writer.startElement("bnd");
-        writer.addAttribute("classpath", "${maven.build.outputDir}");
-        writer.addAttribute("failok", "false");
-        writer.addAttribute("exceptions", "true");
-        writer.addAttribute("files", "${maven.build.dir}/bnd.bnd");
-        writer.addAttribute("output", "${maven.build.dir}/bnd-manifest.jar");
+        AntBuildWriterUtil.addWrapAttribute(writer, "bnd", "classpath", "${maven.build.outputDir}", 3);
+        AntBuildWriterUtil.addWrapAttribute(writer, "bnd", "failok", "false", 3);
+        AntBuildWriterUtil.addWrapAttribute(writer, "bnd", "exceptions", "true", 3);
+        AntBuildWriterUtil.addWrapAttribute(writer, "bnd", "files", "${maven.build.dir}/bnd.bnd", 3);
+        AntBuildWriterUtil.addWrapAttribute(writer, "bnd", "output", "${maven.build.dir}/bnd-manifest.jar", 3);
         writer.endElement(); // bnd
 
         writer.startElement("mkdir");
@@ -832,6 +894,37 @@ public class AntExtensionWriter {
         XmlWriterUtil.writeLineBreak(writer);
     }
 
+    // -exportcontents alone won't pull classes into the jar; force -includeresource in unless
+    // already set. Must be an absolute path: bnd resolves "@path" against its own basedir, not the
+    // ant project basedir. ${basedir} is expanded by ant at runtime, keeping the build relocatable.
+    private static final String FORCED_INCLUDE_RESOURCE = "-includeresource: @${basedir}/${maven.build.outputDir}\n";
+
+    /**
+     * Writes target/bnd.bnd: a real bnd.bnd file in the module is copied as-is (kept live rather
+     * than snapshotted into the generated build), inline pom instructions are echoed out fresh.
+     */
+    private void writeBndFileTarget(XMLWriter writer) {
+        if (AntBuildWriterUtil.getBndInstructions(project) == null && AntBuildWriterUtil.hasBndFile(project)) {
+            writer.startElement("copy");
+            writer.addAttribute("file", "bnd.bnd");
+            writer.addAttribute("tofile", "${maven.build.dir}/bnd.bnd");
+            writer.endElement(); // copy
+
+            if (!AntBuildWriterUtil.bndFileHasIncludeResource(project)) {
+                writer.startElement("echo");
+                writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
+                writer.addAttribute("append", "true");
+                writer.writeText("\n" + FORCED_INCLUDE_RESOURCE);
+                writer.endElement(); // echo
+            }
+        } else {
+            writer.startElement("echo");
+            writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
+            writer.writeText(getBndPropertiesText());
+            writer.endElement(); // echo
+        }
+    }
+
     private String getBndPropertiesText() {
         String instructions = AntBuildWriterUtil.getBndInstructions(project);
         StringBuilder sb = new StringBuilder();
@@ -839,13 +932,8 @@ public class AntExtensionWriter {
         if (instructions != null && instructions.length() > 0) {
             sb.append(instructions).append("\n");
         }
-        // -exportcontents alone won't pull classes into the jar; force them in. Must be an absolute
-        // path: bnd resolves "@path" against its own basedir, not the ant project basedir.
         if (instructions == null || !instructions.contains("-includeresource")) {
-            String outputDir = new File(project.getBuild().getOutputDirectory())
-                    .getAbsolutePath()
-                    .replace('\\', '/');
-            sb.append("-includeresource: @").append(outputDir).append("\n");
+            sb.append(FORCED_INCLUDE_RESOURCE);
         }
         return sb.toString();
     }

@@ -85,11 +85,36 @@ public class AntMojoTest {
         org.junit.Assert.assertTrue(
                 "-bnd must run before the final jar is built, so its manifest can be picked up",
                 bndAntcallIndex < jarTaskIndex);
+
+        // ant-bnd-test/bnd.bnd is a real physical file, not inline pom config: must be <copy>-ed
+        // live, not snapshotted into the build via <echo>, so edits to it don't need regeneration.
+        // (bnd.present is false in this hermetic test repo, so it can't actually run here - see
+        // the real end-to-end verification against javaparser-core for that.)
+        org.junit.Assert.assertTrue(
+                "physical bnd.bnd must be copied, not re-serialized", mavenBuildXml.contains("<copy file=\"bnd.bnd\""));
     }
 
     @Test
     public void testProjectWithJavacc() throws Exception {
-        invokeAntMojo("ant-javacc-test");
+        // javacc isn't resolvable in this hermetic test repo, so gen-sources must fail fast
+        // rather than silently skip generation and let compile fail confusingly later.
+        File testPom = new File("src/test/resources/unit/ant-javacc-test");
+        File antBasedir = new File("target/test/unit/ant-javacc-test/");
+
+        AntMojo mojo = (AntMojo) rule.lookupMojo("ant", new File(testPom, "pom.xml"));
+        mojo.execute();
+
+        org.codehaus.plexus.util.FileUtils.copyDirectoryStructure(
+                new File(testPom, "src"), new File(antBasedir, "src"));
+
+        try {
+            AntWrapper.invoke(new File(antBasedir, AntBuildWriter.DEFAULT_BUILD_FILENAME));
+            org.junit.Assert.fail("expected the build to fail fast on missing javacc");
+        } catch (org.apache.tools.ant.BuildException e) {
+            org.junit.Assert.assertTrue(
+                    "expected fail-fast message, got: " + e.getMessage(),
+                    e.getMessage().contains("JavaCC/JJTree not found"));
+        }
     }
 
     @Test
@@ -99,13 +124,21 @@ public class AntMojoTest {
 
     private void invokeAntMojo(String testProject) throws Exception {
         File testPom = new File("src/test/resources/unit/" + testProject);
+
+        // bnd.bnd must be in place before the mojo runs: AntBuildWriterUtil.hasBndFile() looks for
+        // it at generation time to decide between copying the real file vs. echoing pom instructions.
+        File antBasedir = new File("target/test/unit/" + testProject + "/");
+        File bndFile = new File(testPom, "bnd.bnd");
+        if (bndFile.exists()) {
+            org.codehaus.plexus.util.FileUtils.copyFile(bndFile, new File(antBasedir, "bnd.bnd"));
+        }
+
         AntMojo mojo = (AntMojo) rule.lookupMojo("ant", new File(testPom, "pom.xml"));
         org.junit.Assert.assertNotNull("Mojo could not be looked up", mojo);
         mojo.execute();
 
         MavenProject currentProject = (MavenProject) rule.getVariableValueFromObject(mojo, "project");
 
-        File antBasedir = new File("target/test/unit/" + testProject + "/");
         File antBuild = new File(antBasedir, AntBuildWriter.DEFAULT_BUILD_FILENAME);
         org.junit.Assert.assertTrue(antBuild.exists());
         if (!currentProject.getPackaging().toLowerCase().equals("pom")) {
@@ -116,11 +149,6 @@ public class AntMojoTest {
         File srcDir = new File(testPom, "src");
         if (srcDir.exists()) {
             org.codehaus.plexus.util.FileUtils.copyDirectoryStructure(srcDir, new File(antBasedir, "src"));
-        }
-
-        File bndFile = new File(testPom, "bnd.bnd");
-        if (bndFile.exists()) {
-            org.codehaus.plexus.util.FileUtils.copyFile(bndFile, new File(antBasedir, "bnd.bnd"));
         }
 
         AntWrapper.invoke(antBuild);
