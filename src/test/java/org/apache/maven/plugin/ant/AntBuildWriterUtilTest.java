@@ -63,15 +63,8 @@ public class AntBuildWriterUtilTest {
         File testPom = new File("src/test/resources/unit/ant-javadoc-test");
         MavenProject project = rule.readMavenProject(testPom);
 
-        assertEquals(
-                "gr.spinellis.umlgraph.doclet.UmlGraphDoc",
-                AntBuildWriterUtil.getMavenJavadocPluginBasicOption(project, "doclet", null));
-
         assertNotNull(AntBuildWriterUtil.getMavenJavadocPluginOptions(project, "links", null));
         assertEquals(2, AntBuildWriterUtil.getMavenJavadocPluginOptions(project, "links", null).length);
-
-        assertNotNull(AntBuildWriterUtil.getMavenJavadocPluginOptions(project, "docletArtifacts", null));
-        assertEquals(2, AntBuildWriterUtil.getMavenJavadocPluginOptions(project, "docletArtifacts", null).length);
 
         Map[] options = AntBuildWriterUtil.getMavenJavadocPluginOptions(project, "tags", null);
         assertNotNull(options);

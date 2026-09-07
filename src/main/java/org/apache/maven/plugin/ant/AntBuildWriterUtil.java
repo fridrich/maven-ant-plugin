@@ -971,6 +971,27 @@ public class AntBuildWriterUtil {
      * @return a map with the options found
      * @throws IOException if any
      */
+    /** No plugin-level config: fall back to "default-compile" execution, else the first configured one. */
+    private static Object getFallbackExecutionConfiguration(Plugin plugin) {
+        if (plugin.getExecutions() == null) {
+            return null;
+        }
+        Object firstExecConf = null;
+        for (Object execObj : plugin.getExecutions()) {
+            PluginExecution execution = (PluginExecution) execObj;
+            if (execution.getConfiguration() == null) {
+                continue;
+            }
+            if (firstExecConf == null) {
+                firstExecConf = execution.getConfiguration();
+            }
+            if ("default-compile".equals(execution.getId())) {
+                return execution.getConfiguration();
+            }
+        }
+        return firstExecConf;
+    }
+
     private static Map getMavenPluginConfigurationsImpl(
             MavenProject project, String pluginArtifactId, String optionName, String defaultValue) throws IOException {
         List plugins = new ArrayList();
@@ -999,6 +1020,9 @@ public class AntBuildWriterUtil {
                 }
 
                 pluginConf = plugin.getConfiguration();
+                if (pluginConf == null) {
+                    pluginConf = getFallbackExecutionConfiguration(plugin);
+                }
             }
 
             if (next instanceof ReportPlugin) {
@@ -1339,8 +1363,8 @@ public class AntBuildWriterUtil {
                     if (plugin.getExecutions() != null) {
                         for (Object execObj : plugin.getExecutions()) {
                             PluginExecution exec = (PluginExecution) execObj;
-                            CompilerExecution compilerExec =
-                                    parseCompilerConfiguration(exec.getId(), exec.getConfiguration(), null, project);
+                            CompilerExecution compilerExec = parseCompilerConfiguration(
+                                    exec.getId(), exec.getConfiguration(), project.getCompileSourceRoots(), project);
                             if (compilerExec != null) {
                                 executions.add(compilerExec);
                             }
@@ -1357,7 +1381,10 @@ public class AntBuildWriterUtil {
                     for (Plugin plugin : profile.getBuild().getPlugins()) {
                         if ("maven-compiler-plugin".equals(plugin.getArtifactId())) {
                             CompilerExecution profileExec = parseCompilerConfiguration(
-                                    profile.getId() + "-default", plugin.getConfiguration(), null, project);
+                                    profile.getId() + "-default",
+                                    plugin.getConfiguration(),
+                                    project.getCompileSourceRoots(),
+                                    project);
                             if (profileExec != null) {
                                 executions.add(profileExec);
                             }
@@ -1367,7 +1394,7 @@ public class AntBuildWriterUtil {
                                     CompilerExecution compilerExec = parseCompilerConfiguration(
                                             profile.getId() + "-" + exec.getId(),
                                             exec.getConfiguration(),
-                                            null,
+                                            project.getCompileSourceRoots(),
                                             project);
                                     if (compilerExec != null) {
                                         executions.add(compilerExec);
@@ -1384,7 +1411,7 @@ public class AntBuildWriterUtil {
     }
 
     private static CompilerExecution parseCompilerConfiguration(
-            String id, Object pluginConf, List<String> compileSourceRoots, MavenProject project) {
+            String id, Object pluginConf, List<String> defaultCompileSourceRoots, MavenProject project) {
         if (pluginConf == null) {
             return null;
         }
@@ -1398,11 +1425,9 @@ public class AntBuildWriterUtil {
             String target = getElementText(doc, "target");
 
             List<String> roots = new ArrayList<String>();
-            if (compileSourceRoots != null) {
-                roots.addAll(compileSourceRoots);
-            }
             NodeList rootsNode = doc.getElementsByTagName("compileSourceRoots");
             if (rootsNode.getLength() > 0) {
+                // explicit override replaces, rather than adds to, the project's default roots
                 NodeList childs = rootsNode.item(0).getChildNodes();
                 for (int i = 0; i < childs.getLength(); i++) {
                     Node child = childs.item(i);
@@ -1419,6 +1444,9 @@ public class AntBuildWriterUtil {
                         roots.add(path);
                     }
                 }
+            } else if (defaultCompileSourceRoots != null) {
+                // no override: use the project's normal roots, filtered by this execution's includes/excludes
+                roots.addAll(defaultCompileSourceRoots);
             }
 
             Map[] includes = parseCompilerPluginOptions(doc, "includes");

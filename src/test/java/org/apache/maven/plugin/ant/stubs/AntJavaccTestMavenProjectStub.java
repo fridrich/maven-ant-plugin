@@ -37,6 +37,14 @@ package org.apache.maven.plugin.ant.stubs;
  * under the License.
  */
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.DefaultArtifact;
+import org.apache.maven.artifact.handler.DefaultArtifactHandler;
+import org.apache.maven.artifact.versioning.VersionRange;
 import org.apache.maven.model.Model;
 
 public class AntJavaccTestMavenProjectStub extends AbstractAntTestMavenProjectStub {
@@ -51,5 +59,25 @@ public class AntJavaccTestMavenProjectStub extends AbstractAntTestMavenProjectSt
         if (model.getBuild() != null) {
             getBuild().setPlugins(model.getBuild().getPlugins());
         }
+    }
+
+    // Already present so the plugin doesn't need to resolve it transitively - not something this
+    // in-process test harness can do (no wired Maven session/resolver).
+    @Override
+    public List getCompileArtifacts() {
+        Artifact javacc = new DefaultArtifact(
+                "net.java.dev.javacc",
+                "javacc",
+                VersionRange.createFromVersion("7.0.12"),
+                Artifact.SCOPE_COMPILE,
+                "jar",
+                null,
+                new DefaultArtifactHandler("jar"),
+                false);
+        javacc.setFile(new File("net/java/dev/javacc/javacc/7.0.12/javacc-7.0.12.jar"));
+
+        List artifacts = new ArrayList(super.getCompileArtifacts());
+        artifacts.add(javacc);
+        return artifacts;
     }
 }

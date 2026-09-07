@@ -448,12 +448,12 @@ public class AntExtensionWriter {
     }
 
     public void writeBndTarget(XMLWriter writer) {
-        XmlWriterUtil.writeCommentText(writer, "Bnd OSGi Bundle generation target", 1);
+        XmlWriterUtil.writeCommentText(writer, "Bnd OSGi manifest generation target", 1);
 
         writer.startElement("target");
         writer.addAttribute("name", "-bnd");
         writer.addAttribute("depends", "compile");
-        writer.addAttribute("description", "Generate OSGi Bundle");
+        writer.addAttribute("description", "Generate the OSGi manifest");
 
         writer.startElement("sequential");
 
@@ -470,6 +470,8 @@ public class AntExtensionWriter {
         writer.endElement(); // sequential
         writer.endElement(); // target
 
+        // bnd always builds a full jar (Builder mode); only its MANIFEST.MF is kept, the real
+        // <jar> task packs the classes - mirrors bnd-maven-plugin's bnd-process goal.
         writer.startElement("target");
         writer.addAttribute("name", "-bnd-bundle");
         writer.addAttribute("if", "bnd.present");
@@ -491,11 +493,29 @@ public class AntExtensionWriter {
         writer.addAttribute("failok", "false");
         writer.addAttribute("exceptions", "true");
         writer.addAttribute("files", "${maven.build.dir}/bnd.bnd");
-        writer.addAttribute("output", "${maven.build.dir}/${maven.build.finalName}.jar");
+        writer.addAttribute("output", "${maven.build.dir}/bnd-manifest.jar");
         writer.endElement(); // bnd
+
+        writer.startElement("mkdir");
+        writer.addAttribute("dir", "${maven.build.outputDir}/META-INF");
+        writer.endElement(); // mkdir
+
+        writer.startElement("unzip");
+        writer.addAttribute("src", "${maven.build.dir}/bnd-manifest.jar");
+        writer.addAttribute("dest", "${maven.build.outputDir}");
+        writer.startElement("patternset");
+        writer.startElement("include");
+        writer.addAttribute("name", "META-INF/MANIFEST.MF");
+        writer.endElement(); // include
+        writer.endElement(); // patternset
+        writer.endElement(); // unzip
 
         writer.startElement("delete");
         writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
+        writer.endElement(); // delete
+
+        writer.startElement("delete");
+        writer.addAttribute("file", "${maven.build.dir}/bnd-manifest.jar");
         writer.endElement(); // delete
 
         writer.endElement(); // sequential
@@ -510,6 +530,14 @@ public class AntExtensionWriter {
         sb.append("# Generated dynamically by maven-ant-plugin\n");
         if (instructions != null && instructions.length() > 0) {
             sb.append(instructions).append("\n");
+        }
+        // -exportcontents alone won't pull classes into the jar; force them in. Must be an absolute
+        // path: bnd resolves "@path" against its own basedir, not the ant project basedir.
+        if (instructions == null || !instructions.contains("-includeresource")) {
+            String outputDir = new File(project.getBuild().getOutputDirectory())
+                    .getAbsolutePath()
+                    .replace('\\', '/');
+            sb.append("-includeresource: @").append(outputDir).append("\n");
         }
         return sb.toString();
     }

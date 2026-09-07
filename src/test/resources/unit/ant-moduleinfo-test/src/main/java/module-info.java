@@ -17,5 +17,5 @@
  * under the License.
  */
 module ant.moduleinfo.test {
-    exports .;
+    exports ant.moduleinfo.test;
 }

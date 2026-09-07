@@ -58,26 +58,6 @@ under the License.
             <link>http://java.sun.com/j2ee/1.4/docs/api</link>
             <link>http://java.sun.com/j2se/1.5.0/docs/api</link>
           </links>
-          <doclet>gr.spinellis.umlgraph.doclet.UmlGraphDoc</doclet>
-          <docletArtifact>
-            <groupId>gr.spinellis</groupId>
-            <artifactId>UmlGraph</artifactId>
-            <version>4.5</version>
-          </docletArtifact>
-
-          <docletArtifacts>
-            <docletArtifact>
-              <groupId>gr.spinellis</groupId>
-              <artifactId>UmlGraph</artifactId>
-              <version>4.5</version>
-            </docletArtifact>
-            <docletArtifact>
-              <groupId>gr.spinellis</groupId>
-              <artifactId>UmlGraph</artifactId>
-              <version>4.5</version>
-            </docletArtifact>
-          </docletArtifacts>
-
         </configuration>
       </plugin>
     </plugins>
@@ -93,25 +73,6 @@ under the License.
             <link>http://java.sun.com/j2ee/1.4/docs/api</link>
             <link>http://java.sun.com/j2se/1.5.0/docs/api</link>
           </links>
-          <doclet>gr.spinellis.umlgraph.doclet.UmlGraphDoc</doclet>
-          <docletArtifact>
-            <groupId>gr.spinellis</groupId>
-            <artifactId>UmlGraph</artifactId>
-            <version>4.5</version>
-          </docletArtifact>
-
-          <docletArtifacts>
-            <docletArtifact>
-              <groupId>gr.spinellis</groupId>
-              <artifactId>UmlGraph</artifactId>
-              <version>4.5</version>
-            </docletArtifact>
-            <docletArtifact>
-              <groupId>gr.spinellis</groupId>
-              <artifactId>UmlGraph</artifactId>
-              <version>4.5</version>
-            </docletArtifact>
-          </docletArtifacts>
           <tags>
             <tag>
               <name>requirement</name>

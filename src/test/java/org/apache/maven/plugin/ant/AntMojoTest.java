@@ -60,6 +60,31 @@ public class AntMojoTest {
     @Test
     public void testProjectWithBnd() throws Exception {
         invokeAntMojo("ant-bnd-test");
+
+        // bnd must write its manifest to a side jar, before the real <jar> task, not overwrite it.
+        String mavenBuildXml = org.codehaus.plexus.util.FileUtils.fileRead(
+                new File("target/test/unit/ant-bnd-test", AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME));
+
+        int bndTaskIndex = mavenBuildXml.indexOf("<bnd ");
+        org.junit.Assert.assertTrue("bnd task not found", bndTaskIndex >= 0);
+        int bndTaskEnd = mavenBuildXml.indexOf("/>", bndTaskIndex);
+        String bndTaskElement = mavenBuildXml.substring(bndTaskIndex, bndTaskEnd);
+        org.junit.Assert.assertFalse(
+                "bnd task must not write directly to the final packaged jar",
+                bndTaskElement.contains("${maven.build.finalName}"));
+
+        org.junit.Assert.assertTrue(
+                "bnd instructions must force-include the compiled classes, "
+                        + "otherwise -exportcontents alone leaves the jar empty",
+                mavenBuildXml.contains("-includeresource: @"));
+
+        int bndAntcallIndex = mavenBuildXml.indexOf("<antcall target=\"-bnd\"/>");
+        int jarTaskIndex = mavenBuildXml.indexOf("<jar jarfile=\"${maven.build.dir}/${maven.build.finalName}.jar\"");
+        org.junit.Assert.assertTrue("-bnd antcall not found", bndAntcallIndex >= 0);
+        org.junit.Assert.assertTrue("jar task not found", jarTaskIndex >= 0);
+        org.junit.Assert.assertTrue(
+                "-bnd must run before the final jar is built, so its manifest can be picked up",
+                bndAntcallIndex < jarTaskIndex);
     }
 
     @Test

@@ -145,8 +145,8 @@ public abstract class AbstractAntTestMavenProjectStub extends MavenProjectStub {
      * @see org.apache.maven.project.MavenProject#getCompileSourceRoots()
      */
     public List getCompileSourceRoots() {
-        File src =
-                new File(PlexusTestCase.getBasedir() + "/src/test/resources/unit/" + getProjetPath() + "src/main/java");
+        File src = new File(
+                PlexusTestCase.getBasedir() + "/src/test/resources/unit/" + getProjetPath() + "/src/main/java");
         return Collections.singletonList(src.getAbsolutePath());
     }
 
@@ -154,8 +154,8 @@ public abstract class AbstractAntTestMavenProjectStub extends MavenProjectStub {
      * @see org.apache.maven.project.MavenProject#getTestCompileSourceRoots()
      */
     public List getTestCompileSourceRoots() {
-        File test =
-                new File(PlexusTestCase.getBasedir() + "/src/test/resources/unit/" + getProjetPath() + "src/test/java");
+        File test = new File(
+                PlexusTestCase.getBasedir() + "/src/test/resources/unit/" + getProjetPath() + "/src/test/java");
         return Collections.singletonList(test.getAbsolutePath());
     }
 

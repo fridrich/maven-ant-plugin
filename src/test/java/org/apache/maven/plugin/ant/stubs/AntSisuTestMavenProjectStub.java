@@ -37,6 +37,14 @@ package org.apache.maven.plugin.ant.stubs;
  * under the License.
  */
 
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.DefaultArtifact;
+import org.apache.maven.artifact.handler.DefaultArtifactHandler;
+import org.apache.maven.artifact.versioning.VersionRange;
 import org.apache.maven.model.Model;
 
 public class AntSisuTestMavenProjectStub extends AbstractAntTestMavenProjectStub {
@@ -51,5 +59,26 @@ public class AntSisuTestMavenProjectStub extends AbstractAntTestMavenProjectStub
         if (model.getBuild() != null) {
             getBuild().setPlugins(model.getBuild().getPlugins());
         }
+    }
+
+    // Already present so the plugin doesn't need to resolve it transitively - not something this
+    // in-process test harness can do (no wired Maven session/resolver).
+    @Override
+    public List getCompileArtifacts() {
+        Artifact sisuInject = new DefaultArtifact(
+                "org.eclipse.sisu",
+                "org.eclipse.sisu.inject",
+                VersionRange.createFromVersion("1.0.1"),
+                Artifact.SCOPE_COMPILE,
+                "jar",
+                null,
+                new DefaultArtifactHandler("jar"),
+                false);
+        sisuInject.setFile(
+                new File("org/eclipse/sisu/org.eclipse.sisu.inject/1.0.1/org.eclipse.sisu.inject-1.0.1.jar"));
+
+        List artifacts = new ArrayList(super.getCompileArtifacts());
+        artifacts.add(sisuInject);
+        return artifacts;
     }
 }
