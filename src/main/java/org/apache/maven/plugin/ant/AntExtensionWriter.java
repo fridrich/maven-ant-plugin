@@ -190,118 +190,157 @@ public class AntExtensionWriter {
             writer.endElement(); // copy
         }
 
-        String jjtreeMain = "org.javacc.jjtree.Main";
-        String javaccMain = "org.javacc.parser.Main";
+        if (isJavaccProject()) {
+            writer.startElement("available");
+            writer.addAttribute("classname", "org.javacc.parser.Main");
+            writer.addAttribute("property", "javacc.present");
+            writer.addAttribute("classpathref", "build.classpath");
+            writer.endElement(); // available
 
-        List<JavaccExecution> executions = getJavaccExecutions();
-        for (JavaccExecution exec : executions) {
-            Xpp3Dom config = exec.getConfiguration();
-            String goal = exec.getGoal();
-
-            String sourceDirectory = config.getChild("sourceDirectory") != null
-                    ? config.getChild("sourceDirectory").getValue()
-                    : "src/main/javacc";
-            String outputDirectory = config.getChild("outputDirectory") != null
-                    ? config.getChild("outputDirectory").getValue()
-                    : "${maven.build.dir}/generated-sources/" + (goal.contains("jjtree") ? "jjtree" : "javacc");
-
-            sourceDirectory = interpolate(sourceDirectory);
-            outputDirectory = interpolate(outputDirectory);
-
-            writer.startElement("mkdir");
-            writer.addAttribute("dir", outputDirectory);
-            writer.endElement(); // mkdir
-
-            if ("jjtree".equals(goal) || "jjtree-javacc".equals(goal)) {
-                List<String> includes = new ArrayList<String>();
-                String includeOption = getIncludeFile(config, null);
-                if (includeOption != null) {
-                    includes.add(includeOption);
-                } else {
-                    includes.addAll(
-                            getGrammarFiles(project.getBasedir().getAbsolutePath() + "/" + sourceDirectory, ".jjt"));
-                }
-
-                for (String include : includes) {
-                    writer.startElement("java");
-                    writer.addAttribute("classname", jjtreeMain);
-                    writer.addAttribute("fork", "true");
-                    writer.addAttribute("failonerror", "true");
-
-                    writer.startElement("classpath");
-                    writer.startElement("path");
-                    writer.addAttribute("refid", "build.classpath");
-                    writer.endElement(); // path
-                    writer.endElement(); // classpath
-
-                    addExecArg(writer, "-GRAMMAR_ENCODING", getOption(config, "grammarEncoding", "UTF-8"));
-                    addExecArg(writer, "-STATIC", getOption(config, "isStatic", "false"));
-                    addExecArg(writer, "-MULTI", getOption(config, "multi", "true"));
-                    addExecArg(writer, "-NODE_PACKAGE", getOption(config, "nodePackage", null));
-                    addExecArg(writer, "-NODE_USES_PARSER", getOption(config, "nodeUsesParser", "true"));
-                    addExecArg(writer, "-BUILD_NODE_FILES", getOption(config, "buildNodeFiles", "false"));
-                    addExecArg(writer, "-OUTPUT_DIRECTORY", outputDirectory);
-
-                    writer.startElement("arg");
-                    writer.addAttribute("value", sourceDirectory + "/" + include);
-                    writer.endElement(); // arg
-
-                    writer.endElement(); // java
-                }
-            }
-
-            if ("javacc".equals(goal) || "jjtree-javacc".equals(goal)) {
-                List<String> includes = new ArrayList<String>();
-                String includeOption = getIncludeFile(config, null);
-                if (includeOption != null) {
-                    includes.add(includeOption);
-                } else {
-                    String inputDir = "jjtree-javacc".equals(goal)
-                            ? "${maven.build.dir}/generated-sources/jjtree"
-                            : (project.getBasedir().getAbsolutePath() + "/" + sourceDirectory);
-                    String resolvedInputDir = "jjtree-javacc".equals(goal)
-                            ? (project.getBasedir().getAbsolutePath() + "/target/generated-sources/jjtree")
-                            : inputDir;
-                    includes.addAll(getGrammarFiles(resolvedInputDir, ".jj"));
-                }
-
-                for (String include : includes) {
-                    writer.startElement("java");
-                    writer.addAttribute("classname", javaccMain);
-                    writer.addAttribute("fork", "true");
-                    writer.addAttribute("failonerror", "true");
-
-                    writer.startElement("classpath");
-                    writer.startElement("path");
-                    writer.addAttribute("refid", "build.classpath");
-                    writer.endElement(); // path
-                    writer.endElement(); // classpath
-
-                    addExecArg(writer, "-GRAMMAR_ENCODING", getOption(config, "grammarEncoding", "UTF-8"));
-                    addExecArg(writer, "-STATIC", getOption(config, "isStatic", "false"));
-                    addExecArg(writer, "-BUILD_PARSER", getOption(config, "buildParser", "true"));
-                    addExecArg(writer, "-DEBUG_PARSER", getOption(config, "debugParser", "false"));
-                    addExecArg(writer, "-DEBUG_LOOKAHEAD", getOption(config, "debugLookAhead", "false"));
-                    addExecArg(writer, "-DEBUG_TOKEN_MANAGER", getOption(config, "debugTokenManager", "false"));
-                    addExecArg(
-                            writer, "-TOKEN_MANAGER_USES_PARSER", getOption(config, "tokenManagerUsesParser", "true"));
-                    addExecArg(writer, "-OUTPUT_DIRECTORY", outputDirectory);
-
-                    String inputDir = "jjtree-javacc".equals(goal)
-                            ? "${maven.build.dir}/generated-sources/jjtree"
-                            : sourceDirectory;
-                    writer.startElement("arg");
-                    writer.addAttribute("value", inputDir + "/" + include);
-                    writer.endElement(); // arg
-
-                    writer.endElement(); // java
-                }
-            }
+            writer.startElement("antcall");
+            writer.addAttribute("target", "-javacc-compile");
+            writer.endElement(); // antcall
         }
 
         writer.endElement(); // target
 
         XmlWriterUtil.writeLineBreak(writer);
+
+        if (isJavaccProject()) {
+            writer.startElement("target");
+            writer.addAttribute("name", "-javacc-compile");
+            writer.addAttribute("if", "javacc.present");
+
+            writer.startElement("sequential");
+
+            String jjtreeMain = "org.javacc.jjtree.Main";
+            String javaccMain = "org.javacc.parser.Main";
+
+            List<JavaccExecution> executions = getJavaccExecutions();
+            for (JavaccExecution exec : executions) {
+                Xpp3Dom config = exec.getConfiguration();
+                String goal = exec.getGoal();
+
+                String sourceDirectory = config.getChild("sourceDirectory") != null
+                        ? config.getChild("sourceDirectory").getValue()
+                        : "src/main/javacc";
+                String outputDirectory = config.getChild("outputDirectory") != null
+                        ? config.getChild("outputDirectory").getValue()
+                        : "${maven.build.dir}/generated-sources/" + (goal.contains("jjtree") ? "jjtree" : "javacc");
+
+                sourceDirectory = interpolate(sourceDirectory);
+                outputDirectory = interpolate(outputDirectory);
+
+                writer.startElement("mkdir");
+                writer.addAttribute("dir", outputDirectory);
+                writer.endElement(); // mkdir
+
+                if ("jjtree".equals(goal) || "jjtree-javacc".equals(goal)) {
+                    writeJjtreeTask(writer, jjtreeMain, sourceDirectory, outputDirectory, config);
+                }
+
+                if ("javacc".equals(goal) || "jjtree-javacc".equals(goal)) {
+                    writeJavaccTask(writer, javaccMain, sourceDirectory, outputDirectory, config, goal);
+                }
+            }
+
+            writer.endElement(); // sequential
+            writer.endElement(); // target
+
+            XmlWriterUtil.writeLineBreak(writer);
+        }
+    }
+
+    private void writeJjtreeTask(
+            XMLWriter writer, String jjtreeMain, String sourceDirectory, String outputDirectory, Xpp3Dom config)
+            throws IOException {
+        List<String> includes = new ArrayList<String>();
+        String includeOption = getIncludeFile(config, null);
+        if (includeOption != null) {
+            includes.add(includeOption);
+        } else {
+            includes.addAll(getGrammarFiles(project.getBasedir().getAbsolutePath() + "/" + sourceDirectory, ".jjt"));
+        }
+
+        for (String include : includes) {
+            writer.startElement("java");
+            writer.addAttribute("classname", jjtreeMain);
+            writer.addAttribute("fork", "true");
+            writer.addAttribute("failonerror", "true");
+
+            writer.startElement("classpath");
+            writer.startElement("path");
+            writer.addAttribute("refid", "build.classpath");
+            writer.endElement(); // path
+            writer.endElement(); // classpath
+
+            addExecArg(writer, "-GRAMMAR_ENCODING", getOption(config, "grammarEncoding", "UTF-8"));
+            addExecArg(writer, "-STATIC", getOption(config, "isStatic", "false"));
+            addExecArg(writer, "-MULTI", getOption(config, "multi", "true"));
+            addExecArg(writer, "-NODE_PACKAGE", getOption(config, "nodePackage", null));
+            addExecArg(writer, "-NODE_USES_PARSER", getOption(config, "nodeUsesParser", "true"));
+            addExecArg(writer, "-BUILD_NODE_FILES", getOption(config, "buildNodeFiles", "false"));
+            addExecArg(writer, "-OUTPUT_DIRECTORY", outputDirectory);
+
+            writer.startElement("arg");
+            writer.addAttribute("value", sourceDirectory + "/" + include);
+            writer.endElement(); // arg
+
+            writer.endElement(); // java
+        }
+    }
+
+    private void writeJavaccTask(
+            XMLWriter writer,
+            String javaccMain,
+            String sourceDirectory,
+            String outputDirectory,
+            Xpp3Dom config,
+            String goal)
+            throws IOException {
+        List<String> includes = new ArrayList<String>();
+        String includeOption = getIncludeFile(config, null);
+        if (includeOption != null) {
+            includes.add(includeOption);
+        } else {
+            String inputDir = "jjtree-javacc".equals(goal)
+                    ? "${maven.build.dir}/generated-sources/jjtree"
+                    : (project.getBasedir().getAbsolutePath() + "/" + sourceDirectory);
+            String resolvedInputDir = "jjtree-javacc".equals(goal)
+                    ? (project.getBasedir().getAbsolutePath() + "/target/generated-sources/jjtree")
+                    : inputDir;
+            includes.addAll(getGrammarFiles(resolvedInputDir, ".jj"));
+        }
+
+        for (String include : includes) {
+            writer.startElement("java");
+            writer.addAttribute("classname", javaccMain);
+            writer.addAttribute("fork", "true");
+            writer.addAttribute("failonerror", "true");
+
+            writer.startElement("classpath");
+            writer.startElement("path");
+            writer.addAttribute("refid", "build.classpath");
+            writer.endElement(); // path
+            writer.endElement(); // classpath
+
+            addExecArg(writer, "-GRAMMAR_ENCODING", getOption(config, "grammarEncoding", "UTF-8"));
+            addExecArg(writer, "-STATIC", getOption(config, "isStatic", "false"));
+            addExecArg(writer, "-BUILD_PARSER", getOption(config, "buildParser", "true"));
+            addExecArg(writer, "-DEBUG_PARSER", getOption(config, "debugParser", "false"));
+            addExecArg(writer, "-DEBUG_LOOKAHEAD", getOption(config, "debugLookAhead", "false"));
+            addExecArg(writer, "-DEBUG_TOKEN_MANAGER", getOption(config, "debugTokenManager", "false"));
+            addExecArg(writer, "-TOKEN_MANAGER_USES_PARSER", getOption(config, "tokenManagerUsesParser", "true"));
+            addExecArg(writer, "-OUTPUT_DIRECTORY", outputDirectory);
+
+            String inputDir =
+                    "jjtree-javacc".equals(goal) ? "${maven.build.dir}/generated-sources/jjtree" : sourceDirectory;
+            writer.startElement("arg");
+            writer.addAttribute("value", inputDir + "/" + include);
+            writer.endElement(); // arg
+
+            writer.endElement(); // java
+        }
     }
 
     private String interpolate(String value) {
