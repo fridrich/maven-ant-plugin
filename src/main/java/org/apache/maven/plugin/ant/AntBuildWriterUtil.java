@@ -38,7 +38,6 @@ import org.apache.maven.model.Profile;
 import org.apache.maven.model.ReportPlugin;
 import org.apache.maven.project.MavenProject;
 import org.apache.xpath.XPathAPI;
-import org.codehaus.plexus.util.FileUtils;
 import org.codehaus.plexus.util.PathTool;
 import org.codehaus.plexus.util.StringUtils;
 import org.codehaus.plexus.util.xml.XMLWriter;
@@ -1523,11 +1522,11 @@ public class AntBuildWriterUtil {
     }
 
     /**
-     * Extracts inline bnd instructions from bnd-maven-plugin's &lt;bnd&gt; config or
-     * maven-bundle-plugin's &lt;instructions&gt; config. Null if neither is present - see
-     * {@link #hasBndFile(MavenProject)} for bnd-maven-plugin's actual default in that case.
+     * Raw bnd.bnd-syntax text from bnd-maven-plugin's &lt;bnd&gt; config, if configured. Opaque
+     * blob (may use bnd's own macros/merge operators/continuation lines) - passed through as-is
+     * rather than parsed, unlike {@link #getBundlePluginInstructions(MavenProject)}.
      */
-    public static String getBndInstructions(MavenProject project) {
+    public static String getBndTaskInstructions(MavenProject project) {
         Xpp3Dom bndConfigDom = getPluginConfigurationDOM(project, "bnd-maven-plugin");
         if (bndConfigDom != null) {
             Xpp3Dom bndNode = bndConfigDom.getChild("bnd");
@@ -1535,37 +1534,26 @@ public class AntBuildWriterUtil {
                 return bndNode.getValue().trim();
             }
         }
+        return null;
+    }
 
+    /**
+     * maven-bundle-plugin's &lt;instructions&gt; config as ordered key/value pairs, if configured.
+     * Unlike bnd-maven-plugin's &lt;bnd&gt; blob, these are already discrete entries.
+     */
+    public static Xpp3Dom[] getBundlePluginInstructions(MavenProject project) {
         Xpp3Dom bundleConfigDom = getPluginConfigurationDOM(project, "maven-bundle-plugin");
         if (bundleConfigDom != null) {
             Xpp3Dom instNode = bundleConfigDom.getChild("instructions");
             if (instNode != null) {
-                StringBuilder sb = new StringBuilder();
-                for (Xpp3Dom child : instNode.getChildren()) {
-                    sb.append(child.getName())
-                            .append(": ")
-                            .append(child.getValue())
-                            .append("\n");
-                }
-                return sb.toString().trim();
+                return instNode.getChildren();
             }
         }
-
         return null;
     }
 
     /** Whether bnd-maven-plugin's default bnd.bnd file exists in the module basedir. */
     public static boolean hasBndFile(MavenProject project) {
         return new File(project.getBasedir(), "bnd.bnd").isFile();
-    }
-
-    /** Whether the module's bnd.bnd file already sets its own -includeresource. */
-    public static boolean bndFileHasIncludeResource(MavenProject project) {
-        try {
-            return FileUtils.fileRead(new File(project.getBasedir(), "bnd.bnd"), "UTF-8")
-                    .contains("-includeresource");
-        } catch (IOException e) {
-            return false;
-        }
     }
 }

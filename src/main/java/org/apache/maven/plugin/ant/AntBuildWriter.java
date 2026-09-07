@@ -374,13 +374,6 @@ public class AntBuildWriter {
         }
 
         // ----------------------------------------------------------------------
-        // <target name="bnd" />
-        // ----------------------------------------------------------------------
-        if (extensionWriter.isBndProject()) {
-            extensionWriter.writeBndTarget(writer);
-        }
-
-        // ----------------------------------------------------------------------
         // <target name="package" />
         // ----------------------------------------------------------------------
         writePackageTarget(writer);
@@ -1369,13 +1362,13 @@ public class AntBuildWriter {
             }
         } else {
             if (AntBuildWriterUtil.isJarPackaging(project)) {
+                AntBuildWriterUtil.writeJarTask(writer, project);
+
                 if (extensionWriter.isBndProject()) {
-                    writer.startElement("antcall");
-                    writer.addAttribute("target", "-bnd");
-                    writer.endElement(); // antcall
+                    // wraps the jar just built above, in place
+                    extensionWriter.writeBndWrapSequence(writer);
                 }
 
-                AntBuildWriterUtil.writeJarTask(writer, project);
                 synonym = "jar";
             } else if (AntBuildWriterUtil.isEarPackaging(project)) {
                 AntBuildWriterUtil.writeEarTask(writer, project, artifactResolverWrapper);

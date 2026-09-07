@@ -324,11 +324,7 @@ public class AntExtensionWriter {
      * error several steps later (missing generated sources, empty manifest, etc). Mirrors the
      * existing junit-missing target: warn loudly instead.
      */
-    private void writeToolMissingWarning(XMLWriter writer, String targetName, String presentProperty, String message) {
-        writer.startElement("target");
-        writer.addAttribute("name", targetName);
-        writer.addAttribute("unless", presentProperty);
-
+    private void writeWarningBanner(XMLWriter writer, String message) {
         // CHECKSTYLE_OFF: MagicNumber
         writer.startElement("echo");
         writer.writeText(StringUtils.repeat("=", 35) + " WARNING " + StringUtils.repeat("=", 35));
@@ -342,6 +338,14 @@ public class AntExtensionWriter {
         writer.writeText(StringUtils.repeat("=", 79));
         writer.endElement(); // echo
         // CHECKSTYLE_ON: MagicNumber
+    }
+
+    private void writeToolMissingWarning(XMLWriter writer, String targetName, String presentProperty, String message) {
+        writer.startElement("target");
+        writer.addAttribute("name", targetName);
+        writer.addAttribute("unless", presentProperty);
+
+        writeWarningBanner(writer, message);
 
         writer.endElement(); // target
 
@@ -796,135 +800,77 @@ public class AntExtensionWriter {
         writer.endElement(); // sequential
         writer.endElement(); // target
 
-        // whatever follows (writeBndTarget() or writePackageTarget()) starts with its own comment.
+        // writePackageTarget() follows next with its own comment.
         XmlWriterUtil.writeLineBreak(writer);
     }
 
-    public void writeBndTarget(XMLWriter writer) {
-        XmlWriterUtil.writeCommentText(writer, "Bnd OSGi manifest generation target", 1);
-
-        writer.startElement("target");
-        writer.addAttribute("name", "-bnd");
-        writer.addAttribute("depends", "compile");
-        writer.addAttribute("description", "Generate the OSGi manifest");
-
-        writer.startElement("sequential");
-
-        writer.startElement("available");
-        writer.addAttribute("resource", "aQute/bnd/ant/taskdef.properties");
-        writer.addAttribute("property", "bnd.present");
-        writer.addAttribute("classpathref", "build.classpath");
-        writer.endElement(); // available
-
-        writer.startElement("antcall");
-        writer.addAttribute("target", "-bnd-bundle");
-        writer.endElement(); // antcall
-
-        writer.startElement("antcall");
-        writer.addAttribute("target", "-bnd-missing");
-        writer.endElement(); // antcall
-
-        writer.endElement(); // sequential
-        writer.endElement(); // target
-
-        writeToolMissingWarning(
-                writer,
-                "-bnd-missing",
-                "bnd.present",
-                "Bnd is not present on the classpath. Jar will be packaged without an OSGi manifest.");
-
-        // bnd always builds a full jar (Builder mode); only its MANIFEST.MF is kept, the real
-        // <jar> task packs the classes - mirrors bnd-maven-plugin's bnd-process goal.
-        writer.startElement("target");
-        writer.addAttribute("name", "-bnd-bundle");
-        writer.addAttribute("if", "bnd.present");
-
-        writer.startElement("sequential");
-
-        writeBndFileTarget(writer);
-
+    // wraps the already-built jar; unlike <bnd> (Builder mode) it analyzes real jar content, no
+    // -includeresource needed. No present/missing gating - fails naturally at <taskdef> if missing.
+    public void writeBndWrapSequence(XMLWriter writer) {
         writer.startElement("taskdef");
         writer.addAttribute("resource", "aQute/bnd/ant/taskdef.properties");
         writer.addAttribute("classpathref", "build.classpath");
         writer.endElement(); // taskdef
 
-        writer.startElement("bnd");
-        AntBuildWriterUtil.addWrapAttribute(writer, "bnd", "classpath", "${maven.build.outputDir}", 3);
-        AntBuildWriterUtil.addWrapAttribute(writer, "bnd", "failok", "false", 3);
-        AntBuildWriterUtil.addWrapAttribute(writer, "bnd", "exceptions", "true", 3);
-        AntBuildWriterUtil.addWrapAttribute(writer, "bnd", "files", "${maven.build.dir}/bnd.bnd", 3);
-        AntBuildWriterUtil.addWrapAttribute(writer, "bnd", "output", "${maven.build.dir}/bnd-manifest.jar", 3);
-        writer.endElement(); // bnd
+        writeBndDefinitionsFile(writer);
 
-        writer.startElement("mkdir");
-        writer.addAttribute("dir", "${maven.build.outputDir}/META-INF");
-        writer.endElement(); // mkdir
+        writer.startElement("bndwrap");
+        writer.addAttribute("definitions", "${maven.build.dir}/bnd.bnd");
+        AntBuildWriterUtil.addWrapAttribute(
+                writer, "bndwrap", "output", "${maven.build.dir}/${maven.build.finalName}.bundle.jar", 3);
+        writer.startElement("fileset");
+        writer.addAttribute("file", "${maven.build.dir}/${maven.build.finalName}.jar");
+        writer.endElement(); // fileset
+        writer.endElement(); // bndwrap
 
-        writer.startElement("unzip");
-        writer.addAttribute("src", "${maven.build.dir}/bnd-manifest.jar");
-        writer.addAttribute("dest", "${maven.build.outputDir}");
-        writer.startElement("patternset");
-        writer.startElement("include");
-        writer.addAttribute("name", "META-INF/MANIFEST.MF");
-        writer.endElement(); // include
-        writer.endElement(); // patternset
-        writer.endElement(); // unzip
+        writer.startElement("move");
+        writer.addAttribute("file", "${maven.build.dir}/${maven.build.finalName}.bundle.jar");
+        AntBuildWriterUtil.addWrapAttribute(
+                writer, "move", "tofile", "${maven.build.dir}/${maven.build.finalName}.jar", 3);
+        writer.endElement(); // move
 
         writer.startElement("delete");
         writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
         writer.endElement(); // delete
-
-        writer.startElement("delete");
-        writer.addAttribute("file", "${maven.build.dir}/bnd-manifest.jar");
-        writer.endElement(); // delete
-
-        writer.endElement(); // sequential
-        writer.endElement(); // target
-
-        // writePackageTarget() follows next with its own comment.
-        XmlWriterUtil.writeLineBreak(writer);
     }
-
-    // -exportcontents alone won't pull classes into the jar; force -includeresource in unless
-    // already set. Must be an absolute path: bnd resolves "@path" against its own basedir, not the
-    // ant project basedir. ${basedir} is expanded by ant at runtime, keeping the build relocatable.
-    private static final String FORCED_INCLUDE_RESOURCE = "-includeresource: @${basedir}/${maven.build.outputDir}\n";
 
     /**
      * Writes target/bnd.bnd: a real bnd.bnd file in the module is copied as-is (kept live rather
-     * than snapshotted into the generated build), inline pom instructions are echoed out fresh.
+     * than snapshotted into the generated build); bnd-maven-plugin's <bnd> config (an opaque
+     * bnd.bnd-syntax blob) is echoed out fresh; maven-bundle-plugin's <instructions> (already
+     * discrete key/value pairs) are written via <propertyfile>, no string-building needed.
      */
-    private void writeBndFileTarget(XMLWriter writer) {
-        if (AntBuildWriterUtil.getBndInstructions(project) == null && AntBuildWriterUtil.hasBndFile(project)) {
+    private void writeBndDefinitionsFile(XMLWriter writer) {
+        String bndTaskInstructions = AntBuildWriterUtil.getBndTaskInstructions(project);
+        Xpp3Dom[] bundleInstructions = AntBuildWriterUtil.getBundlePluginInstructions(project);
+
+        if (bndTaskInstructions == null && bundleInstructions == null && AntBuildWriterUtil.hasBndFile(project)) {
             writer.startElement("copy");
             writer.addAttribute("file", "bnd.bnd");
             writer.addAttribute("tofile", "${maven.build.dir}/bnd.bnd");
             writer.endElement(); // copy
-
-            if (!AntBuildWriterUtil.bndFileHasIncludeResource(project)) {
-                writer.startElement("echo");
-                writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
-                writer.addAttribute("append", "true");
-                writer.writeText("\n" + FORCED_INCLUDE_RESOURCE);
-                writer.endElement(); // echo
+        } else if (bundleInstructions != null) {
+            writer.startElement("propertyfile");
+            writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
+            for (Xpp3Dom entry : bundleInstructions) {
+                writer.startElement("entry");
+                writer.addAttribute("key", entry.getName());
+                writer.addAttribute("value", entry.getValue());
+                writer.endElement(); // entry
             }
+            writer.endElement(); // propertyfile
         } else {
             writer.startElement("echo");
             writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
-            writer.writeText(getBndPropertiesText());
+            writer.writeText(getBndPropertiesText(bndTaskInstructions));
             writer.endElement(); // echo
         }
     }
 
-    private String getBndPropertiesText() {
-        String instructions = AntBuildWriterUtil.getBndInstructions(project);
-        StringBuilder sb = new StringBuilder();
-        sb.append("# Generated dynamically by maven-ant-plugin\n");
+    private String getBndPropertiesText(String instructions) {
+        StringBuilder sb = new StringBuilder("# Generated dynamically by maven-ant-plugin\n");
         if (instructions != null && instructions.length() > 0) {
             sb.append(instructions).append("\n");
-        }
-        if (instructions == null || !instructions.contains("-includeresource")) {
-            sb.append(FORCED_INCLUDE_RESOURCE);
         }
         return sb.toString();
     }

@@ -59,39 +59,119 @@ public class AntMojoTest {
 
     @Test
     public void testProjectWithBnd() throws Exception {
-        invokeAntMojo("ant-bnd-test");
+        // bndwrap wraps the already-built jar in place, so it must run after <jar>, not before.
+        // bnd isn't resolvable in this hermetic test repo, and there's no present/missing gating
+        // anymore (see AntExtensionWriter.writeBndWrapSequence), so the build must fail naturally.
+        File testPom = new File("src/test/resources/unit/ant-bnd-test");
+        File antBasedir = new File("target/test/unit/ant-bnd-test/");
 
-        // bnd must write its manifest to a side jar, before the real <jar> task, not overwrite it.
+        org.codehaus.plexus.util.FileUtils.copyFile(new File(testPom, "bnd.bnd"), new File(antBasedir, "bnd.bnd"));
+
+        AntMojo mojo = (AntMojo) rule.lookupMojo("ant", new File(testPom, "pom.xml"));
+        mojo.execute();
+
         String mavenBuildXml = org.codehaus.plexus.util.FileUtils.fileRead(
-                new File("target/test/unit/ant-bnd-test", AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME));
+                new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME));
 
-        int bndTaskIndex = mavenBuildXml.indexOf("<bnd ");
-        org.junit.Assert.assertTrue("bnd task not found", bndTaskIndex >= 0);
-        int bndTaskEnd = mavenBuildXml.indexOf("/>", bndTaskIndex);
-        String bndTaskElement = mavenBuildXml.substring(bndTaskIndex, bndTaskEnd);
-        org.junit.Assert.assertFalse(
-                "bnd task must not write directly to the final packaged jar",
-                bndTaskElement.contains("${maven.build.finalName}"));
-
-        org.junit.Assert.assertTrue(
-                "bnd instructions must force-include the compiled classes, "
-                        + "otherwise -exportcontents alone leaves the jar empty",
-                mavenBuildXml.contains("-includeresource: @"));
-
-        int bndAntcallIndex = mavenBuildXml.indexOf("<antcall target=\"-bnd\"/>");
         int jarTaskIndex = mavenBuildXml.indexOf("<jar jarfile=\"${maven.build.dir}/${maven.build.finalName}.jar\"");
-        org.junit.Assert.assertTrue("-bnd antcall not found", bndAntcallIndex >= 0);
+        int bndwrapIndex = mavenBuildXml.indexOf("<bndwrap");
         org.junit.Assert.assertTrue("jar task not found", jarTaskIndex >= 0);
-        org.junit.Assert.assertTrue(
-                "-bnd must run before the final jar is built, so its manifest can be picked up",
-                bndAntcallIndex < jarTaskIndex);
+        org.junit.Assert.assertTrue("bndwrap task not found", bndwrapIndex >= 0);
+        org.junit.Assert.assertTrue("bndwrap must run after the jar it wraps", jarTaskIndex < bndwrapIndex);
 
         // ant-bnd-test/bnd.bnd is a real physical file, not inline pom config: must be <copy>-ed
-        // live, not snapshotted into the build via <echo>, so edits to it don't need regeneration.
-        // (bnd.present is false in this hermetic test repo, so it can't actually run here - see
-        // the real end-to-end verification against javaparser-core for that.)
+        // live, not snapshotted into the build via <echo>.
         org.junit.Assert.assertTrue(
                 "physical bnd.bnd must be copied, not re-serialized", mavenBuildXml.contains("<copy file=\"bnd.bnd\""));
+
+        org.codehaus.plexus.util.FileUtils.copyDirectoryStructure(
+                new File(testPom, "src"), new File(antBasedir, "src"));
+
+        try {
+            AntWrapper.invoke(new File(antBasedir, AntBuildWriter.DEFAULT_BUILD_FILENAME));
+            org.junit.Assert.fail("expected the build to fail fast on missing bnd");
+        } catch (org.apache.tools.ant.BuildException e) {
+            org.junit.Assert.assertTrue(
+                    "expected a bndwrap-related failure, got: " + e.getMessage(),
+                    e.getMessage().contains("bndwrap"));
+        }
+    }
+
+    @Test
+    public void testProjectWithBndInlineInstructions() throws Exception {
+        // no bnd.bnd file here: instructions come from the pom's <bnd> config instead, so they
+        // must be echoed fresh, not copied from a file that doesn't exist.
+        File testPom = new File("src/test/resources/unit/ant-bnd-inline-test");
+        File antBasedir = new File("target/test/unit/ant-bnd-inline-test/");
+
+        AntMojo mojo = (AntMojo) rule.lookupMojo("ant", new File(testPom, "pom.xml"));
+        mojo.execute();
+
+        String mavenBuildXml = org.codehaus.plexus.util.FileUtils.fileRead(
+                new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME));
+
+        org.junit.Assert.assertFalse(
+                "no bnd.bnd file exists, so it must not be copied", mavenBuildXml.contains("<copy file=\"bnd.bnd\""));
+        org.junit.Assert.assertTrue(
+                "inline instructions must be echoed into bnd.bnd",
+                mavenBuildXml.contains("Bundle-SymbolicName: ant-bnd-inline-test"));
+
+        int jarTaskIndex = mavenBuildXml.indexOf("<jar jarfile=\"${maven.build.dir}/${maven.build.finalName}.jar\"");
+        int bndwrapIndex = mavenBuildXml.indexOf("<bndwrap");
+        org.junit.Assert.assertTrue("jar task not found", jarTaskIndex >= 0);
+        org.junit.Assert.assertTrue("bndwrap task not found", bndwrapIndex >= 0);
+        org.junit.Assert.assertTrue("bndwrap must run after the jar it wraps", jarTaskIndex < bndwrapIndex);
+
+        org.codehaus.plexus.util.FileUtils.copyDirectoryStructure(
+                new File(testPom, "src"), new File(antBasedir, "src"));
+
+        try {
+            AntWrapper.invoke(new File(antBasedir, AntBuildWriter.DEFAULT_BUILD_FILENAME));
+            org.junit.Assert.fail("expected the build to fail fast on missing bnd");
+        } catch (org.apache.tools.ant.BuildException e) {
+            org.junit.Assert.assertTrue(
+                    "expected a bndwrap-related failure, got: " + e.getMessage(),
+                    e.getMessage().contains("bndwrap"));
+        }
+    }
+
+    @Test
+    public void testProjectWithBundlePluginInstructions() throws Exception {
+        // maven-bundle-plugin's <instructions> are already discrete key/value pairs, so they must
+        // go through <propertyfile><entry .../></propertyfile>, not a hand-built <echo> string.
+        File testPom = new File("src/test/resources/unit/ant-bundle-instructions-test");
+        File antBasedir = new File("target/test/unit/ant-bundle-instructions-test/");
+
+        AntMojo mojo = (AntMojo) rule.lookupMojo("ant", new File(testPom, "pom.xml"));
+        mojo.execute();
+
+        String mavenBuildXml = org.codehaus.plexus.util.FileUtils.fileRead(
+                new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME));
+
+        org.junit.Assert.assertTrue("propertyfile task not found", mavenBuildXml.contains("<propertyfile"));
+        org.junit.Assert.assertTrue(
+                "Bundle-SymbolicName entry not found",
+                mavenBuildXml.contains("<entry key=\"Bundle-SymbolicName\" value=\"ant-bundle-instructions-test\""));
+        org.junit.Assert.assertTrue(
+                "Export-Package entry not found", mavenBuildXml.contains("<entry key=\"Export-Package\" value=\"*\""));
+
+        int jarTaskIndex = mavenBuildXml.indexOf("<jar jarfile=\"${maven.build.dir}/${maven.build.finalName}.jar\"");
+        int bndwrapIndex = mavenBuildXml.indexOf("<bndwrap");
+        org.junit.Assert.assertTrue("jar task not found", jarTaskIndex >= 0);
+        org.junit.Assert.assertTrue("bndwrap task not found", bndwrapIndex >= 0);
+        org.junit.Assert.assertTrue("bndwrap must run after the jar it wraps", jarTaskIndex < bndwrapIndex);
+
+        org.codehaus.plexus.util.FileUtils.copyDirectoryStructure(
+                new File(testPom, "src"), new File(antBasedir, "src"));
+
+        try {
+            AntWrapper.invoke(new File(antBasedir, AntBuildWriter.DEFAULT_BUILD_FILENAME));
+            org.junit.Assert.fail("expected the build to fail fast on missing bnd");
+        } catch (org.apache.tools.ant.BuildException e) {
+            org.junit.Assert.assertTrue(
+                    "expected a bndwrap-related failure, got: " + e.getMessage(),
+                    e.getMessage().contains("bndwrap"));
+        }
     }
 
     @Test
