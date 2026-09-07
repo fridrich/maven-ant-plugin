@@ -368,8 +368,6 @@ public class AntExtensionWriter {
         writer.endElement(); // sequential
         writer.endElement(); // target
 
-        XmlWriterUtil.writeLineBreak(writer);
-
         writer.startElement("target");
         writer.addAttribute("name", "sisu-index");
         writer.addAttribute("if", "sisu.present");
@@ -414,8 +412,8 @@ public class AntExtensionWriter {
         XmlWriterUtil.writeCommentText(writer, "Bnd OSGi Bundle generation target", 1);
 
         writer.startElement("target");
-        writer.addAttribute("name", "bnd");
-        writer.addAttribute("depends", isSisuProject() ? "sisu" : "compile");
+        writer.addAttribute("name", "-bnd");
+        writer.addAttribute("depends", "compile");
         writer.addAttribute("description", "Generate OSGi Bundle");
 
         writer.startElement("sequential");
@@ -427,19 +425,22 @@ public class AntExtensionWriter {
         writer.endElement(); // available
 
         writer.startElement("antcall");
-        writer.addAttribute("target", "bnd-bundle");
+        writer.addAttribute("target", "-bnd-bundle");
         writer.endElement(); // antcall
 
         writer.endElement(); // sequential
         writer.endElement(); // target
 
-        XmlWriterUtil.writeLineBreak(writer);
-
         writer.startElement("target");
-        writer.addAttribute("name", "bnd-bundle");
+        writer.addAttribute("name", "-bnd-bundle");
         writer.addAttribute("if", "bnd.present");
 
         writer.startElement("sequential");
+
+        writer.startElement("echo");
+        writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
+        writer.writeText(getBndPropertiesText());
+        writer.endElement(); // echo
 
         writer.startElement("taskdef");
         writer.addAttribute("resource", "aQute/bnd/ant/taskdef.properties");
@@ -450,14 +451,28 @@ public class AntExtensionWriter {
         writer.addAttribute("classpath", "${maven.build.outputDir}");
         writer.addAttribute("failok", "false");
         writer.addAttribute("exceptions", "true");
-        writer.addAttribute("files", "bnd.bnd");
+        writer.addAttribute("files", "${maven.build.dir}/bnd.bnd");
         writer.addAttribute("output", "${maven.build.dir}/${maven.build.finalName}.jar");
         writer.endElement(); // bnd
+
+        writer.startElement("delete");
+        writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
+        writer.endElement(); // delete
 
         writer.endElement(); // sequential
         writer.endElement(); // target
 
         XmlWriterUtil.writeLineBreak(writer);
+    }
+
+    private String getBndPropertiesText() {
+        String instructions = AntBuildWriterUtil.getBndInstructions(project);
+        StringBuilder sb = new StringBuilder();
+        sb.append("# Generated dynamically by maven-ant-plugin\n");
+        if (instructions != null && instructions.length() > 0) {
+            sb.append(instructions).append("\n");
+        }
+        return sb.toString();
     }
 
     public void writeCompileMRTasks(

@@ -415,14 +415,27 @@ public class AntBuildWriterUtil {
      * @throws IOException if any
      */
     public static void writeJarTask(XMLWriter writer, MavenProject project) throws IOException {
+        String manifestFile = getMavenJarPluginBasicOption(project, "archive//manifestFile", null);
+        if (manifestFile != null) {
+            writer.startElement("mkdir");
+            String normalizedPath = manifestFile.replace('\\', '/');
+            int lastSlash = normalizedPath.lastIndexOf('/');
+            String parentDir = lastSlash != -1 ? normalizedPath.substring(0, lastSlash) : ".";
+            writer.addAttribute("dir", parentDir);
+            writer.endElement(); // mkdir
+
+            writer.startElement("touch");
+            writer.addAttribute("file", normalizedPath);
+            writer.endElement(); // touch
+        }
+
         writer.startElement("jar");
         writer.addAttribute("jarfile", "${maven.build.dir}/${maven.build.finalName}.jar");
         addWrapAttribute(
                 writer, "jar", "compress", getMavenJarPluginBasicOption(project, "archive//compress", "true"), 3);
         addWrapAttribute(writer, "jar", "index", getMavenJarPluginBasicOption(project, "archive//index", "false"), 3);
-        if (getMavenJarPluginBasicOption(project, "archive//manifestFile", null) != null) {
-            addWrapAttribute(
-                    writer, "jar", "manifest", getMavenJarPluginBasicOption(project, "archive//manifestFile", null), 3);
+        if (manifestFile != null) {
+            addWrapAttribute(writer, "jar", "manifest", manifestFile, 3);
         }
         addWrapAttribute(writer, "jar", "basedir", "${maven.build.outputDir}", 3);
         addWrapAttribute(writer, "jar", "excludes", "**/package.html", 3);

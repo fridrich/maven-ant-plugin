@@ -133,9 +133,10 @@ public class AntMojo extends AbstractMojo {
                 resolver, factory, localRepository, remoteRepositories, metadataSource);
 
         Properties executionProperties = (session != null) ? session.getExecutionProperties() : null;
+        List<MavenProject> reactorProjects = (session != null) ? session.getProjects() : null;
 
-        AntBuildWriter antBuildWriter =
-                new AntBuildWriter(project, artifactResolverWrapper, settings, overwrite, executionProperties);
+        AntBuildWriter antBuildWriter = new AntBuildWriter(
+                project, artifactResolverWrapper, settings, overwrite, executionProperties, reactorProjects);
 
         try {
             antBuildWriter.writeBuildXmls();
