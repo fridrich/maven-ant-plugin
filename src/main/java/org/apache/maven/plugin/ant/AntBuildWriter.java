@@ -331,7 +331,7 @@ public class AntBuildWriter {
         writeCleanTarget(writer);
 
         // ----------------------------------------------------------------------
-        // <target name="gen-sources" />
+        // <target name="templates|javacc|jflex|cup" />
         // ----------------------------------------------------------------------
         if (extensionWriter.isJavaccProject()
                 || extensionWriter.isTemplatingProject()
@@ -364,7 +364,7 @@ public class AntBuildWriter {
         // ----------------------------------------------------------------------
         // <target name="javadoc" />
         // ----------------------------------------------------------------------
-        writeJavadocTarget(writer);
+        writeJavadocTarget(writer, compileSourceRoots);
 
         // ----------------------------------------------------------------------
         // <target name="sisu" />
@@ -953,12 +953,8 @@ public class AntBuildWriter {
                 }
             }
 
-            String baseDepends = (extensionWriter.isJavaccProject()
-                            || extensionWriter.isTemplatingProject()
-                            || extensionWriter.isJflexProject()
-                            || extensionWriter.isCupProject())
-                    ? "gen-sources"
-                    : "get-deps";
+            String genSourceTargets = extensionWriter.getGenSourceTargets();
+            String baseDepends = genSourceTargets.isEmpty() ? "get-deps" : genSourceTargets;
 
             if (mrVersions.isEmpty()) {
                 writer.startElement("target");
@@ -1306,11 +1302,18 @@ public class AntBuildWriter {
      * @param writer
      * @throws IOException if any
      */
-    private void writeJavadocTarget(XMLWriter writer) throws IOException {
+    private void writeJavadocTarget(XMLWriter writer, List compileSourceRoots) throws IOException {
         XmlWriterUtil.writeCommentText(writer, "Javadoc target", 1);
 
         writer.startElement("target");
         writer.addAttribute("name", "javadoc");
+
+        if (!AntBuildWriterUtil.isPomPackaging(project)) {
+            String genSourceTargets = extensionWriter.getGenSourceTargets();
+            if (!genSourceTargets.isEmpty()) {
+                writer.addAttribute("depends", genSourceTargets);
+            }
+        }
         writer.addAttribute("description", "Generates the Javadoc of the application");
 
         if (AntBuildWriterUtil.isPomPackaging(project)) {
@@ -1321,7 +1324,9 @@ public class AntBuildWriter {
                 }
             }
         } else {
-            AntBuildWriterUtil.writeJavadocTask(writer, project, artifactResolverWrapper);
+            List<String> extraSourceDirs = getExtraGeneratedSourceDirs(compileSourceRoots);
+            extraSourceDirs.addAll(getExtraStaticSourceDirs(compileSourceRoots));
+            AntBuildWriterUtil.writeJavadocTask(writer, project, artifactResolverWrapper, extraSourceDirs);
         }
 
         writer.endElement(); // target
@@ -1530,7 +1535,7 @@ public class AntBuildWriter {
         List<String> extraGeneratedDirs =
                 isTest ? java.util.Collections.<String>emptyList() : getExtraGeneratedSourceDirs(compileSourceRoots);
         for (String dir : extraGeneratedDirs) {
-            // javac's <src> needs this dir to exist even before gen-sources/-javacc-compile runs
+            // javac's <src> needs this dir to exist even if the generator target left it empty
             writer.startElement("mkdir");
             writer.addAttribute("dir", dir);
             writer.endElement(); // mkdir
@@ -1622,11 +1627,9 @@ public class AntBuildWriter {
                     AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "release", "8"),
                     3);
 
-            String[] compileSourceRootsArray =
-                    (String[]) compileSourceRoots.toArray(new String[compileSourceRoots.size()]);
-            if (compileSourceRootsArray.length > 0) {
+            if (!compileSourceRoots.isEmpty()) {
                 writer.startElement("src");
-                for (int i = 0; i < compileSourceRootsArray.length; i++) {
+                for (int i = 0; i < compileSourceRoots.size(); i++) {
                     writer.startElement("pathelement");
                     if (isTest) {
                         writer.addAttribute("location", "${maven.build.testDir." + i + "}");

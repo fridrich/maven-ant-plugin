@@ -364,15 +364,36 @@ public class AntExtensionWriter {
         }
     }
 
-    public void writeGenSourcesTarget(XMLWriter writer) throws IOException {
-        XmlWriterUtil.writeCommentText(writer, "Source generation target", 1);
-
-        writer.startElement("target");
-        writer.addAttribute("name", "gen-sources");
-        writer.addAttribute("depends", "get-deps");
-        writer.addAttribute("description", "Generate the sources");
-
+    /**
+     * Comma-joined names of the active source-generation targets ("templates", "javacc", "jflex",
+     * "cup"), for use as a depends= value on compile/javadoc. Empty if none apply.
+     */
+    public String getGenSourceTargets() {
+        List<String> names = new ArrayList<String>();
         if (isTemplatingProject()) {
+            names.add("templates");
+        }
+        if (isJavaccProject()) {
+            names.add("javacc");
+        }
+        if (isJflexProject()) {
+            names.add("jflex");
+        }
+        if (isCupProject()) {
+            names.add("cup");
+        }
+        return StringUtils.join(names.iterator(), ",");
+    }
+
+    public void writeGenSourcesTarget(XMLWriter writer) throws IOException {
+        if (isTemplatingProject()) {
+            XmlWriterUtil.writeCommentText(writer, "Source generation target", 1);
+
+            writer.startElement("target");
+            writer.addAttribute("name", "templates");
+            writer.addAttribute("depends", "get-deps");
+            writer.addAttribute("description", "Generate the sources");
+
             writer.startElement("mkdir");
             writer.addAttribute("dir", "${maven.build.dir}/generated-sources/java-templates");
             writer.endElement(); // mkdir
@@ -390,69 +411,20 @@ public class AntExtensionWriter {
             writer.endElement(); // filterchain
 
             writer.endElement(); // copy
+
+            writer.endElement(); // target
+
+            writeTargetSeparator(writer, isJavaccProject() || isJflexProject() || isCupProject());
         }
 
-        if (isJavaccProject()) {
-            writer.startElement("available");
-            writer.addAttribute("classname", "org.javacc.parser.Main");
-            writer.addAttribute("property", "javacc.present");
-            writer.addAttribute("classpathref", "build.classpath");
-            writer.endElement(); // available
-
-            // unlike tests, missing sources here means compile is doomed anyway - fail now with a
-            // clear reason instead of limping into a confusing "cannot find symbol" later.
-            writer.startElement("fail");
-            writer.addAttribute("unless", "javacc.present");
-            writer.writeText("JavaCC/JJTree not found on build.classpath; cannot generate parser sources.");
-            writer.endElement(); // fail
-
-            writer.startElement("antcall");
-            writer.addAttribute("target", "-javacc-compile");
-            writer.endElement(); // antcall
-        }
-
-        if (isJflexProject()) {
-            writer.startElement("available");
-            writer.addAttribute("classname", "jflex.anttask.JFlexTask");
-            writer.addAttribute("property", "jflex.present");
-            writer.addAttribute("classpathref", "build.classpath");
-            writer.endElement(); // available
-
-            writer.startElement("fail");
-            writer.addAttribute("unless", "jflex.present");
-            writer.writeText("JFlex not found on build.classpath; cannot generate lexer sources.");
-            writer.endElement(); // fail
-
-            writer.startElement("antcall");
-            writer.addAttribute("target", "-jflex-compile");
-            writer.endElement(); // antcall
-        }
-
-        if (isCupProject()) {
-            writer.startElement("available");
-            writer.addAttribute("classname", "java_cup.anttask.CUPTask");
-            writer.addAttribute("property", "cup.present");
-            writer.addAttribute("classpathref", "build.classpath");
-            writer.endElement(); // available
-
-            writer.startElement("fail");
-            writer.addAttribute("unless", "cup.present");
-            writer.writeText("CUP not found on build.classpath; cannot generate parser sources.");
-            writer.endElement(); // fail
-
-            writer.startElement("antcall");
-            writer.addAttribute("target", "-cup-compile");
-            writer.endElement(); // antcall
-        }
-
-        writer.endElement(); // target
-
-        writeTargetSeparator(writer, isJavaccProject() || isJflexProject() || isCupProject());
-
+        // no more if="x.present"/<fail> gating here: each of these is now a real, unconditional
+        // depends= of compile/javadoc, so a missing tool fails naturally (and early) at its own
+        // <taskdef>/task use, instead of several targets downstream.
         if (isJavaccProject()) {
             writer.startElement("target");
-            writer.addAttribute("name", "-javacc-compile");
-            writer.addAttribute("if", "javacc.present");
+            writer.addAttribute("name", "javacc");
+            writer.addAttribute("depends", "get-deps");
+            writer.addAttribute("description", "Generate the sources");
 
             writer.startElement("sequential");
 
@@ -513,8 +485,9 @@ public class AntExtensionWriter {
 
     public void writeJflexCompileTarget(XMLWriter writer) throws IOException {
         writer.startElement("target");
-        writer.addAttribute("name", "-jflex-compile");
-        writer.addAttribute("if", "jflex.present");
+        writer.addAttribute("name", "jflex");
+        writer.addAttribute("depends", "get-deps");
+        writer.addAttribute("description", "Generate the sources");
 
         writer.startElement("sequential");
 
@@ -570,8 +543,9 @@ public class AntExtensionWriter {
 
     public void writeCupCompileTarget(XMLWriter writer) throws IOException {
         writer.startElement("target");
-        writer.addAttribute("name", "-cup-compile");
-        writer.addAttribute("if", "cup.present");
+        writer.addAttribute("name", "cup");
+        writer.addAttribute("depends", "get-deps");
+        writer.addAttribute("description", "Generate the sources");
 
         writer.startElement("sequential");
 
@@ -646,7 +620,6 @@ public class AntExtensionWriter {
             AntBuildWriterUtil.addWrapAttribute(
                     writer, "copy", "tofile", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc.jar", 3);
             AntBuildWriterUtil.addWrapAttribute(writer, "copy", "preservelastmodified", "true", 3);
-            AntBuildWriterUtil.addWrapAttribute(writer, "copy", "failonerror", "false", 3);
             writer.endElement(); // copy
         }
 
@@ -696,7 +669,6 @@ public class AntExtensionWriter {
             AntBuildWriterUtil.addWrapAttribute(
                     writer, "copy", "tofile", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc.jar", 3);
             AntBuildWriterUtil.addWrapAttribute(writer, "copy", "preservelastmodified", "true", 3);
-            AntBuildWriterUtil.addWrapAttribute(writer, "copy", "failonerror", "false", 3);
             writer.endElement(); // copy
         }
 

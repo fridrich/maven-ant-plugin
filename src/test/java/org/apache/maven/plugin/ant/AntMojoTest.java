@@ -96,24 +96,29 @@ public class AntMojoTest {
 
     @Test
     public void testProjectWithJavacc() throws Exception {
-        // javacc isn't resolvable in this hermetic test repo, so gen-sources must fail fast
-        // rather than silently skip generation and let compile fail confusingly later.
+        // javacc isn't resolvable in this hermetic test repo, so the javacc target must fail
+        // rather than silently skip generation and let compile fail confusingly later. The .jj
+        // fixture must be in place before the mojo runs: getGrammarFiles() scans for it at
+        // generation time, same as hasBndFile() does for bnd.bnd.
         File testPom = new File("src/test/resources/unit/ant-javacc-test");
         File antBasedir = new File("target/test/unit/ant-javacc-test/");
 
-        AntMojo mojo = (AntMojo) rule.lookupMojo("ant", new File(testPom, "pom.xml"));
-        mojo.execute();
-
         org.codehaus.plexus.util.FileUtils.copyDirectoryStructure(
                 new File(testPom, "src"), new File(antBasedir, "src"));
+
+        AntMojo mojo = (AntMojo) rule.lookupMojo("ant", new File(testPom, "pom.xml"));
+        mojo.execute();
 
         try {
             AntWrapper.invoke(new File(antBasedir, AntBuildWriter.DEFAULT_BUILD_FILENAME));
             org.junit.Assert.fail("expected the build to fail fast on missing javacc");
         } catch (org.apache.tools.ant.BuildException e) {
+            // no custom message anymore: javacc.jar isn't resolvable in this hermetic repo, so the
+            // javacc target's own <copy> (now failonerror-enabled) fails naturally, right in the
+            // first target that needs it - still early, just via Ant's own error instead of ours.
             org.junit.Assert.assertTrue(
-                    "expected fail-fast message, got: " + e.getMessage(),
-                    e.getMessage().contains("JavaCC/JJTree not found"));
+                    "expected a fail-fast error, got: " + e.getMessage(),
+                    e.getMessage().contains("javacc-7.0.12.jar"));
         }
     }
 

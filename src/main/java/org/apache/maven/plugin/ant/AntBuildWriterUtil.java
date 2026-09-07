@@ -161,7 +161,8 @@ public class AntBuildWriterUtil {
      * @throws IOException if any
      */
     @SuppressWarnings("checkstyle:MethodLength")
-    public static void writeJavadocTask(XMLWriter writer, MavenProject project, ArtifactResolverWrapper wrapper)
+    public static void writeJavadocTask(
+            XMLWriter writer, MavenProject project, ArtifactResolverWrapper wrapper, List<String> extraSourceDirs)
             throws IOException {
         List<String> sources = new ArrayList<String>();
         for (Object o : project.getCompileSourceRoots()) {
@@ -178,28 +179,14 @@ public class AntBuildWriterUtil {
         }
 
         writer.startElement("javadoc");
+        writer.addAttribute(
+                "destdir",
+                getMavenJavadocPluginBasicOption(project, "destdir", "${maven.reporting.outputDirectory}/apidocs"));
         String sourcepath = getMavenJavadocPluginBasicOption(project, "sourcepath", null);
-        if (sourcepath == null) {
-            StringBuilder sb = new StringBuilder();
-            String[] compileSourceRoots = sources.toArray(new String[sources.size()]);
-            for (int i = 0; i < compileSourceRoots.length; i++) {
-                sb.append("${maven.build.srcDir.").append(i).append("}");
-
-                if (i < (compileSourceRoots.length - 1)) {
-                    sb.append(File.pathSeparatorChar);
-                }
-            }
-            writer.addAttribute("sourcepath", sb.toString());
-            addWrapAttribute(writer, "javadoc", "packagenames", "*", 3);
-        } else {
+        boolean byFileset = sourcepath == null;
+        if (!byFileset) {
             writer.addAttribute("sourcepath", sourcepath);
         }
-        addWrapAttribute(
-                writer,
-                "javadoc",
-                "destdir",
-                getMavenJavadocPluginBasicOption(project, "destdir", "${maven.reporting.outputDirectory}/apidocs"),
-                3);
         addWrapAttribute(writer, "javadoc", "overview", getMavenJavadocPluginBasicOption(project, "overview", null), 3);
         addWrapAttribute(
                 writer, "javadoc", "access", getMavenJavadocPluginBasicOption(project, "show", "protected"), 3);
@@ -296,6 +283,27 @@ public class AntBuildWriterUtil {
             writer.startElement("bottom");
             writer.writeText("<![CDATA[" + bottom + "]]>");
             writer.endElement(); // bottom
+        }
+
+        writer.startElement("classpath");
+        writer.addAttribute("refid", "build.classpath");
+        writer.endElement(); // classpath
+
+        if (byFileset) {
+            // <fileset> passes files straight to javadoc regardless of directory layout, unlike
+            // sourcepath/packagenames which require each dir to match its package name - native
+            // <javacc> output doesn't, so package-based discovery silently skips it. A patternless
+            // fileset gets **/*.java applied by Ant's own addFileset(), no need to repeat it here.
+            for (int i = 0; i < sources.size(); i++) {
+                writer.startElement("fileset");
+                writer.addAttribute("dir", "${maven.build.srcDir." + i + "}");
+                writer.endElement(); // fileset
+            }
+            for (String extraDir : extraSourceDirs) {
+                writer.startElement("fileset");
+                writer.addAttribute("dir", extraDir);
+                writer.endElement(); // fileset
+            }
         }
 
         Map[] links = getMavenJavadocPluginOptions(project, "links", null);
