@@ -744,52 +744,70 @@ public class AntBuildWriter {
         }
 
         if (extensionWriter.isSisuProject() && !sisuInjectPresent && "build.classpath".equals(id)) {
-            Set resolved =
-                    artifactResolverWrapper.resolveTransitively("org.eclipse.sisu", "org.eclipse.sisu.inject", "1.0.1");
-            injectedArtifacts.addAll(resolved);
-            for (Object artObj : resolved) {
-                Artifact art = (Artifact) artObj;
-                writer.startElement("pathelement");
-                writer.addAttribute(
-                        "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
-                writer.endElement(); // pathelement
+            try {
+                String sisuVer = extensionWriter.getSisuVersion();
+                Set resolved = artifactResolverWrapper.resolveTransitively(
+                        "org.eclipse.sisu", "org.eclipse.sisu.inject", sisuVer);
+                injectedArtifacts.addAll(resolved);
+                for (Object artObj : resolved) {
+                    Artifact art = (Artifact) artObj;
+                    writer.startElement("pathelement");
+                    writer.addAttribute(
+                            "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
+                    writer.endElement(); // pathelement
+                }
+            } catch (Exception e) {
+                // ignore
             }
         }
 
         if (extensionWriter.isBndProject() && !bndAntPresent && "build.classpath".equals(id)) {
-            Set resolved = new java.util.HashSet();
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bnd.ant", "7.4.0"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bndlib", "7.4.0"));
-            resolved.addAll(
-                    artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bnd.util", "7.4.0"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.core", "6.0.0"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.slf4j", "slf4j-api", "1.7.36"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.slf4j", "slf4j-simple", "1.7.36"));
-            resolved.addAll(
-                    artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.service.repository", "1.1.0"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.service.log", "1.4.0"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.util.promise", "1.2.0"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.util.function", "1.2.0"));
-            injectedArtifacts.addAll(resolved);
+            try {
+                Set resolved = new java.util.HashSet();
+                resolved.addAll(
+                        artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bnd.ant", "7.4.0"));
+                resolved.addAll(
+                        artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bndlib", "7.4.0"));
+                resolved.addAll(
+                        artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bnd.util", "7.4.0"));
+                resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.core", "6.0.0"));
+                resolved.addAll(artifactResolverWrapper.resolveTransitively("org.slf4j", "slf4j-api", "1.7.36"));
+                resolved.addAll(artifactResolverWrapper.resolveTransitively("org.slf4j", "slf4j-simple", "1.7.36"));
+                resolved.addAll(artifactResolverWrapper.resolveTransitively(
+                        "org.osgi", "org.osgi.service.repository", "1.1.0"));
+                resolved.addAll(
+                        artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.service.log", "1.4.0"));
+                resolved.addAll(
+                        artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.util.promise", "1.2.0"));
+                resolved.addAll(
+                        artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.util.function", "1.2.0"));
+                injectedArtifacts.addAll(resolved);
 
-            for (Object artObj : resolved) {
-                Artifact art = (Artifact) artObj;
-                writer.startElement("pathelement");
-                writer.addAttribute(
-                        "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
-                writer.endElement(); // pathelement
+                for (Object artObj : resolved) {
+                    Artifact art = (Artifact) artObj;
+                    writer.startElement("pathelement");
+                    writer.addAttribute(
+                            "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
+                    writer.endElement(); // pathelement
+                }
+            } catch (Exception e) {
+                // ignore
             }
         }
 
         if (extensionWriter.isJavaccProject() && !javaccPresent && "build.classpath".equals(id)) {
-            Set resolved = artifactResolverWrapper.resolveTransitively("net.java.dev.javacc", "javacc", "7.0.12");
-            injectedArtifacts.addAll(resolved);
-            for (Object artObj : resolved) {
-                Artifact art = (Artifact) artObj;
-                writer.startElement("pathelement");
-                writer.addAttribute(
-                        "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
-                writer.endElement(); // pathelement
+            try {
+                Set resolved = artifactResolverWrapper.resolveTransitively("net.java.dev.javacc", "javacc", "7.0.12");
+                injectedArtifacts.addAll(resolved);
+                for (Object artObj : resolved) {
+                    Artifact art = (Artifact) artObj;
+                    writer.startElement("pathelement");
+                    writer.addAttribute(
+                            "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
+                    writer.endElement(); // pathelement
+                }
+            } catch (Exception e) {
+                // ignore
             }
         }
 

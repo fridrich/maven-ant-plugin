@@ -71,6 +71,19 @@ public class AntExtensionWriter {
         return false;
     }
 
+    public String getSisuVersion() {
+        if (project.getDependencies() != null) {
+            for (Object o : project.getDependencies()) {
+                org.apache.maven.model.Dependency dep = (org.apache.maven.model.Dependency) o;
+                if ("org.eclipse.sisu.plexus".equals(dep.getArtifactId())
+                        || "org.eclipse.sisu.inject".equals(dep.getArtifactId())) {
+                    return dep.getVersion();
+                }
+            }
+        }
+        return "1.1.0"; // default fallback
+    }
+
     public boolean isBndProject() {
         if (project.getBuildPlugins() != null) {
             for (Object o : project.getBuildPlugins()) {
