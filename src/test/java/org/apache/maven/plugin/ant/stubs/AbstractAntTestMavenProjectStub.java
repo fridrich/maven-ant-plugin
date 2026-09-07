@@ -202,7 +202,7 @@ public abstract class AbstractAntTestMavenProjectStub extends MavenProjectStub {
         Repository repo = new Repository();
         repo.setId("central");
         repo.setName("central");
-        repo.setUrl("http://repo1.maven.org/maven2");
+        repo.setUrl("https://repo1.maven.org/maven2");
 
         return Collections.singletonList(repo);
     }
