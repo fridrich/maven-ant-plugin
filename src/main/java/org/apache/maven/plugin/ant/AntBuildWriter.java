@@ -1342,44 +1342,81 @@ public class AntBuildWriter {
         }
     }
 
-    /** JavaCC/JJTree output dirs not already a compile source root; need their own mkdir + pathelement. */
-    private List<String> getJavaccGeneratedSourceDirs(List compileSourceRoots) {
+    /**
+     * JavaCC/JJTree and templating output dirs not already a compile source root; need their own
+     * mkdir + pathelement. Written unconditionally rather than relying on project.getCompileSourceRoots()
+     * containing them, since that requires generate-sources to have actually run for this project
+     * (not the case for a bare `mvn ant:ant`, only when chained after `generate-sources`).
+     */
+    private List<String> getExtraGeneratedSourceDirs(List compileSourceRoots) {
         List<String> dirs = new ArrayList<String>();
 
-        if (!extensionWriter.isJavaccProject()) {
-            return dirs;
+        if (extensionWriter.isJavaccProject()) {
+            for (JavaccExecution exec : extensionWriter.getJavaccExecutions()) {
+                Xpp3Dom config = exec.getConfiguration();
+                String goal = exec.getGoal();
+                String javaccOutputDir = config.getChild("outputDirectory") != null
+                        ? config.getChild("outputDirectory").getValue()
+                        : "${project.build.directory}/generated-sources/"
+                                + (goal.contains("jjtree") ? "jjtree" : "javacc");
+
+                if (javaccOutputDir.contains("${project.build.directory}")) {
+                    javaccOutputDir = javaccOutputDir.replace("${project.build.directory}", "${maven.build.dir}");
+                }
+
+                if (!isCompileSourceRoot(compileSourceRoots, javaccOutputDir) && !dirs.contains(javaccOutputDir)) {
+                    dirs.add(javaccOutputDir);
+                }
+            }
         }
 
-        for (JavaccExecution exec : extensionWriter.getJavaccExecutions()) {
-            Xpp3Dom config = exec.getConfiguration();
-            String goal = exec.getGoal();
-            String javaccOutputDir = config.getChild("outputDirectory") != null
-                    ? config.getChild("outputDirectory").getValue()
-                    : "${project.build.directory}/generated-sources/" + (goal.contains("jjtree") ? "jjtree" : "javacc");
-
-            if (javaccOutputDir.contains("${project.build.directory}")) {
-                javaccOutputDir = javaccOutputDir.replace("${project.build.directory}", "${maven.build.dir}");
+        if (extensionWriter.isTemplatingProject()) {
+            String templatingOutputDir = "${maven.build.dir}/generated-sources/java-templates";
+            if (!isCompileSourceRoot(compileSourceRoots, templatingOutputDir) && !dirs.contains(templatingOutputDir)) {
+                dirs.add(templatingOutputDir);
             }
+        }
 
+        return dirs;
+    }
+
+    private boolean isCompileSourceRoot(List compileSourceRoots, String dir) {
+        for (Object rootObj : compileSourceRoots) {
+            String root = (String) rootObj;
+            String relRoot = AntBuildWriterUtil.toRelative(project.getBasedir(), root);
+            String relDir = dir.startsWith("${maven.build.dir}") ? dir.replace("${maven.build.dir}", "target") : dir;
+            if (root.contains(relDir) || relRoot.contains(relDir) || relDir.contains(relRoot)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * build-helper-maven-plugin add-source dirs not already a compile source root. Unlike
+     * getExtraGeneratedSourceDirs, these are hand-written committed sources, not build output, so
+     * they get a pathelement but no mkdir - a missing one is a real error, not something to paper over.
+     */
+    private List<String> getExtraStaticSourceDirs(List compileSourceRoots) {
+        List<String> dirs = new ArrayList<String>();
+        for (String addSourceDir : extensionWriter.getAddSourceDirs()) {
+            File dirFile = new File(addSourceDir);
+            String absoluteDir =
+                    dirFile.isAbsolute() ? addSourceDir : new File(project.getBasedir(), addSourceDir).getPath();
             boolean alreadyPresent = false;
             for (Object rootObj : compileSourceRoots) {
-                String root = (String) rootObj;
-                String relRoot = AntBuildWriterUtil.toRelative(project.getBasedir(), root);
-                String relJavacc = javaccOutputDir;
-                if (relJavacc.startsWith("${maven.build.dir}")) {
-                    relJavacc = relJavacc.replace("${maven.build.dir}", "target");
-                }
-                if (root.contains(relJavacc) || relRoot.contains(relJavacc) || relJavacc.contains(relRoot)) {
+                if (new File((String) rootObj).getAbsolutePath().equals(new File(absoluteDir).getAbsolutePath())) {
                     alreadyPresent = true;
                     break;
                 }
             }
-
-            if (!alreadyPresent && !dirs.contains(javaccOutputDir)) {
-                dirs.add(javaccOutputDir);
+            if (!alreadyPresent) {
+                String relative = AntBuildWriterUtil.toRelative(project.getBasedir(), absoluteDir);
+                if (!dirs.contains(relative)) {
+                    dirs.add(relative);
+                }
             }
         }
-
         return dirs;
     }
 
@@ -1396,14 +1433,17 @@ public class AntBuildWriter {
         writer.addAttribute("dir", outputDirectory);
         writer.endElement(); // mkdir
 
-        List<String> javaccGeneratedDirs =
-                isTest ? java.util.Collections.<String>emptyList() : getJavaccGeneratedSourceDirs(compileSourceRoots);
-        for (String dir : javaccGeneratedDirs) {
-            // javac's <src> needs this dir to exist even if javacc.present ends up false at runtime
+        List<String> extraGeneratedDirs =
+                isTest ? java.util.Collections.<String>emptyList() : getExtraGeneratedSourceDirs(compileSourceRoots);
+        for (String dir : extraGeneratedDirs) {
+            // javac's <src> needs this dir to exist even before gen-sources/-javacc-compile runs
             writer.startElement("mkdir");
             writer.addAttribute("dir", dir);
             writer.endElement(); // mkdir
         }
+
+        List<String> extraStaticDirs =
+                isTest ? java.util.Collections.<String>emptyList() : getExtraStaticSourceDirs(compileSourceRoots);
 
         // CHECKSTYLE_OFF: LineLength
         if (!compileSourceRoots.isEmpty()) {
@@ -1502,9 +1542,15 @@ public class AntBuildWriter {
                     writer.endElement(); // pathelement
                 }
 
-                for (String javaccOutputDir : javaccGeneratedDirs) {
+                for (String extraDir : extraGeneratedDirs) {
                     writer.startElement("pathelement");
-                    writer.addAttribute("location", javaccOutputDir);
+                    writer.addAttribute("location", extraDir);
+                    writer.endElement(); // pathelement
+                }
+
+                for (String extraDir : extraStaticDirs) {
+                    writer.startElement("pathelement");
+                    writer.addAttribute("location", extraDir);
                     writer.endElement(); // pathelement
                 }
 

@@ -109,6 +109,35 @@ public class AntExtensionWriter {
         return false;
     }
 
+    /** Extra source dirs registered via build-helper-maven-plugin's add-source goal. */
+    public List<String> getAddSourceDirs() {
+        List<String> dirs = new ArrayList<String>();
+        if (project.getBuildPlugins() == null) {
+            return dirs;
+        }
+        for (Object o : project.getBuildPlugins()) {
+            org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+            if (!"build-helper-maven-plugin".equals(plugin.getArtifactId()) || plugin.getExecutions() == null) {
+                continue;
+            }
+            for (Object execObj : plugin.getExecutions()) {
+                org.apache.maven.model.PluginExecution exec = (org.apache.maven.model.PluginExecution) execObj;
+                Xpp3Dom config = (Xpp3Dom) exec.getConfiguration();
+                if (!exec.getGoals().contains("add-source") || config == null) {
+                    continue;
+                }
+                Xpp3Dom sourcesNode = config.getChild("sources");
+                if (sourcesNode == null) {
+                    continue;
+                }
+                for (Xpp3Dom sourceNode : sourcesNode.getChildren("source")) {
+                    dirs.add(sourceNode.getValue());
+                }
+            }
+        }
+        return dirs;
+    }
+
     public List<JavaccExecution> getJavaccExecutions() {
         List<JavaccExecution> executions = new ArrayList<JavaccExecution>();
         if (project.getBuildPlugins() != null) {
