@@ -1,0 +1,23 @@
+# Build output directories
+target/
+classes/
+bin/
+
+# IDE configurations
+.idea/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+.factorypath
+nbproject/
+nb-configuration.xml
+
+# Log files and temporary resources
+*.log
+*.tmp
+*~
+.DS_Store
+Thumbs.db
