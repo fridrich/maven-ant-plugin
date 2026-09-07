@@ -66,7 +66,7 @@ under the License.
     <plexusUtilsVersion>4.1.0</plexusUtilsVersion>
     <plexusXmlVersion>3.0.1</plexusXmlVersion>
     <xalanVersion>2.7.3</xalanVersion>
-    <sisusVersion>1.0.1</sisusVersion>
+    <sisusVersion>1.1.0</sisusVersion>
     <testingHarnessVersion>3.5.1</testingHarnessVersion>
     <junitVersion>4.13.2</junitVersion>
     <surefireVersion>3.6.0</surefireVersion>
