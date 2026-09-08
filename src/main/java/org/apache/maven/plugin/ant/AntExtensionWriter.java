@@ -21,6 +21,7 @@ package org.apache.maven.plugin.ant;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -305,7 +306,7 @@ public class AntExtensionWriter {
      */
     private List<String> resolveGrammarFiles(String pathOrPattern) {
         if (!pathOrPattern.contains("*")) {
-            return java.util.Collections.singletonList(pathOrPattern);
+            return Collections.singletonList(pathOrPattern);
         }
         int lastSlash = pathOrPattern.lastIndexOf('/');
         String dir = lastSlash != -1 ? pathOrPattern.substring(0, lastSlash) : ".";

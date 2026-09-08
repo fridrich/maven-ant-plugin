@@ -38,6 +38,7 @@ import org.apache.maven.artifact.resolver.ArtifactResolver;
  * @author <a href="mailto:vincent.siveton@gmail.com">Vincent Siveton</a>
  * @version $Id: ArtifactResolverWrapper.java 1645084 2014-12-12 22:28:31Z khmarbaise $
  */
+@SuppressWarnings("deprecation")
 public class ArtifactResolverWrapper {
     /**
      * Used for resolving artifacts

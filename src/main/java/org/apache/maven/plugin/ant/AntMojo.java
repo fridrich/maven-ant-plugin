@@ -18,17 +18,19 @@
  */
 package org.apache.maven.plugin.ant;
 
+import javax.inject.Inject;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 
 import org.apache.maven.artifact.factory.ArtifactFactory;
+import org.apache.maven.artifact.metadata.ArtifactMetadataSource;
 import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.artifact.resolver.ArtifactResolver;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugins.annotations.Component;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
@@ -43,6 +45,7 @@ import org.apache.maven.settings.Settings;
  * @todo change this to use the artifact ant tasks instead of :get
  */
 @Mojo(name = "ant", requiresDependencyResolution = ResolutionScope.TEST)
+@SuppressWarnings("deprecation")
 public class AntMojo extends AbstractMojo {
     // ----------------------------------------------------------------------
     // Mojo components
@@ -51,20 +54,20 @@ public class AntMojo extends AbstractMojo {
     /**
      * Used for resolving artifacts.
      */
-    @Component
+    @Inject
     private ArtifactResolver resolver;
 
     /**
      * Factory for creating artifact objects.
      */
-    @Component
+    @Inject
     private ArtifactFactory factory;
 
     /**
      * Metadata source for resolving artifact metadata.
      */
-    @Component
-    private org.apache.maven.artifact.metadata.ArtifactMetadataSource metadataSource;
+    @Inject
+    private ArtifactMetadataSource metadataSource;
 
     // ----------------------------------------------------------------------
     // Mojo parameters
@@ -113,7 +116,16 @@ public class AntMojo extends AbstractMojo {
         ArtifactResolverWrapper artifactResolverWrapper = ArtifactResolverWrapper.getInstance(
                 resolver, factory, localRepository, remoteRepositories, metadataSource);
 
-        Properties executionProperties = (session != null) ? session.getExecutionProperties() : null;
+        Properties executionProperties = null;
+        if (session != null) {
+            executionProperties = new Properties();
+            if (session.getSystemProperties() != null) {
+                executionProperties.putAll(session.getSystemProperties());
+            }
+            if (session.getUserProperties() != null) {
+                executionProperties.putAll(session.getUserProperties());
+            }
+        }
         List<MavenProject> reactorProjects = (session != null) ? session.getProjects() : null;
 
         AntBuildWriter antBuildWriter = new AntBuildWriter(

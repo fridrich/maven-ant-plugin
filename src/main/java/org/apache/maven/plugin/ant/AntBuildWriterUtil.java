@@ -1744,9 +1744,8 @@ public class AntBuildWriterUtil {
             }
         }
 
-        if (project.getTestArtifacts() != null) {
-            for (Object obj : project.getTestArtifacts()) {
-                Artifact art = (Artifact) obj;
+        if (project.getArtifacts() != null) {
+            for (Artifact art : project.getArtifacts()) {
                 if (!testScopeOnly || Artifact.SCOPE_TEST.equalsIgnoreCase(art.getScope())) {
                     String gid = art.getGroupId();
                     String aid = art.getArtifactId();

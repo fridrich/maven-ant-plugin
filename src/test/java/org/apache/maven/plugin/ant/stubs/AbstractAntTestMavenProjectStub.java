@@ -22,8 +22,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.DefaultArtifact;
@@ -174,6 +176,14 @@ public abstract class AbstractAntTestMavenProjectStub extends MavenProjectStub {
         junit.setFile(new File("junit/junit/3.8.2/junit-3.8.2.jar"));
 
         return Collections.singletonList(junit);
+    }
+
+    /**
+     * @see org.apache.maven.project.MavenProject#getArtifacts()
+     */
+    @Override
+    public Set getArtifacts() {
+        return new HashSet(getTestArtifacts());
     }
 
     /**
