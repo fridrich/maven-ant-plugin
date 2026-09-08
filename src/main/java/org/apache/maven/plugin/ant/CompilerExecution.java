@@ -83,8 +83,7 @@ public class CompilerExecution {
 
     public boolean isModuleInfo(MavenProject project) {
         if (includes != null) {
-            for (int i = 0; i < includes.length; i++) {
-                Map map = includes[i];
+            for (Map map : includes) {
                 if (map != null && map.containsKey("include")) {
                     Object includeObj = map.get("include");
                     if (includeObj instanceof String) {
@@ -96,8 +95,7 @@ public class CompilerExecution {
                 }
             }
         }
-        for (int i = 0; i < compileSourceRoots.size(); i++) {
-            String root = compileSourceRoots.get(i);
+        for (String root : compileSourceRoots) {
             if (root != null) {
                 File rootFile = new File(root);
                 if (rootFile.exists() && new File(rootFile, "module-info.java").exists()) {

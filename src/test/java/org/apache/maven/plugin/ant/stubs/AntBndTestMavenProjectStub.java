@@ -45,7 +45,7 @@ public class AntBndTestMavenProjectStub extends AbstractAntTestMavenProjectStub 
     // Already present so the plugin doesn't need to resolve it transitively - not something this
     // in-process test harness can do (no wired Maven session/resolver).
     @Override
-    public List getCompileArtifacts() {
+    public List<Artifact> getCompileArtifacts() {
         Artifact bndAnt = new DefaultArtifact(
                 "biz.aQute.bnd",
                 "biz.aQute.bnd.ant",
@@ -57,7 +57,7 @@ public class AntBndTestMavenProjectStub extends AbstractAntTestMavenProjectStub 
                 false);
         bndAnt.setFile(new File("biz/aQute/bnd/biz.aQute.bnd.ant/7.4.0/biz.aQute.bnd.ant-7.4.0.jar"));
 
-        List artifacts = new ArrayList(super.getCompileArtifacts());
+        List<Artifact> artifacts = new ArrayList<>(super.getCompileArtifacts());
         artifacts.add(bndAnt);
         return artifacts;
     }

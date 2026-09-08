@@ -19,7 +19,7 @@
 package org.apache.maven.plugin.ant;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.maven.project.MavenProject;
@@ -49,7 +49,8 @@ public class AntTestWriter {
      * @param testExcludes pattern list of excludes
      * @throws IOException if any
      */
-    public void writeTestTargets(XMLWriter writer, List testCompileSourceRoots, List testIncludes, List testExcludes)
+    public void writeTestTargets(
+            XMLWriter writer, List<String> testCompileSourceRoots, List<String> testIncludes, List<String> testExcludes)
             throws IOException {
         AntBuildWriterUtil.TestFramework framework = AntBuildWriterUtil.getTestFramework(project);
 
@@ -152,9 +153,9 @@ public class AntTestWriter {
     private void writeTestRunnerTarget(
             XMLWriter writer,
             AntBuildWriterUtil.TestFramework framework,
-            List testCompileSourceRoots,
-            List testIncludes,
-            List testExcludes)
+            List<String> testCompileSourceRoots,
+            List<String> testIncludes,
+            List<String> testExcludes)
             throws IOException {
         switch (framework) {
             case JUNIT3:
@@ -195,29 +196,31 @@ public class AntTestWriter {
         writer.endElement(); // condition
     }
 
-    private void writeTestClassIncludesExcludes(XMLWriter writer, List testIncludes, List testExcludes) {
+    private void writeTestClassIncludesExcludes(
+            XMLWriter writer, List<String> testIncludes, List<String> testExcludes) {
         writer.startElement("include");
         writer.addAttribute("name", "${maven.test.includesPattern}");
         writer.addAttribute("if", "test");
         writer.endElement(); // include
 
-        for (Object incl : testIncludes) {
+        for (String incl : testIncludes) {
             writer.startElement("include");
-            String inclPattern = ((String) incl).replace(".java", ".class");
+            String inclPattern = incl.replace(".java", ".class");
             writer.addAttribute("name", inclPattern);
             writer.addAttribute("unless", "test");
             writer.endElement(); // include
         }
 
-        for (Object excl : testExcludes) {
+        for (String excl : testExcludes) {
             writer.startElement("exclude");
-            String exclPattern = ((String) excl).replace(".java", ".class");
+            String exclPattern = excl.replace(".java", ".class");
             writer.addAttribute("name", exclPattern);
             writer.endElement(); // exclude
         }
     }
 
-    private void writeTestFilesets(XMLWriter writer, List testCompileSourceRoots, List includes, List excludes) {
+    private void writeTestFilesets(
+            XMLWriter writer, List<String> testCompileSourceRoots, List<String> includes, List<String> excludes) {
         for (int i = 0; i < testCompileSourceRoots.size(); i++) {
             writer.startElement("fileset");
             writer.addAttribute("dir", "${maven.build.testDir." + i + "}");
@@ -226,7 +229,8 @@ public class AntTestWriter {
         }
     }
 
-    private void writeJunit(XMLWriter writer, List testCompileSourceRoots, List testIncludes, List testExcludes)
+    private void writeJunit(
+            XMLWriter writer, List<String> testCompileSourceRoots, List<String> testIncludes, List<String> testExcludes)
             throws IOException {
         writer.startElement("target");
         writer.addAttribute("name", "-run-tests-junit");
@@ -271,7 +275,7 @@ public class AntTestWriter {
         writer.addAttribute("todir", "${maven.test.reports}");
         writer.addAttribute("if", "test");
 
-        List includes = Arrays.asList("**/${test}.java");
+        List<String> includes = Collections.singletonList("**/${test}.java");
         writeTestFilesets(writer, testCompileSourceRoots, includes, testExcludes);
 
         writer.endElement(); // batchtest
@@ -281,7 +285,8 @@ public class AntTestWriter {
         writer.endElement(); // target
     }
 
-    private void writeJunitLauncher(XMLWriter writer, List testIncludes, List testExcludes) throws IOException {
+    private void writeJunitLauncher(XMLWriter writer, List<String> testIncludes, List<String> testExcludes)
+            throws IOException {
         writer.startElement("target");
         writer.addAttribute("name", "-run-tests-junitlauncher");
         writer.addAttribute("if", "junitlauncher.present");
@@ -327,7 +332,8 @@ public class AntTestWriter {
         writer.endElement(); // target
     }
 
-    private void writeTestNG(XMLWriter writer, List testIncludes, List testExcludes) throws IOException {
+    private void writeTestNG(XMLWriter writer, List<String> testIncludes, List<String> testExcludes)
+            throws IOException {
         writer.startElement("target");
         writer.addAttribute("name", "-run-tests-testng");
         writer.addAttribute("if", "testng.present");

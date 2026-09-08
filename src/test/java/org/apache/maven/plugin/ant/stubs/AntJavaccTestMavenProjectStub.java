@@ -45,7 +45,7 @@ public class AntJavaccTestMavenProjectStub extends AbstractAntTestMavenProjectSt
     // Already present so the plugin doesn't need to resolve it transitively - not something this
     // in-process test harness can do (no wired Maven session/resolver).
     @Override
-    public List getCompileArtifacts() {
+    public List<Artifact> getCompileArtifacts() {
         Artifact javacc = new DefaultArtifact(
                 "net.java.dev.javacc",
                 "javacc",
@@ -57,7 +57,7 @@ public class AntJavaccTestMavenProjectStub extends AbstractAntTestMavenProjectSt
                 false);
         javacc.setFile(new File("net/java/dev/javacc/javacc/7.0.12/javacc-7.0.12.jar"));
 
-        List artifacts = new ArrayList(super.getCompileArtifacts());
+        List<Artifact> artifacts = new ArrayList<>(super.getCompileArtifacts());
         artifacts.add(javacc);
         return artifacts;
     }

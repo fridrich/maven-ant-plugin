@@ -33,6 +33,7 @@ import org.apache.maven.artifact.handler.DefaultArtifactHandler;
 import org.apache.maven.artifact.versioning.VersionRange;
 import org.apache.maven.model.Build;
 import org.apache.maven.model.Model;
+import org.apache.maven.model.Plugin;
 import org.apache.maven.model.Reporting;
 import org.apache.maven.model.Repository;
 import org.apache.maven.model.Resource;
@@ -106,7 +107,7 @@ public abstract class AbstractAntTestMavenProjectStub extends MavenProjectStub {
     }
 
     @Override
-    public List getBuildPlugins() {
+    public List<Plugin> getBuildPlugins() {
         return getModel().getBuild() != null ? getModel().getBuild().getPlugins() : Collections.emptyList();
     }
 
@@ -127,7 +128,7 @@ public abstract class AbstractAntTestMavenProjectStub extends MavenProjectStub {
     /**
      * @see org.apache.maven.project.MavenProject#getCompileSourceRoots()
      */
-    public List getCompileSourceRoots() {
+    public List<String> getCompileSourceRoots() {
         File src = new File(
                 PlexusTestCase.getBasedir() + "/src/test/resources/unit/" + getProjetPath() + "/src/main/java");
         return Collections.singletonList(src.getAbsolutePath());
@@ -136,7 +137,7 @@ public abstract class AbstractAntTestMavenProjectStub extends MavenProjectStub {
     /**
      * @see org.apache.maven.project.MavenProject#getTestCompileSourceRoots()
      */
-    public List getTestCompileSourceRoots() {
+    public List<String> getTestCompileSourceRoots() {
         File test = new File(
                 PlexusTestCase.getBasedir() + "/src/test/resources/unit/" + getProjetPath() + "/src/test/java");
         return Collections.singletonList(test.getAbsolutePath());
@@ -145,7 +146,7 @@ public abstract class AbstractAntTestMavenProjectStub extends MavenProjectStub {
     /**
      * @see org.apache.maven.project.MavenProject#getCompileArtifacts()
      */
-    public List getCompileArtifacts() {
+    public List<Artifact> getCompileArtifacts() {
         Artifact junit = new DefaultArtifact(
                 "junit",
                 "junit",
@@ -163,7 +164,7 @@ public abstract class AbstractAntTestMavenProjectStub extends MavenProjectStub {
     /**
      * @see org.apache.maven.project.MavenProject#getTestArtifacts()
      */
-    public List getTestArtifacts() {
+    public List<Artifact> getTestArtifacts() {
         Artifact junit = new DefaultArtifact(
                 "junit",
                 "junit",
@@ -182,14 +183,14 @@ public abstract class AbstractAntTestMavenProjectStub extends MavenProjectStub {
      * @see org.apache.maven.project.MavenProject#getArtifacts()
      */
     @Override
-    public Set getArtifacts() {
-        return new HashSet(getTestArtifacts());
+    public Set<Artifact> getArtifacts() {
+        return new HashSet<>(getTestArtifacts());
     }
 
     /**
      * @see org.apache.maven.project.MavenProject#getRepositories()
      */
-    public List getRepositories() {
+    public List<Repository> getRepositories() {
         Repository repo = new Repository();
         repo.setId("central");
         repo.setName("central");

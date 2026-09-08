@@ -89,7 +89,7 @@ public class AntMojo extends AbstractMojo {
      * The remote repositories where artifacts are located.
      */
     @Parameter(defaultValue = "${project.remoteArtifactRepositories}", readonly = true)
-    private List remoteRepositories;
+    private List<ArtifactRepository> remoteRepositories;
 
     /**
      * The current user system settings for use in Maven.

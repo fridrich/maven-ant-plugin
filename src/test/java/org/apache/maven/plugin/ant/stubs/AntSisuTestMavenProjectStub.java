@@ -45,7 +45,7 @@ public class AntSisuTestMavenProjectStub extends AbstractAntTestMavenProjectStub
     // Already present so the plugin doesn't need to resolve it transitively - not something this
     // in-process test harness can do (no wired Maven session/resolver).
     @Override
-    public List getCompileArtifacts() {
+    public List<Artifact> getCompileArtifacts() {
         Artifact sisuInject = new DefaultArtifact(
                 "org.eclipse.sisu",
                 "org.eclipse.sisu.inject",
@@ -69,15 +69,15 @@ public class AntSisuTestMavenProjectStub extends AbstractAntTestMavenProjectStub
                 false);
         javaxInject.setFile(new File("javax/inject/javax.inject/1/javax.inject-1.jar"));
 
-        List artifacts = new ArrayList(super.getCompileArtifacts());
+        List<Artifact> artifacts = new ArrayList<>(super.getCompileArtifacts());
         artifacts.add(sisuInject);
         artifacts.add(javaxInject);
         return artifacts;
     }
 
     @Override
-    public List getTestArtifacts() {
-        List artifacts = new ArrayList(getCompileArtifacts());
+    public List<Artifact> getTestArtifacts() {
+        List<Artifact> artifacts = new ArrayList<>(getCompileArtifacts());
         artifacts.addAll(super.getTestArtifacts());
         return artifacts;
     }

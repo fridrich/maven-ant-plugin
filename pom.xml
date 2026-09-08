@@ -129,6 +129,12 @@ under the License.
       <scope>provided</scope>
     </dependency>
     <dependency>
+      <groupId>javax.inject</groupId>
+      <artifactId>javax.inject</artifactId>
+      <version>1</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
       <groupId>org.codehaus.plexus</groupId>
       <artifactId>plexus-utils</artifactId>
       <version>${plexusUtilsVersion}</version>

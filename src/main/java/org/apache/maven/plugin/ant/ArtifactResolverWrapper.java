@@ -58,7 +58,7 @@ public class ArtifactResolverWrapper {
     /**
      * The remote repositories where artifacts are located
      */
-    private List remoteRepositories;
+    private List<ArtifactRepository> remoteRepositories;
 
     /**
      * Metadata source for resolving artifact metadata.
@@ -76,7 +76,7 @@ public class ArtifactResolverWrapper {
             ArtifactResolver resolver,
             ArtifactFactory factory,
             ArtifactRepository localRepository,
-            List remoteRepositories,
+            List<ArtifactRepository> remoteRepositories,
             ArtifactMetadataSource metadataSource) {
         this.resolver = resolver;
         this.factory = factory;
@@ -97,7 +97,7 @@ public class ArtifactResolverWrapper {
             ArtifactResolver resolver,
             ArtifactFactory factory,
             ArtifactRepository localRepository,
-            List remoteRepositories,
+            List<ArtifactRepository> remoteRepositories,
             ArtifactMetadataSource metadataSource) {
         return new ArtifactResolverWrapper(resolver, factory, localRepository, remoteRepositories, metadataSource);
     }
@@ -111,9 +111,9 @@ public class ArtifactResolverWrapper {
      * @return set of resolved artifacts.
      * @throws IOException if resolution fails.
      */
-    public Set resolveTransitively(String groupId, String artifactId, String version) throws IOException {
+    public Set<Artifact> resolveTransitively(String groupId, String artifactId, String version) throws IOException {
         Artifact artifact = factory.createArtifact(groupId, artifactId, version, Artifact.SCOPE_COMPILE, "jar");
-        Set artifacts = new HashSet();
+        Set<Artifact> artifacts = new HashSet<>();
         artifacts.add(artifact);
         try {
             // First resolve the main artifact itself
@@ -123,7 +123,7 @@ public class ArtifactResolverWrapper {
             ArtifactResolutionResult result = resolver.resolveTransitively(
                     artifacts, artifact, remoteRepositories, localRepository, metadataSource);
 
-            Set allResolved = new HashSet();
+            Set<Artifact> allResolved = new HashSet<>();
             allResolved.add(artifact);
             if (result.getArtifacts() != null) {
                 allResolved.addAll(result.getArtifacts());
@@ -167,14 +167,14 @@ public class ArtifactResolverWrapper {
     /**
      * @return {@link #remoteRepositories}
      */
-    protected List getRemoteRepositories() {
+    protected List<ArtifactRepository> getRemoteRepositories() {
         return remoteRepositories;
     }
 
     /**
      * @param remoteRepositories {@link #remoteRepositories}
      */
-    protected void setRemoteRepositories(List remoteRepositories) {
+    protected void setRemoteRepositories(List<ArtifactRepository> remoteRepositories) {
         this.remoteRepositories = remoteRepositories;
     }
 

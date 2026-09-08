@@ -59,12 +59,11 @@ public class AntBuildWriterUtil {
      * @param compileSourceRoots {@link List}
      * @return not null list
      */
-    public static List removeEmptyCompileSourceRoots(List compileSourceRoots) {
-        List newCompileSourceRootsList = new ArrayList();
+    public static List<String> removeEmptyCompileSourceRoots(List<String> compileSourceRoots) {
+        List<String> newCompileSourceRootsList = new ArrayList<>();
         if (compileSourceRoots != null) {
             // copy as I may be modifying it
-            for (Object compileSourceRoot : compileSourceRoots) {
-                String srcDir = (String) compileSourceRoot;
+            for (String srcDir : compileSourceRoots) {
                 if (new File(srcDir).exists()) {
                     newCompileSourceRootsList.add(srcDir);
                 }
@@ -81,18 +80,16 @@ public class AntBuildWriterUtil {
      * @param includes {@link List}
      * @param excludes {@link List}
      */
-    public static void writeIncludesExcludes(XMLWriter writer, List includes, List excludes) {
+    public static void writeIncludesExcludes(XMLWriter writer, List<String> includes, List<String> excludes) {
         if (includes != null) {
-            for (Object include1 : includes) {
-                String include = (String) include1;
+            for (String include : includes) {
                 writer.startElement("include");
                 writer.addAttribute("name", include);
                 writer.endElement(); // include
             }
         }
         if (excludes != null) {
-            for (Object exclude1 : excludes) {
-                String exclude = (String) exclude1;
+            for (String exclude : excludes) {
                 writer.startElement("exclude");
                 writer.addAttribute("name", exclude);
                 writer.endElement(); // exclude
@@ -164,17 +161,15 @@ public class AntBuildWriterUtil {
     public static void writeJavadocTask(
             XMLWriter writer, MavenProject project, ArtifactResolverWrapper wrapper, List<String> extraSourceDirs)
             throws IOException {
-        List<String> sources = new ArrayList<String>();
-        for (Object o : project.getCompileSourceRoots()) {
-            String source = (String) o;
-
+        List<String> sources = new ArrayList<>();
+        for (String source : project.getCompileSourceRoots()) {
             if (new File(source).exists()) {
                 sources.add(source);
             }
         }
 
         // No sources
-        if (sources.size() == 0) {
+        if (sources.isEmpty()) {
             return;
         }
 
@@ -325,10 +320,10 @@ public class AntBuildWriterUtil {
             }
         }
 
-        Map[] groups = getMavenJavadocPluginOptions(project, "groups", null);
+        Map<?, ?>[] groups = getMavenJavadocPluginOptions(project, "groups", null);
         if (groups != null) {
-            for (Map group1 : groups) {
-                Map group = (Map) group1.get("group");
+            for (Map<?, ?> group1 : groups) {
+                Map<?, ?> group = (Map<?, ?>) group1.get("group");
                 writer.startElement("group");
                 writer.addAttribute("title", (String) group.get("title"));
                 addWrapAttribute(writer, "javadoc", "package", (String) group.get("package"), 4);
@@ -346,7 +341,7 @@ public class AntBuildWriterUtil {
                 addWrapAttribute(writer, "javadoc", "path", docletpath, 4);
                 writer.endElement(); // doclet
             } else {
-                Map docletArtifact = getMavenJavadocPluginOption(project, "docletArtifact", null);
+                Map<?, ?> docletArtifact = getMavenJavadocPluginOption(project, "docletArtifact", null);
                 String path = wrapper.getArtifactAbsolutePath(
                         (String) docletArtifact.get("groupId"), (String) docletArtifact.get("artifactId"), (String)
                                 docletArtifact.get("version"));
@@ -369,7 +364,7 @@ public class AntBuildWriterUtil {
                 addWrapAttribute(writer, "javadoc", "path", tagletpath, 4);
                 writer.endElement(); // taglet
             } else {
-                Map tagletArtifact = getMavenJavadocPluginOption(project, "tagletArtifact", null);
+                Map<?, ?> tagletArtifact = getMavenJavadocPluginOption(project, "tagletArtifact", null);
                 String path = wrapper.getArtifactAbsolutePath(
                         (String) tagletArtifact.get("groupId"), (String) tagletArtifact.get("artifactId"), (String)
                                 tagletArtifact.get("version"));
@@ -382,10 +377,10 @@ public class AntBuildWriterUtil {
             }
         }
 
-        Map[] tags = getMavenJavadocPluginOptions(project, "tags", null);
+        Map<?, ?>[] tags = getMavenJavadocPluginOptions(project, "tags", null);
         if (tags != null) {
-            for (Map tag : tags) {
-                Map props = (Map) tag.get("tag");
+            for (Map<?, ?> tag : tags) {
+                Map<?, ?> props = (Map<?, ?>) tag.get("tag");
                 writer.startElement("tag");
                 writer.addAttribute("name", (String) props.get("name"));
                 addWrapAttribute(writer, "javadoc", "scope", (String) props.get("placement"), 4);
@@ -976,8 +971,7 @@ public class AntBuildWriterUtil {
             return null;
         }
         Object firstExecConf = null;
-        for (Object execObj : plugin.getExecutions()) {
-            PluginExecution execution = (PluginExecution) execObj;
+        for (PluginExecution execution : plugin.getExecutions()) {
             if (execution.getConfiguration() == null) {
                 continue;
             }
@@ -993,17 +987,11 @@ public class AntBuildWriterUtil {
 
     private static Map getMavenPluginConfigurationsImpl(
             MavenProject project, String pluginArtifactId, String optionName, String defaultValue) throws IOException {
-        List plugins = new ArrayList();
-        for (ReportPlugin reportPlugin1 : project.getModel().getReporting().getPlugins()) {
-            plugins.add(reportPlugin1);
-        }
-        for (Plugin plugin1 : project.getModel().getBuild().getPlugins()) {
-            plugins.add(plugin1);
-        }
+        List<Object> plugins = new ArrayList<>();
+        plugins.addAll(project.getModel().getReporting().getPlugins());
+        plugins.addAll(project.getModel().getBuild().getPlugins());
         if (project.getBuild().getPluginManagement() != null) {
-            for (Plugin plugin : project.getBuild().getPluginManagement().getPlugins()) {
-                plugins.add(plugin);
-            }
+            plugins.addAll(project.getBuild().getPluginManagement().getPlugins());
         }
 
         for (Object next : plugins) {
@@ -1059,17 +1047,17 @@ public class AntBuildWriterUtil {
                          *   </optionName>
                          * </optionNames>
                          */
-                        Map options = new HashMap();
+                        Map<String, Object> options = new HashMap<>();
 
-                        List optionNames = new ArrayList();
+                        List<Map<String, Object>> optionNames = new ArrayList<>();
                         NodeList childs = optionNode.getChildNodes();
                         for (int i = 0; i < childs.getLength(); i++) {
                             Node child = childs.item(i);
                             if (child.getNodeType() == Node.ELEMENT_NODE) {
-                                Map<String, Object> option = new HashMap<String, Object>();
+                                Map<String, Object> option = new HashMap<>();
 
                                 if (isElementContent(child)) {
-                                    Map<String, String> properties = new HashMap<String, String>();
+                                    Map<String, String> properties = new HashMap<>();
                                     NodeList childs2 = child.getChildNodes();
                                     if (childs2.getLength() > 0) {
                                         for (int j = 0; j < childs2.getLength(); j++) {
@@ -1100,11 +1088,11 @@ public class AntBuildWriterUtil {
                          *  <param2>value2</param2>
                          * </optionName>
                          */
-                        Map option = new HashMap();
+                        Map<String, Object> option = new HashMap<>();
 
                         NodeList childs = optionNode.getChildNodes();
                         if (childs.getLength() > 1) {
-                            Map parameters = new HashMap();
+                            Map<String, String> parameters = new HashMap<>();
 
                             for (int i = 0; i < childs.getLength(); i++) {
                                 Node child = childs.item(i);
@@ -1121,7 +1109,7 @@ public class AntBuildWriterUtil {
                         /*
                          * <optionName>value1</optionName>
                          */
-                        Map option = new HashMap();
+                        Map<String, Object> option = new HashMap<>();
 
                         option.put(optionName, getTextContent(optionNode));
 
@@ -1133,7 +1121,7 @@ public class AntBuildWriterUtil {
             }
         }
 
-        Map properties = new HashMap();
+        Map<String, Object> properties = new HashMap<>();
         properties.put(optionName, defaultValue);
 
         return properties;
@@ -1155,9 +1143,7 @@ public class AntBuildWriterUtil {
         writer.endElement(); // mkdir
 
         if (project.getArtifacts() != null) {
-            for (Object o : project.getArtifacts()) {
-                Artifact artifact = (Artifact) o;
-
+            for (Artifact artifact : project.getArtifacts()) {
                 if (Artifact.SCOPE_COMPILE.equals(artifact.getScope())
                         || Artifact.SCOPE_RUNTIME.equals(artifact.getScope())) {
                     String path = artifactResolverWrapper.getLocalArtifactPath(artifact);
@@ -1347,12 +1333,11 @@ public class AntBuildWriterUtil {
      * Parse all maven-compiler-plugin executions, including those inside inactive profiles.
      */
     public static List<CompilerExecution> getCompilerExecutions(MavenProject project) {
-        List<CompilerExecution> executions = new ArrayList<CompilerExecution>();
+        List<CompilerExecution> executions = new ArrayList<>();
 
         // 1. Process active build plugins
         if (project.getBuild() != null && project.getBuild().getPlugins() != null) {
-            for (Object o : project.getBuild().getPlugins()) {
-                Plugin plugin = (Plugin) o;
+            for (Plugin plugin : project.getBuild().getPlugins()) {
                 if ("maven-compiler-plugin".equals(plugin.getArtifactId())) {
                     CompilerExecution defaultExec = parseCompilerConfiguration(
                             "default", plugin.getConfiguration(), project.getCompileSourceRoots(), project);
@@ -1360,8 +1345,7 @@ public class AntBuildWriterUtil {
                         executions.add(defaultExec);
                     }
                     if (plugin.getExecutions() != null) {
-                        for (Object execObj : plugin.getExecutions()) {
-                            PluginExecution exec = (PluginExecution) execObj;
+                        for (PluginExecution exec : plugin.getExecutions()) {
                             CompilerExecution compilerExec = parseCompilerConfiguration(
                                     exec.getId(), exec.getConfiguration(), project.getCompileSourceRoots(), project);
                             if (compilerExec != null) {
@@ -1388,8 +1372,7 @@ public class AntBuildWriterUtil {
                                 executions.add(profileExec);
                             }
                             if (plugin.getExecutions() != null) {
-                                for (Object execObj : plugin.getExecutions()) {
-                                    PluginExecution exec = (PluginExecution) execObj;
+                                for (PluginExecution exec : plugin.getExecutions()) {
                                     CompilerExecution compilerExec = parseCompilerConfiguration(
                                             profile.getId() + "-" + exec.getId(),
                                             exec.getConfiguration(),
@@ -1463,14 +1446,14 @@ public class AntBuildWriterUtil {
             if (nodeList.getLength() > 0) {
                 Node optionNode = nodeList.item(0);
                 if (isList(optionNode)) {
-                    List optionNames = new ArrayList();
+                    List<Map<String, Object>> optionNames = new ArrayList<>();
                     NodeList childs = optionNode.getChildNodes();
                     for (int i = 0; i < childs.getLength(); i++) {
                         Node child = childs.item(i);
                         if (child.getNodeType() == Node.ELEMENT_NODE) {
-                            Map<String, Object> option = new HashMap<String, Object>();
+                            Map<String, Object> option = new HashMap<>();
                             if (isElementContent(child)) {
-                                Map<String, String> properties = new HashMap<String, String>();
+                                Map<String, String> properties = new HashMap<>();
                                 NodeList childs2 = child.getChildNodes();
                                 for (int j = 0; j < childs2.getLength(); j++) {
                                     Node child2 = childs2.item(j);
@@ -1504,8 +1487,7 @@ public class AntBuildWriterUtil {
 
     private static Xpp3Dom getPluginConfigurationDOM(MavenProject project, String pluginArtifactId) {
         if (project.getBuild() != null && project.getBuild().getPlugins() != null) {
-            for (Object o : project.getBuild().getPlugins()) {
-                Plugin plugin = (Plugin) o;
+            for (Plugin plugin : project.getBuild().getPlugins()) {
                 if (pluginArtifactId.equals(plugin.getArtifactId())) {
                     return (Xpp3Dom) plugin.getConfiguration();
                 }
@@ -1514,8 +1496,7 @@ public class AntBuildWriterUtil {
         if (project.getBuild() != null
                 && project.getBuild().getPluginManagement() != null
                 && project.getBuild().getPluginManagement().getPlugins() != null) {
-            for (Object o : project.getBuild().getPluginManagement().getPlugins()) {
-                Plugin plugin = (Plugin) o;
+            for (Plugin plugin : project.getBuild().getPluginManagement().getPlugins()) {
                 if (pluginArtifactId.equals(plugin.getArtifactId())) {
                     return (Xpp3Dom) plugin.getConfiguration();
                 }
@@ -1725,8 +1706,7 @@ public class AntBuildWriterUtil {
         boolean hasTestng = false;
 
         if (project.getDependencies() != null) {
-            for (Object obj : project.getDependencies()) {
-                Dependency dep = (Dependency) obj;
+            for (Dependency dep : project.getDependencies()) {
                 if (!testScopeOnly || Artifact.SCOPE_TEST.equalsIgnoreCase(dep.getScope())) {
                     String gid = dep.getGroupId();
                     String aid = dep.getArtifactId();

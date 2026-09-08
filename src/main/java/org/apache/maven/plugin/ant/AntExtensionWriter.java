@@ -25,6 +25,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.maven.model.Dependency;
+import org.apache.maven.model.Plugin;
+import org.apache.maven.model.PluginExecution;
 import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.util.StringUtils;
 import org.codehaus.plexus.util.xml.XMLWriter;
@@ -43,8 +46,7 @@ public class AntExtensionWriter {
 
     public boolean isSisuProject() {
         if (project.getBuildPlugins() != null) {
-            for (Object o : project.getBuildPlugins()) {
-                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+            for (Plugin plugin : project.getBuildPlugins()) {
                 if ("sisu-maven-plugin".equals(plugin.getArtifactId())) {
                     return true;
                 }
@@ -55,8 +57,7 @@ public class AntExtensionWriter {
 
     public String getSisuVersion() {
         if (project.getDependencies() != null) {
-            for (Object o : project.getDependencies()) {
-                org.apache.maven.model.Dependency dep = (org.apache.maven.model.Dependency) o;
+            for (Dependency dep : project.getDependencies()) {
                 if ("org.eclipse.sisu.plexus".equals(dep.getArtifactId())
                         || "org.eclipse.sisu.inject".equals(dep.getArtifactId())) {
                     return dep.getVersion();
@@ -68,8 +69,7 @@ public class AntExtensionWriter {
 
     public boolean isJflexProject() {
         if (project.getBuildPlugins() != null) {
-            for (Object o : project.getBuildPlugins()) {
-                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+            for (Plugin plugin : project.getBuildPlugins()) {
                 if ("jflex-maven-plugin".equals(plugin.getArtifactId())) {
                     return true;
                 }
@@ -102,15 +102,12 @@ public class AntExtensionWriter {
     }
 
     public List<JflexExecution> getJflexExecutions() {
-        List<JflexExecution> executions = new ArrayList<JflexExecution>();
+        List<JflexExecution> executions = new ArrayList<>();
         if (project.getBuildPlugins() != null) {
-            for (Object o : project.getBuildPlugins()) {
-                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+            for (Plugin plugin : project.getBuildPlugins()) {
                 if ("jflex-maven-plugin".equals(plugin.getArtifactId())) {
                     if (plugin.getExecutions() != null) {
-                        for (Object execObj : plugin.getExecutions()) {
-                            org.apache.maven.model.PluginExecution exec =
-                                    (org.apache.maven.model.PluginExecution) execObj;
+                        for (PluginExecution exec : plugin.getExecutions()) {
                             executions.add(new JflexExecution(exec.getId(), (Xpp3Dom) exec.getConfiguration()));
                         }
                     } else if (plugin.getConfiguration() != null) {
@@ -124,8 +121,7 @@ public class AntExtensionWriter {
 
     public boolean isCupProject() {
         if (project.getBuildPlugins() != null) {
-            for (Object o : project.getBuildPlugins()) {
-                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+            for (Plugin plugin : project.getBuildPlugins()) {
                 if ("cup-maven-plugin".equals(plugin.getArtifactId())
                         || "javacup-maven-plugin".equals(plugin.getArtifactId())) {
                     return true;
@@ -159,16 +155,13 @@ public class AntExtensionWriter {
     }
 
     public List<CupExecution> getCupExecutions() {
-        List<CupExecution> executions = new ArrayList<CupExecution>();
+        List<CupExecution> executions = new ArrayList<>();
         if (project.getBuildPlugins() != null) {
-            for (Object o : project.getBuildPlugins()) {
-                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+            for (Plugin plugin : project.getBuildPlugins()) {
                 if ("cup-maven-plugin".equals(plugin.getArtifactId())
                         || "javacup-maven-plugin".equals(plugin.getArtifactId())) {
                     if (plugin.getExecutions() != null) {
-                        for (Object execObj : plugin.getExecutions()) {
-                            org.apache.maven.model.PluginExecution exec =
-                                    (org.apache.maven.model.PluginExecution) execObj;
+                        for (PluginExecution exec : plugin.getExecutions()) {
                             executions.add(new CupExecution(exec.getId(), (Xpp3Dom) exec.getConfiguration()));
                         }
                     } else if (plugin.getConfiguration() != null) {
@@ -182,8 +175,7 @@ public class AntExtensionWriter {
 
     public boolean isBndProject() {
         if (project.getBuildPlugins() != null) {
-            for (Object o : project.getBuildPlugins()) {
-                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+            for (Plugin plugin : project.getBuildPlugins()) {
                 if ("bnd-maven-plugin".equals(plugin.getArtifactId())
                         || "maven-bundle-plugin".equals(plugin.getArtifactId())) {
                     return true;
@@ -195,8 +187,7 @@ public class AntExtensionWriter {
 
     public boolean isJavaccProject() {
         if (project.getBuildPlugins() != null) {
-            for (Object o : project.getBuildPlugins()) {
-                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+            for (Plugin plugin : project.getBuildPlugins()) {
                 if ("javacc-maven-plugin".equals(plugin.getArtifactId())
                         || "ph-javacc-maven-plugin".equals(plugin.getArtifactId())) {
                     return true;
@@ -208,8 +199,7 @@ public class AntExtensionWriter {
 
     public boolean isTemplatingProject() {
         if (project.getBuildPlugins() != null) {
-            for (Object o : project.getBuildPlugins()) {
-                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+            for (Plugin plugin : project.getBuildPlugins()) {
                 if ("templating-maven-plugin".equals(plugin.getArtifactId())) {
                     return true;
                 }
@@ -220,17 +210,15 @@ public class AntExtensionWriter {
 
     /** Extra source dirs registered via build-helper-maven-plugin's add-source goal. */
     public List<String> getAddSourceDirs() {
-        List<String> dirs = new ArrayList<String>();
+        List<String> dirs = new ArrayList<>();
         if (project.getBuildPlugins() == null) {
             return dirs;
         }
-        for (Object o : project.getBuildPlugins()) {
-            org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+        for (Plugin plugin : project.getBuildPlugins()) {
             if (!"build-helper-maven-plugin".equals(plugin.getArtifactId()) || plugin.getExecutions() == null) {
                 continue;
             }
-            for (Object execObj : plugin.getExecutions()) {
-                org.apache.maven.model.PluginExecution exec = (org.apache.maven.model.PluginExecution) execObj;
+            for (PluginExecution exec : plugin.getExecutions()) {
                 Xpp3Dom config = (Xpp3Dom) exec.getConfiguration();
                 if (!exec.getGoals().contains("add-source") || config == null) {
                     continue;
@@ -248,17 +236,14 @@ public class AntExtensionWriter {
     }
 
     public List<JavaccExecution> getJavaccExecutions() {
-        List<JavaccExecution> executions = new ArrayList<JavaccExecution>();
+        List<JavaccExecution> executions = new ArrayList<>();
         if (project.getBuildPlugins() != null) {
-            for (Object o : project.getBuildPlugins()) {
-                org.apache.maven.model.Plugin plugin = (org.apache.maven.model.Plugin) o;
+            for (Plugin plugin : project.getBuildPlugins()) {
                 if ("javacc-maven-plugin".equals(plugin.getArtifactId())
                         || "ph-javacc-maven-plugin".equals(plugin.getArtifactId())) {
                     Xpp3Dom pluginConfig = (Xpp3Dom) plugin.getConfiguration();
                     if (plugin.getExecutions() != null) {
-                        for (Object execObj : plugin.getExecutions()) {
-                            org.apache.maven.model.PluginExecution exec =
-                                    (org.apache.maven.model.PluginExecution) execObj;
+                        for (PluginExecution exec : plugin.getExecutions()) {
                             Xpp3Dom execConfig = (Xpp3Dom) exec.getConfiguration();
                             Xpp3Dom mergedConfig = mergeConfigurations(execConfig, pluginConfig);
                             for (String goal : exec.getGoals()) {
@@ -285,7 +270,7 @@ public class AntExtensionWriter {
     }
 
     private List<String> getGrammarFiles(String sourceDirectory, String extension) {
-        List<String> files = new ArrayList<String>();
+        List<String> files = new ArrayList<>();
         File dir = new File(sourceDirectory);
         if (dir.exists() && dir.isDirectory()) {
             File[] list = dir.listFiles();
@@ -313,7 +298,7 @@ public class AntExtensionWriter {
         String pattern = lastSlash != -1 ? pathOrPattern.substring(lastSlash + 1) : pathOrPattern;
         String extension = pattern.startsWith("*") ? pattern.substring(1) : pattern;
 
-        List<String> resolved = new ArrayList<String>();
+        List<String> resolved = new ArrayList<>();
         for (String fileName : getGrammarFiles(project.getBasedir().getAbsolutePath() + "/" + dir, extension)) {
             resolved.add(dir + "/" + fileName);
         }
@@ -374,7 +359,7 @@ public class AntExtensionWriter {
      * "cup"), for use as a depends= value on compile/javadoc. Empty if none apply.
      */
     public String getGenSourceTargets() {
-        List<String> names = new ArrayList<String>();
+        List<String> names = new ArrayList<>();
         if (isTemplatingProject()) {
             names.add("templates");
         }
@@ -516,7 +501,7 @@ public class AntExtensionWriter {
             writer.addAttribute("dir", outputDirectory);
             writer.endElement(); // mkdir
 
-            List<String> lexFiles = new ArrayList<String>();
+            List<String> lexFiles = new ArrayList<>();
             if (config != null && config.getChild("lexDefinitions") != null) {
                 Xpp3Dom lexDefs = config.getChild("lexDefinitions");
                 for (Xpp3Dom lexFile : lexDefs.getChildren("lexFile")) {
@@ -574,7 +559,7 @@ public class AntExtensionWriter {
             writer.addAttribute("dir", outputDirectory);
             writer.endElement(); // mkdir
 
-            List<String> cupFiles = new ArrayList<String>();
+            List<String> cupFiles = new ArrayList<>();
             if (config != null && config.getChild("cupDefinition") != null) {
                 cupFiles.add(config.getChild("cupDefinition").getValue());
             } else if (config != null && config.getChild("cupFile") != null) {
@@ -606,7 +591,7 @@ public class AntExtensionWriter {
 
     private void writeJjtreeTask(XMLWriter writer, String sourceDirectory, String outputDirectory, Xpp3Dom config)
             throws IOException {
-        List<String> includes = new ArrayList<String>();
+        List<String> includes = new ArrayList<>();
         String includeOption = getIncludeFile(config, null);
         if (includeOption != null) {
             includes.add(includeOption);
@@ -649,7 +634,7 @@ public class AntExtensionWriter {
     private void writeJavaccTask(
             XMLWriter writer, String sourceDirectory, String outputDirectory, Xpp3Dom config, String goal)
             throws IOException {
-        List<String> includes = new ArrayList<String>();
+        List<String> includes = new ArrayList<>();
         String includeOption = getIncludeFile(config, null);
         if (includeOption != null) {
             includes.add(includeOption);

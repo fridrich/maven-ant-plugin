@@ -16,5 +16,7 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-@javax.inject.Named
+import javax.inject.Named;
+
+@Named
 public class Main {}

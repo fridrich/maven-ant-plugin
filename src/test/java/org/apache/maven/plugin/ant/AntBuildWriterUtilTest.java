@@ -74,7 +74,7 @@ public class AntBuildWriterUtilTest {
         assertNotNull(options);
         assertEquals(1, options.length);
         assertEquals(1, options[0].size());
-        Map properties = (Map) options[0].get("tag");
+        Map<?, ?> properties = (Map<?, ?>) options[0].get("tag");
         assertNotNull(properties);
         assertEquals("requirement", properties.get("name"));
         assertEquals("a", properties.get("placement"));
