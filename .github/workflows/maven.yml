@@ -38,4 +38,4 @@ jobs:
         cache: 'maven'
 
     - name: Build with Maven
-      run: mvn clean verify -B
+      run: mvn clean verify -B -Prun-its
