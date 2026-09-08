@@ -853,20 +853,13 @@ public class AntExtensionWriter {
         }
 
         if (bundleInstructions != null) {
-            writer.startElement("propertyfile");
+            writer.startElement("echo");
             writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
-            for (Xpp3Dom entry : bundleInstructions) {
-                String key = entry.getName();
-                if (key.startsWith("_")) {
-                    key = "-" + key.substring(1);
-                }
-                String value = entry.getValue() != null ? entry.getValue() : "";
-                writer.startElement("entry");
-                writer.addAttribute("key", key);
-                writer.addAttribute("value", value);
-                writer.endElement(); // entry
+            if (hasBndFile) {
+                writer.addAttribute("append", "true");
             }
-            writer.endElement(); // propertyfile
+            writer.writeText(getBndPropertiesTextFromInstructions(bundleInstructions, hasBndFile));
+            writer.endElement(); // echo
         } else if (bndTaskInstructions != null) {
             writer.startElement("echo");
             writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
@@ -878,9 +871,46 @@ public class AntExtensionWriter {
         } else if (!hasBndFile) {
             writer.startElement("echo");
             writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
-            writer.writeText(getBndPropertiesText(null, false));
+            writer.writeText(getBndPropertiesText((String) null, false));
             writer.endElement(); // echo
         }
+    }
+
+    private String getBndPropertiesTextFromInstructions(Xpp3Dom[] bundleInstructions, boolean appending) {
+        StringBuilder sb = new StringBuilder();
+        if (!appending) {
+            sb.append("# Generated dynamically by maven-ant-plugin\n");
+        } else {
+            sb.append("\n");
+        }
+        if (bundleInstructions != null) {
+            for (Xpp3Dom entry : bundleInstructions) {
+                String key = entry.getName();
+                if (key.startsWith("_")) {
+                    key = "-" + key.substring(1);
+                }
+                String value = entry.getValue() != null ? entry.getValue().trim() : "";
+                if (value.isEmpty() && key.startsWith("-")) {
+                    sb.append(key).append("\n");
+                } else if (value.contains("\n")) {
+                    String[] lines = value.split("\r?\n");
+                    StringBuilder lineSb = new StringBuilder();
+                    for (String line : lines) {
+                        String trimmed = line.trim();
+                        if (!trimmed.isEmpty()) {
+                            if (lineSb.length() > 0) {
+                                lineSb.append(" \\\n    ");
+                            }
+                            lineSb.append(trimmed);
+                        }
+                    }
+                    sb.append(key).append(": ").append(lineSb).append("\n");
+                } else {
+                    sb.append(key).append(": ").append(value).append("\n");
+                }
+            }
+        }
+        return sb.toString();
     }
 
     private String getBndPropertiesText(String instructions, boolean appending) {

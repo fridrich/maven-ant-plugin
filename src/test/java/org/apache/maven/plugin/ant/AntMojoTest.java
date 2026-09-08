@@ -148,17 +148,17 @@ public class AntMojoTest {
         String mavenBuildXml = org.codehaus.plexus.util.FileUtils.fileRead(
                 new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME));
 
-        org.junit.Assert.assertTrue("propertyfile task not found", mavenBuildXml.contains("<propertyfile"));
+        org.junit.Assert.assertTrue(
+                "echo bnd.bnd task not found", mavenBuildXml.contains("<echo file=\"${maven.build.dir}/bnd.bnd\""));
         org.junit.Assert.assertTrue(
                 "Bundle-SymbolicName entry not found",
-                mavenBuildXml.contains("<entry key=\"Bundle-SymbolicName\" value=\"ant-bundle-instructions-test\""));
-        org.junit.Assert.assertTrue(
-                "Export-Package entry not found", mavenBuildXml.contains("<entry key=\"Export-Package\" value=\"*\""));
+                mavenBuildXml.contains("Bundle-SymbolicName: ant-bundle-instructions-test"));
+        org.junit.Assert.assertTrue("Export-Package entry not found", mavenBuildXml.contains("Export-Package: *"));
         org.junit.Assert.assertTrue(
                 "-exportcontents directive not found",
-                mavenBuildXml.contains("<entry key=\"-exportcontents\" value=\"org.apache.maven.plugin.ant.*\""));
-        org.junit.Assert.assertTrue(
-                "-noee directive not found", mavenBuildXml.contains("<entry key=\"-noee\" value=\"\""));
+                mavenBuildXml.contains("-exportcontents: org.apache.maven.plugin.ant.*"));
+        org.junit.Assert.assertTrue("-noee directive not found", mavenBuildXml.contains("-noee"));
+        org.junit.Assert.assertFalse("-noee directive should not have colon", mavenBuildXml.contains("-noee:"));
 
         int jarTaskIndex = mavenBuildXml.indexOf("<jar jarfile=\"${maven.build.dir}/${maven.build.finalName}.jar\"");
         int bndwrapIndex = mavenBuildXml.indexOf("<bndwrap");
