@@ -24,10 +24,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 
-import org.apache.maven.artifact.factory.ArtifactFactory;
-import org.apache.maven.artifact.metadata.ArtifactMetadataSource;
 import org.apache.maven.artifact.repository.ArtifactRepository;
-import org.apache.maven.artifact.resolver.ArtifactResolver;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -36,6 +33,8 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.settings.Settings;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
 
 /**
  * Generate Ant build files.
@@ -45,33 +44,26 @@ import org.apache.maven.settings.Settings;
  * @todo change this to use the artifact ant tasks instead of :get
  */
 @Mojo(name = "ant", requiresDependencyResolution = ResolutionScope.TEST)
-@SuppressWarnings("deprecation")
 public class AntMojo extends AbstractMojo {
     // ----------------------------------------------------------------------
     // Mojo components
     // ----------------------------------------------------------------------
 
     /**
-     * Used for resolving artifacts.
+     * Used for creating and resolving artifacts.
      */
     @Inject
-    private ArtifactResolver resolver;
-
-    /**
-     * Factory for creating artifact objects.
-     */
-    @Inject
-    private ArtifactFactory factory;
-
-    /**
-     * Metadata source for resolving artifact metadata.
-     */
-    @Inject
-    private ArtifactMetadataSource metadataSource;
+    private RepositorySystem repositorySystem;
 
     // ----------------------------------------------------------------------
     // Mojo parameters
     // ----------------------------------------------------------------------
+
+    /**
+     * The repository system session.
+     */
+    @Parameter(defaultValue = "${repositorySystemSession}", readonly = true)
+    private RepositorySystemSession repositorySession;
 
     /**
      * The project to create a build for.
@@ -113,8 +105,12 @@ public class AntMojo extends AbstractMojo {
      * {@inheritDoc}
      */
     public void execute() throws MojoExecutionException {
-        ArtifactResolverWrapper artifactResolverWrapper = ArtifactResolverWrapper.getInstance(
-                resolver, factory, localRepository, remoteRepositories, metadataSource);
+        RepositorySystemSession repoSession = repositorySession;
+        if (repoSession == null && session != null) {
+            repoSession = session.getRepositorySession();
+        }
+        ArtifactResolverWrapper artifactResolverWrapper =
+                ArtifactResolverWrapper.getInstance(repositorySystem, repoSession, localRepository, remoteRepositories);
 
         Properties executionProperties = null;
         if (session != null) {

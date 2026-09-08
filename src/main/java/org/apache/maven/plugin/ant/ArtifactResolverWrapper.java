@@ -23,14 +23,25 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.apache.maven.RepositoryUtils;
 import org.apache.maven.artifact.Artifact;
-import org.apache.maven.artifact.factory.ArtifactFactory;
-import org.apache.maven.artifact.metadata.ArtifactMetadataSource;
 import org.apache.maven.artifact.repository.ArtifactRepository;
-import org.apache.maven.artifact.resolver.ArtifactNotFoundException;
-import org.apache.maven.artifact.resolver.ArtifactResolutionException;
-import org.apache.maven.artifact.resolver.ArtifactResolutionResult;
-import org.apache.maven.artifact.resolver.ArtifactResolver;
+import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
+import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.eclipse.aether.RepositorySystem;
+import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.artifact.DefaultArtifact;
+import org.eclipse.aether.collection.CollectRequest;
+import org.eclipse.aether.graph.Dependency;
+import org.eclipse.aether.repository.LocalRepository;
+import org.eclipse.aether.repository.RemoteRepository;
+import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.resolution.ArtifactResolutionException;
+import org.eclipse.aether.resolution.ArtifactResult;
+import org.eclipse.aether.resolution.DependencyRequest;
+import org.eclipse.aether.resolution.DependencyResolutionException;
+import org.eclipse.aether.resolution.DependencyResult;
+import org.eclipse.aether.util.artifact.JavaScopes;
 
 /**
  * Wrapper object to resolve artifact.
@@ -38,17 +49,16 @@ import org.apache.maven.artifact.resolver.ArtifactResolver;
  * @author <a href="mailto:vincent.siveton@gmail.com">Vincent Siveton</a>
  * @version $Id: ArtifactResolverWrapper.java 1645084 2014-12-12 22:28:31Z khmarbaise $
  */
-@SuppressWarnings("deprecation")
 public class ArtifactResolverWrapper {
     /**
-     * Used for resolving artifacts
+     * Used for creating and resolving artifacts
      */
-    private ArtifactResolver resolver;
+    private RepositorySystem repositorySystem;
 
     /**
-     * Factory for creating artifact objects
+     * The repository system session
      */
-    private ArtifactFactory factory;
+    private RepositorySystemSession repositorySession;
 
     /**
      * The local repository where the artifacts are located
@@ -61,45 +71,48 @@ public class ArtifactResolverWrapper {
     private List<ArtifactRepository> remoteRepositories;
 
     /**
-     * Metadata source for resolving artifact metadata.
-     */
-    private ArtifactMetadataSource metadataSource;
-
-    /**
-     * @param resolver
-     * @param factory
+     * @param repositorySystem
+     * @param repositorySession
      * @param localRepository
      * @param remoteRepositories
-     * @param metadataSource
      */
     private ArtifactResolverWrapper(
-            ArtifactResolver resolver,
-            ArtifactFactory factory,
+            RepositorySystem repositorySystem,
+            RepositorySystemSession repositorySession,
             ArtifactRepository localRepository,
-            List<ArtifactRepository> remoteRepositories,
-            ArtifactMetadataSource metadataSource) {
-        this.resolver = resolver;
-        this.factory = factory;
+            List<ArtifactRepository> remoteRepositories) {
+        this.repositorySystem = repositorySystem;
+        this.repositorySession = repositorySession;
         this.localRepository = localRepository;
         this.remoteRepositories = remoteRepositories;
-        this.metadataSource = metadataSource;
     }
 
     /**
-     * @param resolver {@link ArtifactResolver}
-     * @param factory {@link ArtifactFactory}
+     * @param repositorySystem {@link RepositorySystem}
+     * @param repositorySession {@link RepositorySystemSession}
      * @param localRepository {@link ArtifactRepository}
      * @param remoteRepositories {@link List}.
-     * @param metadataSource {@link ArtifactMetadataSource}
      * @return an instance of ArtifactResolverWrapper
      */
     public static ArtifactResolverWrapper getInstance(
-            ArtifactResolver resolver,
-            ArtifactFactory factory,
+            RepositorySystem repositorySystem,
+            RepositorySystemSession repositorySession,
             ArtifactRepository localRepository,
-            List<ArtifactRepository> remoteRepositories,
-            ArtifactMetadataSource metadataSource) {
-        return new ArtifactResolverWrapper(resolver, factory, localRepository, remoteRepositories, metadataSource);
+            List<ArtifactRepository> remoteRepositories) {
+        return new ArtifactResolverWrapper(repositorySystem, repositorySession, localRepository, remoteRepositories);
+    }
+
+    private RepositorySystemSession getSession() {
+        if (repositorySession != null) {
+            return repositorySession;
+        }
+        if (repositorySystem != null && localRepository != null && localRepository.getBasedir() != null) {
+            DefaultRepositorySystemSession session = MavenRepositorySystemUtils.newSession();
+            LocalRepository localRepo = new LocalRepository(localRepository.getBasedir());
+            session.setLocalRepositoryManager(repositorySystem.newLocalRepositoryManager(session, localRepo));
+            return session;
+        }
+        return null;
     }
 
     /**
@@ -112,42 +125,55 @@ public class ArtifactResolverWrapper {
      * @throws IOException if resolution fails.
      */
     public Set<Artifact> resolveTransitively(String groupId, String artifactId, String version) throws IOException {
-        Artifact artifact = factory.createArtifact(groupId, artifactId, version, Artifact.SCOPE_COMPILE, "jar");
-        Set<Artifact> artifacts = new HashSet<>();
-        artifacts.add(artifact);
+        RepositorySystemSession session = getSession();
+        if (repositorySystem == null || session == null) {
+            throw new IOException("RepositorySystem or session not available for resolution");
+        }
+
+        org.eclipse.aether.artifact.Artifact aetherArtifact = new DefaultArtifact(groupId, artifactId, "jar", version);
+        Dependency dependency = new Dependency(aetherArtifact, JavaScopes.COMPILE);
+        List<RemoteRepository> repos = RepositoryUtils.toRepos(remoteRepositories);
+        CollectRequest collectRequest = new CollectRequest(dependency, repos);
+        DependencyRequest dependencyRequest = new DependencyRequest(collectRequest, null);
+
         try {
-            // First resolve the main artifact itself
-            resolver.resolve(artifact, remoteRepositories, localRepository);
-
-            // Then resolve all transitive dependencies
-            ArtifactResolutionResult result = resolver.resolveTransitively(
-                    artifacts, artifact, remoteRepositories, localRepository, metadataSource);
-
+            DependencyResult dependencyResult = repositorySystem.resolveDependencies(session, dependencyRequest);
             Set<Artifact> allResolved = new HashSet<>();
-            allResolved.add(artifact);
-            if (result.getArtifacts() != null) {
-                allResolved.addAll(result.getArtifacts());
+            for (ArtifactResult artifactResult : dependencyResult.getArtifactResults()) {
+                allResolved.add(RepositoryUtils.toArtifact(artifactResult.getArtifact()));
             }
             return allResolved;
-        } catch (ArtifactResolutionException e) {
+        } catch (DependencyResolutionException e) {
             throw new IOException("Unable to transitively resolve: " + groupId + ":" + artifactId + ":" + version, e);
-        } catch (ArtifactNotFoundException e) {
-            throw new IOException("Unable to transitively find: " + groupId + ":" + artifactId + ":" + version, e);
         }
     }
 
     /**
-     * @return {@link #factory}
+     * @return {@link #repositorySystem}
      */
-    protected ArtifactFactory getFactory() {
-        return factory;
+    protected RepositorySystem getRepositorySystem() {
+        return repositorySystem;
     }
 
     /**
-     * @param factory {@link ArtifactFactory}
+     * @param repositorySystem {@link RepositorySystem}
      */
-    protected void setFactory(ArtifactFactory factory) {
-        this.factory = factory;
+    protected void setRepositorySystem(RepositorySystem repositorySystem) {
+        this.repositorySystem = repositorySystem;
+    }
+
+    /**
+     * @return {@link #repositorySession}
+     */
+    protected RepositorySystemSession getRepositorySession() {
+        return repositorySession;
+    }
+
+    /**
+     * @param repositorySession {@link RepositorySystemSession}
+     */
+    protected void setRepositorySession(RepositorySystemSession repositorySession) {
+        this.repositorySession = repositorySession;
     }
 
     /**
@@ -179,20 +205,6 @@ public class ArtifactResolverWrapper {
     }
 
     /**
-     * @return {@link #resolver}
-     */
-    protected ArtifactResolver getResolver() {
-        return resolver;
-    }
-
-    /**
-     * @param resolver {@link #resolver}
-     */
-    protected void setResolver(ArtifactResolver resolver) {
-        this.resolver = resolver;
-    }
-
-    /**
      * Return the artifact path in the local repository for an artifact defined by its <code>groupId</code>,
      * its <code>artifactId</code> and its <code>version</code>.
      *
@@ -203,15 +215,21 @@ public class ArtifactResolverWrapper {
      * @throws IOException if any
      */
     public String getArtifactAbsolutePath(String groupId, String artifactId, String version) throws IOException {
-        Artifact artifact = factory.createArtifact(groupId, artifactId, version, "compile", "jar");
-        try {
-            resolver.resolve(artifact, remoteRepositories, localRepository);
+        RepositorySystemSession session = getSession();
+        if (repositorySystem == null || session == null) {
+            throw new IOException("RepositorySystem or session not available for resolution");
+        }
 
-            return artifact.getFile().getAbsolutePath();
+        org.eclipse.aether.artifact.Artifact aetherArtifact = new DefaultArtifact(groupId, artifactId, "jar", version);
+        ArtifactRequest request = new ArtifactRequest();
+        request.setArtifact(aetherArtifact);
+        request.setRepositories(RepositoryUtils.toRepos(remoteRepositories));
+
+        try {
+            ArtifactResult result = repositorySystem.resolveArtifact(session, request);
+            return result.getArtifact().getFile().getAbsolutePath();
         } catch (ArtifactResolutionException e) {
-            throw new IOException("Unable to resolve artifact: " + groupId + ":" + artifactId + ":" + version);
-        } catch (ArtifactNotFoundException e) {
-            throw new IOException("Unable to find artifact: " + groupId + ":" + artifactId + ":" + version);
+            throw new IOException("Unable to resolve artifact: " + groupId + ":" + artifactId + ":" + version, e);
         }
     }
 
