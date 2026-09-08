@@ -18,31 +18,44 @@
  */
 package org.apache.maven.plugin.ant;
 
+import javax.inject.Inject;
+
 import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.maven.plugin.testing.MojoRule;
+import org.apache.maven.project.DefaultProjectBuildingRequest;
 import org.apache.maven.project.MavenProject;
-import org.junit.Rule;
-import org.junit.Test;
+import org.apache.maven.project.ProjectBuilder;
+import org.apache.maven.project.ProjectBuildingRequest;
+import org.codehaus.plexus.testing.PlexusTest;
+import org.eclipse.aether.DefaultRepositorySystemSession;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@PlexusTest
 public class AntBuildWriterUtilTest {
 
-    @Rule
-    public MojoRule rule = new MojoRule();
+    @Inject
+    private ProjectBuilder projectBuilder;
+
+    private MavenProject readMavenProject(File basedir) throws Exception {
+        File pom = new File(basedir, "pom.xml");
+        ProjectBuildingRequest configuration = new DefaultProjectBuildingRequest();
+        configuration.setRepositorySession(new DefaultRepositorySystemSession());
+        return projectBuilder.build(pom, configuration).getProject();
+    }
 
     @Test
     public void testGetMavenCompilerPluginConfiguration() throws Exception {
         File testPom = new File("src/test/resources/unit/ant-compiler-config-test");
-        MavenProject project = rule.readMavenProject(testPom);
+        MavenProject project = readMavenProject(testPom);
 
         assertEquals("true", AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "debug", null));
 
@@ -55,7 +68,7 @@ public class AntBuildWriterUtilTest {
     @Test
     public void testGetMavenWarPluginConfiguration() throws Exception {
         File testPom = new File("src/test/resources/unit/ant-war-config-test");
-        MavenProject project = rule.readMavenProject(testPom);
+        MavenProject project = readMavenProject(testPom);
 
         assertEquals("mywebapp", AntBuildWriterUtil.getMavenWarPluginBasicOption(project, "warName", null));
         assertTrue(AntBuildWriterUtil.getMavenWarPluginBasicOption(project, "webXml", null)
@@ -65,7 +78,7 @@ public class AntBuildWriterUtilTest {
     @Test
     public void testGetMavenJavadocPluginConfiguration() throws Exception {
         File testPom = new File("src/test/resources/unit/ant-javadoc-test");
-        MavenProject project = rule.readMavenProject(testPom);
+        MavenProject project = readMavenProject(testPom);
 
         assertNotNull(AntBuildWriterUtil.getMavenJavadocPluginOptions(project, "links", null));
         assertEquals(2, AntBuildWriterUtil.getMavenJavadocPluginOptions(project, "links", null).length);

@@ -22,69 +22,74 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.util.Properties;
 
-import org.apache.maven.plugin.testing.MojoRule;
+import org.apache.maven.api.plugin.testing.InjectMojo;
+import org.apache.maven.api.plugin.testing.MojoExtension;
+import org.apache.maven.api.plugin.testing.MojoTest;
 import org.apache.maven.project.MavenProject;
 import org.apache.tools.ant.BuildException;
 import org.codehaus.plexus.util.FileUtils;
-import org.junit.Rule;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
+@MojoTest
 public class AntMojoTest {
 
-    @Rule
-    public MojoRule rule = new MojoRule();
-
     @Test
-    public void testDefaultProject() throws Exception {
-        invokeAntMojo("ant-test");
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-test/pom.xml")
+    public void testDefaultProject(AntMojo mojo) throws Exception {
+        invokeAntMojo(mojo, "ant-test");
 
         String mavenBuildXml =
                 FileUtils.fileRead(new File("target/test/unit/ant-test/", AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME));
         assertTrue(
-                "junit.framework.Test check not found",
-                mavenBuildXml.contains("<available classname=\"junit.framework.Test\""));
+                mavenBuildXml.contains("<available classname=\"junit.framework.Test\""),
+                "junit.framework.Test check not found");
         assertFalse(
-                "org.junit.jupiter.api.Test should not be generated for JUnit 3 project",
-                mavenBuildXml.contains("org.junit.jupiter.api.Test"));
+                mavenBuildXml.contains("org.junit.jupiter.api.Test"),
+                "org.junit.jupiter.api.Test should not be generated for JUnit 3 project");
         assertFalse(
-                "org.junit.Test should not be generated for JUnit 3 project",
-                mavenBuildXml.contains("<available classname=\"org.junit.Test\""));
-        assertTrue("junit task runner target not found", mavenBuildXml.contains("<target name=\"-run-tests-junit\""));
+                mavenBuildXml.contains("<available classname=\"org.junit.Test\""),
+                "org.junit.Test should not be generated for JUnit 3 project");
+        assertTrue(mavenBuildXml.contains("<target name=\"-run-tests-junit\""), "junit task runner target not found");
         assertFalse(
-                "junitlauncher task runner should not be generated for JUnit 3 project",
-                mavenBuildXml.contains("<target name=\"-run-tests-junitlauncher\""));
+                mavenBuildXml.contains("<target name=\"-run-tests-junitlauncher\""),
+                "junitlauncher task runner should not be generated for JUnit 3 project");
         assertFalse(
-                "testng task runner should not be generated for JUnit 3 project",
-                mavenBuildXml.contains("<target name=\"-run-tests-testng\""));
+                mavenBuildXml.contains("<target name=\"-run-tests-testng\""),
+                "testng task runner should not be generated for JUnit 3 project");
     }
 
     @Test
-    public void testProjectWithNoDep() throws Exception {
-        invokeAntMojo("ant-nodep-test");
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-nodep-test/pom.xml")
+    public void testProjectWithNoDep(AntMojo mojo) throws Exception {
+        invokeAntMojo(mojo, "ant-nodep-test");
     }
 
     @Test
-    public void testProjectWithMultiRelease() throws Exception {
-        invokeAntMojo("ant-multirelease-test");
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-multirelease-test/pom.xml")
+    public void testProjectWithMultiRelease(AntMojo mojo) throws Exception {
+        invokeAntMojo(mojo, "ant-multirelease-test");
     }
 
     @Test
-    public void testProjectWithModuleInfo() throws Exception {
-        invokeAntMojo("ant-moduleinfo-test");
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-moduleinfo-test/pom.xml")
+    public void testProjectWithModuleInfo(AntMojo mojo) throws Exception {
+        invokeAntMojo(mojo, "ant-moduleinfo-test");
     }
 
     @Test
-    public void testProjectWithSisu() throws Exception {
-        invokeAntMojo("ant-sisu-test");
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-sisu-test/pom.xml")
+    public void testProjectWithSisu(AntMojo mojo) throws Exception {
+        invokeAntMojo(mojo, "ant-sisu-test");
     }
 
     @Test
-    public void testProjectWithBnd() throws Exception {
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-bnd-test/pom.xml")
+    public void testProjectWithBnd(AntMojo mojo) throws Exception {
         // bndwrap wraps the already-built jar in place, so it must run after <jar>, not before.
         // bnd isn't resolvable in this hermetic test repo, and there's no present/missing gating
         // anymore (see AntExtensionWriter.writeBndWrapSequence), so the build must fail naturally.
@@ -93,21 +98,20 @@ public class AntMojoTest {
 
         FileUtils.copyFile(new File(testPom, "bnd.bnd"), new File(antBasedir, "bnd.bnd"));
 
-        AntMojo mojo = (AntMojo) rule.lookupMojo("ant", new File(testPom, "pom.xml"));
         mojo.execute();
 
         String mavenBuildXml = FileUtils.fileRead(new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME));
 
         int jarTaskIndex = mavenBuildXml.indexOf("<jar jarfile=\"${maven.build.dir}/${maven.build.finalName}.jar\"");
         int bndwrapIndex = mavenBuildXml.indexOf("<bndwrap");
-        assertTrue("jar task not found", jarTaskIndex >= 0);
-        assertTrue("bndwrap task not found", bndwrapIndex >= 0);
-        assertTrue("bndwrap must run after the jar it wraps", jarTaskIndex < bndwrapIndex);
+        assertTrue(jarTaskIndex >= 0, "jar task not found");
+        assertTrue(bndwrapIndex >= 0, "bndwrap task not found");
+        assertTrue(jarTaskIndex < bndwrapIndex, "bndwrap must run after the jar it wraps");
 
         // ant-bnd-test/bnd.bnd is a real physical file, not inline pom config: must be <copy>-ed
         // live, not snapshotted into the build via <echo>.
         assertTrue(
-                "physical bnd.bnd must be copied, not re-serialized", mavenBuildXml.contains("<copy file=\"bnd.bnd\""));
+                mavenBuildXml.contains("<copy file=\"bnd.bnd\""), "physical bnd.bnd must be copied, not re-serialized");
 
         FileUtils.copyDirectoryStructure(new File(testPom, "src"), new File(antBasedir, "src"));
 
@@ -116,34 +120,33 @@ public class AntMojoTest {
             fail("expected the build to fail fast on missing bnd");
         } catch (BuildException e) {
             assertTrue(
-                    "expected a bndwrap-related failure, got: " + e.getMessage(),
-                    e.getMessage().contains("bndwrap"));
+                    e.getMessage().contains("bndwrap"), "expected a bndwrap-related failure, got: " + e.getMessage());
         }
     }
 
     @Test
-    public void testProjectWithBndInlineInstructions() throws Exception {
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-bnd-inline-test/pom.xml")
+    public void testProjectWithBndInlineInstructions(AntMojo mojo) throws Exception {
         // no bnd.bnd file here: instructions come from the pom's <bnd> config instead, so they
         // must be echoed fresh, not copied from a file that doesn't exist.
         File testPom = new File("src/test/resources/unit/ant-bnd-inline-test");
         File antBasedir = new File("target/test/unit/ant-bnd-inline-test/");
 
-        AntMojo mojo = (AntMojo) rule.lookupMojo("ant", new File(testPom, "pom.xml"));
         mojo.execute();
 
         String mavenBuildXml = FileUtils.fileRead(new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME));
 
         assertFalse(
-                "no bnd.bnd file exists, so it must not be copied", mavenBuildXml.contains("<copy file=\"bnd.bnd\""));
+                mavenBuildXml.contains("<copy file=\"bnd.bnd\""), "no bnd.bnd file exists, so it must not be copied");
         assertTrue(
-                "inline instructions must be echoed into bnd.bnd",
-                mavenBuildXml.contains("Bundle-SymbolicName: ant-bnd-inline-test"));
+                mavenBuildXml.contains("Bundle-SymbolicName: ant-bnd-inline-test"),
+                "inline instructions must be echoed into bnd.bnd");
 
         int jarTaskIndex = mavenBuildXml.indexOf("<jar jarfile=\"${maven.build.dir}/${maven.build.finalName}.jar\"");
         int bndwrapIndex = mavenBuildXml.indexOf("<bndwrap");
-        assertTrue("jar task not found", jarTaskIndex >= 0);
-        assertTrue("bndwrap task not found", bndwrapIndex >= 0);
-        assertTrue("bndwrap must run after the jar it wraps", jarTaskIndex < bndwrapIndex);
+        assertTrue(jarTaskIndex >= 0, "jar task not found");
+        assertTrue(bndwrapIndex >= 0, "bndwrap task not found");
+        assertTrue(jarTaskIndex < bndwrapIndex, "bndwrap must run after the jar it wraps");
 
         FileUtils.copyDirectoryStructure(new File(testPom, "src"), new File(antBasedir, "src"));
 
@@ -152,39 +155,38 @@ public class AntMojoTest {
             fail("expected the build to fail fast on missing bnd");
         } catch (BuildException e) {
             assertTrue(
-                    "expected a bndwrap-related failure, got: " + e.getMessage(),
-                    e.getMessage().contains("bndwrap"));
+                    e.getMessage().contains("bndwrap"), "expected a bndwrap-related failure, got: " + e.getMessage());
         }
     }
 
     @Test
-    public void testProjectWithBundlePluginInstructions() throws Exception {
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-bundle-instructions-test/pom.xml")
+    public void testProjectWithBundlePluginInstructions(AntMojo mojo) throws Exception {
         // maven-bundle-plugin's <instructions> are already discrete key/value pairs, so they must
         // go through <propertyfile><entry .../></propertyfile>, not a hand-built <echo> string.
         File testPom = new File("src/test/resources/unit/ant-bundle-instructions-test");
         File antBasedir = new File("target/test/unit/ant-bundle-instructions-test/");
 
-        AntMojo mojo = (AntMojo) rule.lookupMojo("ant", new File(testPom, "pom.xml"));
         mojo.execute();
 
         String mavenBuildXml = FileUtils.fileRead(new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME));
 
-        assertTrue("echo bnd.bnd task not found", mavenBuildXml.contains("<echo file=\"${maven.build.dir}/bnd.bnd\""));
+        assertTrue(mavenBuildXml.contains("<echo file=\"${maven.build.dir}/bnd.bnd\""), "echo bnd.bnd task not found");
         assertTrue(
-                "Bundle-SymbolicName entry not found",
-                mavenBuildXml.contains("Bundle-SymbolicName: ant-bundle-instructions-test"));
-        assertTrue("Export-Package entry not found", mavenBuildXml.contains("Export-Package: *"));
+                mavenBuildXml.contains("Bundle-SymbolicName: ant-bundle-instructions-test"),
+                "Bundle-SymbolicName entry not found");
+        assertTrue(mavenBuildXml.contains("Export-Package: *"), "Export-Package entry not found");
         assertTrue(
-                "-exportcontents directive not found",
-                mavenBuildXml.contains("-exportcontents: org.apache.maven.plugin.ant.*"));
-        assertTrue("-noee directive not found", mavenBuildXml.contains("-noee"));
-        assertFalse("-noee directive should not have colon", mavenBuildXml.contains("-noee:"));
+                mavenBuildXml.contains("-exportcontents: org.apache.maven.plugin.ant.*"),
+                "-exportcontents directive not found");
+        assertTrue(mavenBuildXml.contains("-noee"), "-noee directive not found");
+        assertFalse(mavenBuildXml.contains("-noee:"), "-noee directive should not have colon");
 
         int jarTaskIndex = mavenBuildXml.indexOf("<jar jarfile=\"${maven.build.dir}/${maven.build.finalName}.jar\"");
         int bndwrapIndex = mavenBuildXml.indexOf("<bndwrap");
-        assertTrue("jar task not found", jarTaskIndex >= 0);
-        assertTrue("bndwrap task not found", bndwrapIndex >= 0);
-        assertTrue("bndwrap must run after the jar it wraps", jarTaskIndex < bndwrapIndex);
+        assertTrue(jarTaskIndex >= 0, "jar task not found");
+        assertTrue(bndwrapIndex >= 0, "bndwrap task not found");
+        assertTrue(jarTaskIndex < bndwrapIndex, "bndwrap must run after the jar it wraps");
 
         FileUtils.copyDirectoryStructure(new File(testPom, "src"), new File(antBasedir, "src"));
 
@@ -193,13 +195,13 @@ public class AntMojoTest {
             fail("expected the build to fail fast on missing bnd");
         } catch (BuildException e) {
             assertTrue(
-                    "expected a bndwrap-related failure, got: " + e.getMessage(),
-                    e.getMessage().contains("bndwrap"));
+                    e.getMessage().contains("bndwrap"), "expected a bndwrap-related failure, got: " + e.getMessage());
         }
     }
 
     @Test
-    public void testProjectWithJavacc() throws Exception {
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-javacc-test/pom.xml")
+    public void testProjectWithJavacc(AntMojo mojo) throws Exception {
         // javacc isn't resolvable in this hermetic test repo, so the javacc target must fail
         // rather than silently skip generation and let compile fail confusingly later. The .jj
         // fixture must be in place before the mojo runs: getGrammarFiles() scans for it at
@@ -209,7 +211,6 @@ public class AntMojoTest {
 
         FileUtils.copyDirectoryStructure(new File(testPom, "src"), new File(antBasedir, "src"));
 
-        AntMojo mojo = (AntMojo) rule.lookupMojo("ant", new File(testPom, "pom.xml"));
         mojo.execute();
 
         try {
@@ -220,17 +221,17 @@ public class AntMojoTest {
             // javacc target's own <copy> (now failonerror-enabled) fails naturally, right in the
             // first target that needs it - still early, just via Ant's own error instead of ours.
             assertTrue(
-                    "expected a fail-fast error, got: " + e.getMessage(),
-                    e.getMessage().contains("javacc-7.0.12.jar"));
+                    e.getMessage().contains("javacc-7.0.12.jar"), "expected a fail-fast error, got: " + e.getMessage());
         }
     }
 
     @Test
-    public void testProjectWithJavadoc() throws Exception {
-        invokeAntMojo("ant-javadoc-test");
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-javadoc-test/pom.xml")
+    public void testProjectWithJavadoc(AntMojo mojo) throws Exception {
+        invokeAntMojo(mojo, "ant-javadoc-test");
     }
 
-    private void invokeAntMojo(String testProject) throws Exception {
+    private void invokeAntMojo(AntMojo mojo, String testProject) throws Exception {
         File testPom = new File("src/test/resources/unit/" + testProject);
 
         // bnd.bnd must be in place before the mojo runs: AntBuildWriterUtil.hasBndFile() looks for
@@ -241,11 +242,10 @@ public class AntMojoTest {
             FileUtils.copyFile(bndFile, new File(antBasedir, "bnd.bnd"));
         }
 
-        AntMojo mojo = (AntMojo) rule.lookupMojo("ant", new File(testPom, "pom.xml"));
-        assertNotNull("Mojo could not be looked up", mojo);
+        assertNotNull(mojo, "Mojo could not be looked up");
         mojo.execute();
 
-        MavenProject currentProject = (MavenProject) rule.getVariableValueFromObject(mojo, "project");
+        MavenProject currentProject = MojoExtension.getVariableValueFromObject(mojo, "project");
 
         File antBuild = new File(antBasedir, AntBuildWriter.DEFAULT_BUILD_FILENAME);
         assertTrue(antBuild.exists());
