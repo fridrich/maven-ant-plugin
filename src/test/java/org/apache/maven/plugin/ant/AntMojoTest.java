@@ -35,6 +35,18 @@ public class AntMojoTest {
     @Test
     public void testDefaultProject() throws Exception {
         invokeAntMojo("ant-test");
+
+        String mavenBuildXml = org.codehaus.plexus.util.FileUtils.fileRead(
+                new File("target/test/unit/ant-test/", AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME));
+        org.junit.Assert.assertTrue(
+                "junit.framework.Test check not found",
+                mavenBuildXml.contains("<available classname=\"junit.framework.Test\""));
+        org.junit.Assert.assertFalse(
+                "org.junit.jupiter.api.Test should not be generated for JUnit 3 project",
+                mavenBuildXml.contains("org.junit.jupiter.api.Test"));
+        org.junit.Assert.assertFalse(
+                "org.junit.Test should not be generated for JUnit 3 project",
+                mavenBuildXml.contains("<available classname=\"org.junit.Test\""));
     }
 
     @Test

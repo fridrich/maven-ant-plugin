@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
 import org.apache.maven.model.Profile;
@@ -1615,5 +1616,138 @@ public class AntBuildWriterUtil {
             return false;
         }
         return false;
+    }
+
+    /**
+     * @param project {@link MavenProject}
+     * @return test framework class name to check for availability
+     */
+    public static String getTestFrameworkClassName(MavenProject project) {
+        String framework = detectTestFramework(project, true);
+        if (framework != null) {
+            return framework;
+        }
+        framework = detectTestFramework(project, false);
+        if (framework != null) {
+            return framework;
+        }
+        return "org.junit.jupiter.api.Test";
+    }
+
+    private static String detectTestFramework(MavenProject project, boolean testScopeOnly) {
+        if (project == null) {
+            return null;
+        }
+        boolean hasJunit5 = false;
+        boolean hasJunit4 = false;
+        boolean hasJunit3 = false;
+        boolean hasTestng = false;
+
+        if (project.getDependencies() != null) {
+            for (Object obj : project.getDependencies()) {
+                Dependency dep = (Dependency) obj;
+                if (!testScopeOnly || Artifact.SCOPE_TEST.equalsIgnoreCase(dep.getScope())) {
+                    String gid = dep.getGroupId();
+                    String aid = dep.getArtifactId();
+                    String ver = dep.getVersion();
+                    if (isJunit5(gid, aid, ver)) {
+                        hasJunit5 = true;
+                    } else if (isTestng(gid, aid)) {
+                        hasTestng = true;
+                    } else if (isJunit4(gid, aid, ver)) {
+                        hasJunit4 = true;
+                    } else if (isJunit3(gid, aid, ver)) {
+                        hasJunit3 = true;
+                    }
+                }
+            }
+        }
+
+        if (project.getTestArtifacts() != null) {
+            for (Object obj : project.getTestArtifacts()) {
+                Artifact art = (Artifact) obj;
+                if (!testScopeOnly || Artifact.SCOPE_TEST.equalsIgnoreCase(art.getScope())) {
+                    String gid = art.getGroupId();
+                    String aid = art.getArtifactId();
+                    String ver = art.getVersion();
+                    if (isJunit5(gid, aid, ver)) {
+                        hasJunit5 = true;
+                    } else if (isTestng(gid, aid)) {
+                        hasTestng = true;
+                    } else if (isJunit4(gid, aid, ver)) {
+                        hasJunit4 = true;
+                    } else if (isJunit3(gid, aid, ver)) {
+                        hasJunit3 = true;
+                    }
+                }
+            }
+        }
+
+        if (hasJunit5) {
+            return "org.junit.jupiter.api.Test";
+        }
+        if (hasJunit4) {
+            return "org.junit.Test";
+        }
+        if (hasJunit3) {
+            return "junit.framework.Test";
+        }
+        if (hasTestng) {
+            return "org.testng.annotations.Test";
+        }
+        return null;
+    }
+
+    private static boolean isJunit5(String groupId, String artifactId, String version) {
+        if ("org.junit.jupiter".equals(groupId)
+                || "org.junit.platform".equals(groupId)
+                || (artifactId != null && artifactId.startsWith("junit-jupiter"))
+                || (artifactId != null && artifactId.startsWith("junit-platform"))) {
+            return true;
+        }
+        if (("junit".equals(groupId) || "org.junit".equals(groupId)) && "junit".equals(artifactId)) {
+            return isVersionStartingWith(version, "5");
+        }
+        return false;
+    }
+
+    private static boolean isTestng(String groupId, String artifactId) {
+        return "org.testng".equals(groupId) && "testng".equals(artifactId);
+    }
+
+    private static boolean isJunit4(String groupId, String artifactId, String version) {
+        if (("junit".equals(groupId) || "org.junit".equals(groupId)) && "junit".equals(artifactId)) {
+            if (isVersionStartingWith(version, "4")) {
+                return true;
+            }
+            if (isVersionStartingWith(version, "3")
+                    || isVersionStartingWith(version, "2")
+                    || isVersionStartingWith(version, "1")) {
+                return false;
+            }
+            return version == null || version.isEmpty();
+        }
+        return false;
+    }
+
+    private static boolean isJunit3(String groupId, String artifactId, String version) {
+        if (("junit".equals(groupId) || "org.junit".equals(groupId)) && "junit".equals(artifactId)) {
+            return isVersionStartingWith(version, "3")
+                    || isVersionStartingWith(version, "2")
+                    || isVersionStartingWith(version, "1");
+        }
+        return false;
+    }
+
+    private static boolean isVersionStartingWith(String version, String prefix) {
+        if (version == null || version.isEmpty()) {
+            return false;
+        }
+        String cleanVersion = version.startsWith("[") || version.startsWith("(")
+                ? version.substring(1).trim()
+                : version;
+        return cleanVersion.startsWith(prefix + ".")
+                || cleanVersion.startsWith(prefix + "-")
+                || cleanVersion.equals(prefix);
     }
 }

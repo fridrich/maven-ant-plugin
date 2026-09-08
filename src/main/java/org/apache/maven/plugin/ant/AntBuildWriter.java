@@ -1090,7 +1090,7 @@ public class AntBuildWriter {
             writer.addAttribute("name", "test-junit-present");
 
             writer.startElement("available");
-            writer.addAttribute("classname", "org.junit.jupiter.api.Test");
+            writer.addAttribute("classname", AntBuildWriterUtil.getTestFrameworkClassName(project));
             writer.addAttribute("property", "junit.present");
             writer.addAttribute("classpathref", "build.test.classpath");
             writer.endElement(); // available
