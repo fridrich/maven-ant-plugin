@@ -17,17 +17,15 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
-import java.util.regex.*;
+import java.io.File
 
-import org.codehaus.plexus.util.*;
+File build = new File( basedir, "build.xml" )
+assert build.isFile()
 
-File buildFile = new File( basedir, "build.xml" );
-System.out.println( "Checking for absence of " + buildFile );
-if ( buildFile.exists() )
-{
-    throw new IllegalStateException( "Custom build.xml was not deleted!" );
-}
+File mavenBuild = new File( basedir, "maven-build.xml" )
+assert mavenBuild.isFile()
 
-return true;
+File mavenBuildProperties = new File( basedir, "maven-build.properties" )
+assert mavenBuildProperties.isFile()
+
+return true

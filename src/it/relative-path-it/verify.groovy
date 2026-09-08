@@ -17,26 +17,21 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
+import java.io.File
+import java.util.Properties
 
-try
-{
-    File reportDir = new File( basedir, "target/test-reports" );
+File propsFile = new File( basedir, "maven-build.properties" )
+assert propsFile.isFile()
 
-    {
-        File file = new File( reportDir, "TEST-it.GoodTest.xml" );
-        if ( !file.isFile() )
-        {
-            System.err.println( "Report file does not exist: " + file );
-            return false;
-        }
-    }
-}
-catch( Throwable t )
-{
-    t.printStackTrace();
-    return false;
+Properties props = new Properties()
+propsFile.withInputStream { inStream ->
+    props.load( inStream )
 }
 
-return true;
+assert props.getProperty( "maven.build.dir" ) == "target"
+assert props.getProperty( "maven.build.srcDir.0" ) == "src/main/java"
+assert props.getProperty( "maven.build.testDir.0" ) == "src/test/java"
+assert props.getProperty( "maven.build.resourceDir.0" ) == "src/main/resources"
+assert props.getProperty( "maven.build.resourceDir.1" ) == "."
+
+return true

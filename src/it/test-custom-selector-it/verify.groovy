@@ -17,31 +17,9 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
-import java.util.regex.*;
+import java.io.File
 
-import org.codehaus.plexus.util.*;
+File file = new File( basedir, "target/test-reports/TEST-it.GoodTest.xml" )
+assert file.isFile() : "Report file does not exist: " + file
 
-try
-{
-    File buildFile = new File( basedir, "maven-build.xml" );
-    String xml = FileUtils.fileRead( buildFile, "UTF-8" );
-
-    Matcher matcher = Pattern.compile( "value\\s*=\\s*\"\\$\\{maven.build.dir\\}/site-([^\"]+)\"" ).matcher( xml );
-    matcher.find();
-    String chars = matcher.group( 1 );
-
-    if ( !"\u00E4\u0130\u03A3\u05D0\u06DE".equals( chars ) )
-    {
-        System.err.println( "Generated build script contains corrupted characters: " + buildFile );
-        return false;
-    }
-}
-catch( Throwable t )
-{
-    t.printStackTrace();
-    return false;
-}
-
-return true;
+return true

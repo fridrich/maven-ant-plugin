@@ -17,23 +17,15 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
+import java.io.File
 
-try
-{
-    File classesDir = new File( basedir, "target/test-classes" );
-
-    if ( classesDir.exists() )
-    {
-        System.err.println( "Creation of output directory for test classes not skipped: " + classesDir );
-        return false;
-    }
-}
-catch( Throwable t )
-{
-    t.printStackTrace();
-    return false;
+[
+    "TEST-it.GoodTest.xml",
+    "TEST-it.GoodTestCase.xml",
+    "TEST-it.TestGood.xml"
+].each { reportName ->
+    File file = new File( basedir, "target/test-reports/" + reportName )
+    assert file.isFile() : "Report file does not exist: " + file
 }
 
-return true;
+return true

@@ -17,17 +17,9 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
-import java.util.regex.*;
+import java.io.File
 
-import org.codehaus.plexus.util.*;
+File file = new File( basedir, "target/test-reports/TEST-it.GoodTest.xml" )
+assert file.isFile() : "Report file does not exist: " + file
 
-File buildFile = new File( basedir, "build.xml" );
-System.out.println( "Checking for existence of " + buildFile );
-if ( !buildFile.isFile() )
-{
-    throw new IllegalStateException( "Custom build.xml was deleted!" );
-}
-
-return true;
+return true

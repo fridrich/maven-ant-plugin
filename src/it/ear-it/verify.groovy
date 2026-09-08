@@ -17,26 +17,28 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
+import java.io.File
 
-try
+def modules = [
+    [dir: '.', properties: false],
+    [dir: 'ear', properties: true],
+    [dir: 'ejbs', properties: true],
+    [dir: 'primary-source', properties: true],
+    [dir: 'projects', properties: false],
+    [dir: 'projects/logging', properties: true],
+    [dir: 'servlets', properties: false],
+    [dir: 'servlets/servlet', properties: true]
+]
+
+for ( def m : modules )
 {
-    File reportDir = new File( basedir, "target/test-reports" );
-
+    File dir = new File( basedir, m.dir )
+    assert new File( dir, 'build.xml' ).isFile()
+    assert new File( dir, 'maven-build.xml' ).isFile()
+    if ( m.properties )
     {
-        File file = new File( reportDir, "TEST-it.GoodTest.xml" );
-        if ( !file.isFile() )
-        {
-            System.err.println( "Report file does not exist: " + file );
-            return false;
-        }
+        assert new File( dir, 'maven-build.properties' ).isFile()
     }
 }
-catch( Throwable t )
-{
-    t.printStackTrace();
-    return false;
-}
 
-return true;
+return true

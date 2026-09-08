@@ -41,12 +41,12 @@ under the License.
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-antrun-plugin</artifactId>
-        <version>1.1</version>
+        <version>@version.maven-antrun-plugin@</version>
         <configuration>
-          <tasks>
+          <target>
             <property name="lib.dir" location="${lib.dir}"/>
             <ant dir="${basedir}" antfile="${basedir}/build.xml" target="compile"/>
-          </tasks>
+          </target>
         </configuration>
       </plugin>
     </plugins>

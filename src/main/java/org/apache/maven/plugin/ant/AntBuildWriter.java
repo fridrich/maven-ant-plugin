@@ -1344,6 +1344,23 @@ public class AntBuildWriter {
         writer.addAttribute("dir", outputDirectory);
         writer.endElement(); // mkdir
 
+        if (!compileSourceRoots.isEmpty()) {
+            for (int i = 0; i < compileSourceRoots.size(); i++) {
+                String srcDir = compileSourceRoots.get(i);
+                if (srcDir.contains("generated-sources")
+                        || srcDir.contains("generated-test-sources")
+                        || srcDir.contains(project.getBuild().getDirectory())) {
+                    writer.startElement("mkdir");
+                    if (isTest) {
+                        writer.addAttribute("dir", "${maven.build.testDir." + i + "}");
+                    } else {
+                        writer.addAttribute("dir", "${maven.build.srcDir." + i + "}");
+                    }
+                    writer.endElement(); // mkdir
+                }
+            }
+        }
+
         List<String> extraGeneratedDirs =
                 isTest ? Collections.emptyList() : getExtraGeneratedSourceDirs(compileSourceRoots);
         for (String dir : extraGeneratedDirs) {

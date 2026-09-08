@@ -17,28 +17,16 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
-import java.util.regex.*;
-import org.codehaus.plexus.util.*;
+import java.io.File
+import java.util.regex.Matcher
+import java.util.regex.Pattern
 
-File buildFile = new File( basedir, "maven-build.xml" );
-String xml = FileUtils.fileRead( buildFile, "UTF-8" );
+File buildFile = new File( basedir, "maven-build.xml" )
+assert buildFile.isFile()
 
-Matcher m = Pattern.compile( "<javac\\s+[^>]*?>" ).matcher( xml );
-if ( !m.find() )
-{
-    throw new Exception( "Build script does not contain <javac> task." );
-}
+String xml = buildFile.getText( "UTF-8" )
+Matcher matcher = Pattern.compile( 'value\\s*=\\s*"\\$\\{maven.build.dir\\}/site-([^"]+)"' ).matcher( xml )
+assert matcher.find()
+assert "\u00E4\u0130\u03A3\u05D0\u06DE".equals( matcher.group( 1 ) )
 
-if ( m.group().indexOf( "target=\"1.3\"" ) < 0 )
-{
-    throw new Exception( "<javac> does not define target=1.3" );
-}
-
-if ( m.group().indexOf( "source=\"1.4\"" ) < 0 )
-{
-    throw new Exception( "<javac> does not define source=1.4" );
-}
-
-return true;
+return true

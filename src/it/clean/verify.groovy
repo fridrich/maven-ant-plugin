@@ -17,28 +17,9 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
-import java.util.regex.*;
-import org.codehaus.plexus.util.*;
+import java.io.File
 
-File buildFile = new File( basedir, "maven-build.xml" );
-String xml = FileUtils.fileRead( buildFile, "UTF-8" );
+File buildFile = new File( basedir, "build.xml" )
+assert buildFile.isFile() : "Custom build.xml was deleted!"
 
-Matcher m = Pattern.compile( "<javac\\s+[^>]*?>" ).matcher( xml );
-if ( !m.find() )
-{
-    throw new Exception( "Build script does not contain <javac> task." );
-}
-
-if ( m.group().indexOf( "target=\"1.3\"" ) < 0 )
-{
-    throw new Exception( "<javac> does not define target=1.3" );
-}
-
-if ( m.group().indexOf( "source=\"1.4\"" ) < 0 )
-{
-    throw new Exception( "<javac> does not define source=1.4" );
-}
-
-return true;
+return true

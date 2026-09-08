@@ -17,17 +17,5 @@
  * under the License.
  */
 
-import java.io.*;
-import java.util.*;
-
-try
-{
-    // nothing to verify, tests would have failed to build if not skipped
-}
-catch( Throwable t )
-{
-    t.printStackTrace();
-    return false;
-}
-
-return true;
+// nothing to verify, tests would have failed to build if not skipped
+return true
