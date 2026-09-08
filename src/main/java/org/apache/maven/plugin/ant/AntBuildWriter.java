@@ -1537,6 +1537,12 @@ public class AntBuildWriter {
         if (!compileSourceRoots.isEmpty()) {
             writer.startElement("javac");
             writer.addAttribute("destdir", outputDirectory);
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer,
+                    "javac",
+                    "includeantruntime",
+                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "includeantruntime", "false"),
+                    3);
             Map[] includes = AntBuildWriterUtil.getMavenCompilerPluginOptions(project, "includes", null);
             AntBuildWriterUtil.addWrapAttribute(
                     writer, "javac", "includes", getCommaSeparatedList(includes, "include"), 3);

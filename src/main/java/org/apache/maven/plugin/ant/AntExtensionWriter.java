@@ -962,57 +962,7 @@ public class AntExtensionWriter {
 
                         writer.startElement("javac");
                         writer.addAttribute("destdir", mrOutputDir);
-
-                        if (exec.getIncludes() != null) {
-                            AntBuildWriterUtil.addWrapAttribute(
-                                    writer,
-                                    "javac",
-                                    "includes",
-                                    getCommaSeparatedList(exec.getIncludes(), "include"),
-                                    3);
-                        }
-                        if (exec.getExcludes() != null) {
-                            AntBuildWriterUtil.addWrapAttribute(
-                                    writer,
-                                    "javac",
-                                    "excludes",
-                                    getCommaSeparatedList(exec.getExcludes(), "exclude"),
-                                    3);
-                        }
-
-                        AntBuildWriterUtil.addWrapAttribute(writer, "javac", "release", String.valueOf(intVer), 3);
-
-                        AntBuildWriterUtil.addWrapAttribute(
-                                writer,
-                                "javac",
-                                "encoding",
-                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "encoding", null),
-                                3);
-                        AntBuildWriterUtil.addWrapAttribute(
-                                writer,
-                                "javac",
-                                "nowarn",
-                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "showWarnings", "false"),
-                                3);
-                        AntBuildWriterUtil.addWrapAttribute(
-                                writer,
-                                "javac",
-                                "debug",
-                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "debug", "true"),
-                                3);
-                        AntBuildWriterUtil.addWrapAttribute(
-                                writer,
-                                "javac",
-                                "optimize",
-                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "optimize", "false"),
-                                3);
-                        AntBuildWriterUtil.addWrapAttribute(
-                                writer,
-                                "javac",
-                                "deprecation",
-                                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(
-                                        project, "showDeprecation", "true"),
-                                3);
+                        writeMRJavacAttributes(writer, exec, intVer);
 
                         for (String root : exec.getCompileSourceRoots()) {
                             writer.startElement("src");
@@ -1074,6 +1024,57 @@ public class AntExtensionWriter {
                 }
             }
         }
+    }
+
+    private void writeMRJavacAttributes(XMLWriter writer, CompilerExecution exec, int intVer) throws IOException {
+        AntBuildWriterUtil.addWrapAttribute(
+                writer,
+                "javac",
+                "includeantruntime",
+                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "includeantruntime", "false"),
+                3);
+
+        if (exec.getIncludes() != null) {
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer, "javac", "includes", getCommaSeparatedList(exec.getIncludes(), "include"), 3);
+        }
+        if (exec.getExcludes() != null) {
+            AntBuildWriterUtil.addWrapAttribute(
+                    writer, "javac", "excludes", getCommaSeparatedList(exec.getExcludes(), "exclude"), 3);
+        }
+
+        AntBuildWriterUtil.addWrapAttribute(writer, "javac", "release", String.valueOf(intVer), 3);
+
+        AntBuildWriterUtil.addWrapAttribute(
+                writer,
+                "javac",
+                "encoding",
+                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "encoding", null),
+                3);
+        AntBuildWriterUtil.addWrapAttribute(
+                writer,
+                "javac",
+                "nowarn",
+                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "showWarnings", "false"),
+                3);
+        AntBuildWriterUtil.addWrapAttribute(
+                writer,
+                "javac",
+                "debug",
+                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "debug", "true"),
+                3);
+        AntBuildWriterUtil.addWrapAttribute(
+                writer,
+                "javac",
+                "optimize",
+                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "optimize", "false"),
+                3);
+        AntBuildWriterUtil.addWrapAttribute(
+                writer,
+                "javac",
+                "deprecation",
+                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "showDeprecation", "true"),
+                3);
     }
 
     private static String getCommaSeparatedList(Map[] includes, String key) {
