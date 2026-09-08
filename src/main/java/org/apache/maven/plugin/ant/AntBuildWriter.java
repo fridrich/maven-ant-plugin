@@ -122,8 +122,7 @@ public class AntBuildWriter {
             List<MavenProject> reactorProjects) {
         this.project = project;
         this.artifactResolverWrapper = artifactResolverWrapper;
-        this.localRepository =
-                new File(artifactResolverWrapper.getLocalRepository().getBasedir());
+        this.localRepository = artifactResolverWrapper.getLocalRepositoryDirectory();
         this.settings = settings;
         this.overwrite = overwrite;
         this.executionProperties = (executionProperties != null) ? executionProperties : new Properties();
@@ -653,6 +652,9 @@ public class AntBuildWriter {
      * return the absolute path to the local repository.
      */
     private String getLocalRepositoryPath() {
+        if (localRepository == null) {
+            return "${user.home}/.m2/repository";
+        }
         String userHome = System.getProperty("user.home");
         String defaultPath = (userHome + "/.m2/repository").replace('\\', '/');
         String actualPath = localRepository.getAbsolutePath().replace('\\', '/');

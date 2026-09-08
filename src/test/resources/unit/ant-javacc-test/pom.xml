@@ -43,7 +43,6 @@ under the License.
         <configuration>
           <project implementation="org.apache.maven.plugin.ant.stubs.AntJavaccTestMavenProjectStub"/>
           <settings implementation="org.apache.maven.plugin.ant.stubs.SettingsStub"/>
-          <localRepository>${localRepository}</localRepository>
         </configuration>
       </plugin>
       <!-- Configure ph-javacc-maven-plugin to activate isJavaccProject() -->

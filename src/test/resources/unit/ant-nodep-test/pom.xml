@@ -39,7 +39,6 @@ under the License.
         <configuration>
           <project implementation="org.apache.maven.plugin.ant.stubs.AntNoDepTestMavenProjectStub"/>
           <settings implementation="org.apache.maven.plugin.ant.stubs.SettingsStub"/>
-          <localRepository>${localRepository}</localRepository>
         </configuration>
       </plugin>
     </plugins>

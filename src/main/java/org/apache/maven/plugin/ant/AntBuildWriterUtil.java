@@ -345,7 +345,10 @@ public class AntBuildWriterUtil {
                 String path = wrapper.getArtifactAbsolutePath(
                         (String) docletArtifact.get("groupId"), (String) docletArtifact.get("artifactId"), (String)
                                 docletArtifact.get("version"));
-                path = StringUtils.replace(path, wrapper.getLocalRepository().getBasedir(), "${maven.repo.local}");
+                if (wrapper.getLocalRepositoryDirectory() != null) {
+                    path = StringUtils.replace(
+                            path, wrapper.getLocalRepositoryDirectory().getAbsolutePath(), "${maven.repo.local}");
+                }
 
                 writer.startElement("doclet");
                 writer.addAttribute("name", doclet);
@@ -368,7 +371,10 @@ public class AntBuildWriterUtil {
                 String path = wrapper.getArtifactAbsolutePath(
                         (String) tagletArtifact.get("groupId"), (String) tagletArtifact.get("artifactId"), (String)
                                 tagletArtifact.get("version"));
-                path = StringUtils.replace(path, wrapper.getLocalRepository().getBasedir(), "${maven.repo.local}");
+                if (wrapper.getLocalRepositoryDirectory() != null) {
+                    path = StringUtils.replace(
+                            path, wrapper.getLocalRepositoryDirectory().getAbsolutePath(), "${maven.repo.local}");
+                }
 
                 writer.startElement("taglet");
                 writer.addAttribute("name", taglet);

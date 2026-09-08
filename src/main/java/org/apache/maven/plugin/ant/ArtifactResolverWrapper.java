@@ -18,14 +18,15 @@
  */
 package org.apache.maven.plugin.ant;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 import org.apache.maven.RepositoryUtils;
 import org.apache.maven.artifact.Artifact;
-import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.eclipse.aether.RepositorySystem;
@@ -61,55 +62,70 @@ public class ArtifactResolverWrapper {
     private RepositorySystemSession repositorySession;
 
     /**
-     * The local repository where the artifacts are located
+     * The local repository base directory
      */
-    private ArtifactRepository localRepository;
+    private File localRepositoryDirectory;
 
     /**
      * The remote repositories where artifacts are located
      */
-    private List<ArtifactRepository> remoteRepositories;
+    private List<RemoteRepository> remoteRepositories;
 
     /**
      * @param repositorySystem
      * @param repositorySession
-     * @param localRepository
      * @param remoteRepositories
+     * @param localRepositoryDirectory
      */
     private ArtifactResolverWrapper(
             RepositorySystem repositorySystem,
             RepositorySystemSession repositorySession,
-            ArtifactRepository localRepository,
-            List<ArtifactRepository> remoteRepositories) {
+            List<RemoteRepository> remoteRepositories,
+            File localRepositoryDirectory) {
         this.repositorySystem = repositorySystem;
         this.repositorySession = repositorySession;
-        this.localRepository = localRepository;
-        this.remoteRepositories = remoteRepositories;
+        this.remoteRepositories = remoteRepositories != null ? remoteRepositories : Collections.emptyList();
+        this.localRepositoryDirectory = localRepositoryDirectory;
     }
 
     /**
      * @param repositorySystem {@link RepositorySystem}
      * @param repositorySession {@link RepositorySystemSession}
-     * @param localRepository {@link ArtifactRepository}
+     * @param remoteRepositories {@link List}.
+     * @param localRepositoryDirectory {@link File}
+     * @return an instance of ArtifactResolverWrapper
+     */
+    public static ArtifactResolverWrapper getInstance(
+            RepositorySystem repositorySystem,
+            RepositorySystemSession repositorySession,
+            List<RemoteRepository> remoteRepositories,
+            File localRepositoryDirectory) {
+        return new ArtifactResolverWrapper(
+                repositorySystem, repositorySession, remoteRepositories, localRepositoryDirectory);
+    }
+
+    /**
+     * @param repositorySystem {@link RepositorySystem}
+     * @param repositorySession {@link RepositorySystemSession}
      * @param remoteRepositories {@link List}.
      * @return an instance of ArtifactResolverWrapper
      */
     public static ArtifactResolverWrapper getInstance(
             RepositorySystem repositorySystem,
             RepositorySystemSession repositorySession,
-            ArtifactRepository localRepository,
-            List<ArtifactRepository> remoteRepositories) {
-        return new ArtifactResolverWrapper(repositorySystem, repositorySession, localRepository, remoteRepositories);
+            List<RemoteRepository> remoteRepositories) {
+        return new ArtifactResolverWrapper(repositorySystem, repositorySession, remoteRepositories, null);
     }
 
     private RepositorySystemSession getSession() {
         if (repositorySession != null) {
             return repositorySession;
         }
-        if (repositorySystem != null && localRepository != null && localRepository.getBasedir() != null) {
+        File localRepo = getLocalRepositoryDirectory();
+        if (repositorySystem != null && localRepo != null) {
             DefaultRepositorySystemSession session = MavenRepositorySystemUtils.newSession();
-            LocalRepository localRepo = new LocalRepository(localRepository.getBasedir());
-            session.setLocalRepositoryManager(repositorySystem.newLocalRepositoryManager(session, localRepo));
+            LocalRepository localRepository = new LocalRepository(localRepo);
+            session.setLocalRepositoryManager(repositorySystem.newLocalRepositoryManager(session, localRepository));
             return session;
         }
         return null;
@@ -132,8 +148,7 @@ public class ArtifactResolverWrapper {
 
         org.eclipse.aether.artifact.Artifact aetherArtifact = new DefaultArtifact(groupId, artifactId, "jar", version);
         Dependency dependency = new Dependency(aetherArtifact, JavaScopes.COMPILE);
-        List<RemoteRepository> repos = RepositoryUtils.toRepos(remoteRepositories);
-        CollectRequest collectRequest = new CollectRequest(dependency, repos);
+        CollectRequest collectRequest = new CollectRequest(dependency, remoteRepositories);
         DependencyRequest dependencyRequest = new DependencyRequest(collectRequest, null);
 
         try {
@@ -177,30 +192,45 @@ public class ArtifactResolverWrapper {
     }
 
     /**
-     * @return {@link #localRepository}
+     * @return {@link #localRepositoryDirectory}
      */
-    protected ArtifactRepository getLocalRepository() {
-        return localRepository;
+    public File getLocalRepositoryDirectory() {
+        if (localRepositoryDirectory != null) {
+            return localRepositoryDirectory;
+        }
+        if (repositorySession != null) {
+            if (repositorySession.getLocalRepositoryManager() != null
+                    && repositorySession.getLocalRepositoryManager().getRepository() != null) {
+                return repositorySession
+                        .getLocalRepositoryManager()
+                        .getRepository()
+                        .getBasedir();
+            }
+            if (repositorySession.getLocalRepository() != null) {
+                return repositorySession.getLocalRepository().getBasedir();
+            }
+        }
+        return null;
     }
 
     /**
-     * @param localRepository set {@link #localRepository}
+     * @param localRepositoryDirectory set {@link #localRepositoryDirectory}
      */
-    protected void setLocalRepository(ArtifactRepository localRepository) {
-        this.localRepository = localRepository;
+    public void setLocalRepositoryDirectory(File localRepositoryDirectory) {
+        this.localRepositoryDirectory = localRepositoryDirectory;
     }
 
     /**
      * @return {@link #remoteRepositories}
      */
-    protected List<ArtifactRepository> getRemoteRepositories() {
+    protected List<RemoteRepository> getRemoteRepositories() {
         return remoteRepositories;
     }
 
     /**
      * @param remoteRepositories {@link #remoteRepositories}
      */
-    protected void setRemoteRepositories(List<ArtifactRepository> remoteRepositories) {
+    protected void setRemoteRepositories(List<RemoteRepository> remoteRepositories) {
         this.remoteRepositories = remoteRepositories;
     }
 
@@ -223,7 +253,7 @@ public class ArtifactResolverWrapper {
         org.eclipse.aether.artifact.Artifact aetherArtifact = new DefaultArtifact(groupId, artifactId, "jar", version);
         ArtifactRequest request = new ArtifactRequest();
         request.setArtifact(aetherArtifact);
-        request.setRepositories(RepositoryUtils.toRepos(remoteRepositories));
+        request.setRepositories(remoteRepositories);
 
         try {
             ArtifactResult result = repositorySystem.resolveArtifact(session, request);
@@ -247,6 +277,11 @@ public class ArtifactResolverWrapper {
          * output, e.g. ".../target/some-0.1.jar". The other special case are system-scope artifacts that reside
          * somewhere outside of the local repository.
          */
-        return localRepository.pathOf(artifact);
+        RepositorySystemSession session = getSession();
+        if (session != null && session.getLocalRepositoryManager() != null) {
+            org.eclipse.aether.artifact.Artifact aetherArtifact = RepositoryUtils.toArtifact(artifact);
+            return session.getLocalRepositoryManager().getPathForLocalArtifact(aetherArtifact);
+        }
+        return null;
     }
 }

@@ -43,7 +43,6 @@ under the License.
         <configuration>
           <project implementation="org.apache.maven.plugin.ant.stubs.AntBndInlineTestMavenProjectStub"/>
           <settings implementation="org.apache.maven.plugin.ant.stubs.SettingsStub"/>
-          <localRepository>${localRepository}</localRepository>
         </configuration>
       </plugin>
       <!-- No bnd.bnd file here: instructions come from this inline config instead. -->

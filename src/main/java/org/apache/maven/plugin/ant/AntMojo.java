@@ -20,11 +20,11 @@ package org.apache.maven.plugin.ant;
 
 import javax.inject.Inject;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
 
-import org.apache.maven.artifact.repository.ArtifactRepository;
 import org.apache.maven.execution.MavenSession;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -35,6 +35,7 @@ import org.apache.maven.project.MavenProject;
 import org.apache.maven.settings.Settings;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
+import org.eclipse.aether.repository.RemoteRepository;
 
 /**
  * Generate Ant build files.
@@ -72,16 +73,10 @@ public class AntMojo extends AbstractMojo {
     private MavenProject project;
 
     /**
-     * The local repository where the artifacts are located.
-     */
-    @Parameter(defaultValue = "${localRepository}", required = true, readonly = true)
-    private ArtifactRepository localRepository;
-
-    /**
      * The remote repositories where artifacts are located.
      */
-    @Parameter(defaultValue = "${project.remoteArtifactRepositories}", readonly = true)
-    private List<ArtifactRepository> remoteRepositories;
+    @Parameter(defaultValue = "${project.remoteProjectRepositories}", readonly = true)
+    private List<RemoteRepository> remoteRepositories;
 
     /**
      * The current user system settings for use in Maven.
@@ -109,8 +104,18 @@ public class AntMojo extends AbstractMojo {
         if (repoSession == null && session != null) {
             repoSession = session.getRepositorySession();
         }
+
+        File localRepoDir = null;
+        if (repoSession != null && repoSession.getLocalRepository() != null) {
+            localRepoDir = repoSession.getLocalRepository().getBasedir();
+        } else if (session != null
+                && session.getRequest() != null
+                && session.getRequest().getLocalRepositoryPath() != null) {
+            localRepoDir = session.getRequest().getLocalRepositoryPath();
+        }
+
         ArtifactResolverWrapper artifactResolverWrapper =
-                ArtifactResolverWrapper.getInstance(repositorySystem, repoSession, localRepository, remoteRepositories);
+                ArtifactResolverWrapper.getInstance(repositorySystem, repoSession, remoteRepositories, localRepoDir);
 
         Properties executionProperties = null;
         if (session != null) {
