@@ -843,32 +843,53 @@ public class AntExtensionWriter {
     private void writeBndDefinitionsFile(XMLWriter writer) {
         String bndTaskInstructions = AntBuildWriterUtil.getBndTaskInstructions(project);
         Xpp3Dom[] bundleInstructions = AntBuildWriterUtil.getBundlePluginInstructions(project);
+        boolean hasBndFile = AntBuildWriterUtil.hasBndFile(project);
 
-        if (bndTaskInstructions == null && bundleInstructions == null && AntBuildWriterUtil.hasBndFile(project)) {
+        if (hasBndFile) {
             writer.startElement("copy");
             writer.addAttribute("file", "bnd.bnd");
             writer.addAttribute("tofile", "${maven.build.dir}/bnd.bnd");
             writer.endElement(); // copy
-        } else if (bundleInstructions != null) {
+        }
+
+        if (bundleInstructions != null) {
             writer.startElement("propertyfile");
             writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
             for (Xpp3Dom entry : bundleInstructions) {
+                String key = entry.getName();
+                if (key.startsWith("_")) {
+                    key = "-" + key.substring(1);
+                }
+                String value = entry.getValue() != null ? entry.getValue() : "";
                 writer.startElement("entry");
-                writer.addAttribute("key", entry.getName());
-                writer.addAttribute("value", entry.getValue());
+                writer.addAttribute("key", key);
+                writer.addAttribute("value", value);
                 writer.endElement(); // entry
             }
             writer.endElement(); // propertyfile
-        } else {
+        } else if (bndTaskInstructions != null) {
             writer.startElement("echo");
             writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
-            writer.writeText(getBndPropertiesText(bndTaskInstructions));
+            if (hasBndFile) {
+                writer.addAttribute("append", "true");
+            }
+            writer.writeText(getBndPropertiesText(bndTaskInstructions, hasBndFile));
+            writer.endElement(); // echo
+        } else if (!hasBndFile) {
+            writer.startElement("echo");
+            writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
+            writer.writeText(getBndPropertiesText(null, false));
             writer.endElement(); // echo
         }
     }
 
-    private String getBndPropertiesText(String instructions) {
-        StringBuilder sb = new StringBuilder("# Generated dynamically by maven-ant-plugin\n");
+    private String getBndPropertiesText(String instructions, boolean appending) {
+        StringBuilder sb = new StringBuilder();
+        if (!appending) {
+            sb.append("# Generated dynamically by maven-ant-plugin\n");
+        } else {
+            sb.append("\n");
+        }
         if (instructions != null && instructions.length() > 0) {
             sb.append(instructions).append("\n");
         }
@@ -878,7 +899,11 @@ public class AntExtensionWriter {
     public void writeCompileMRTasks(
             XMLWriter writer, String outputDirectory, int intVer, List<CompilerExecution> compilerExecutions)
             throws IOException {
+        int baseVersion = AntBuildWriterUtil.getBaseCompileVersion(project, compilerExecutions);
         for (CompilerExecution exec : compilerExecutions) {
+            if (!AntBuildWriterUtil.isMultiReleaseExecution(exec, baseVersion, project)) {
+                continue;
+            }
             String ver = exec.getRelease();
             if (ver == null) {
                 ver = exec.getTarget();
@@ -887,11 +912,14 @@ public class AntExtensionWriter {
                 try {
                     int currentVer = (int) Double.parseDouble(ver);
                     if (currentVer == intVer && !exec.getCompileSourceRoots().isEmpty()) {
+                        boolean isModuleInfo = exec.isModuleInfo(project);
                         boolean isModuleInfoOnly = false;
-                        for (String root : exec.getCompileSourceRoots()) {
-                            if (project.getCompileSourceRoots().contains(root)) {
-                                isModuleInfoOnly = true;
-                                break;
+                        if (isModuleInfo) {
+                            for (String root : exec.getCompileSourceRoots()) {
+                                if (project.getCompileSourceRoots().contains(root)) {
+                                    isModuleInfoOnly = true;
+                                    break;
+                                }
                             }
                         }
 
@@ -955,8 +983,6 @@ public class AntExtensionWriter {
                                 AntBuildWriterUtil.getMavenCompilerPluginBasicOption(
                                         project, "showDeprecation", "true"),
                                 3);
-
-                        boolean isModuleInfo = exec.isModuleInfo(project);
 
                         for (String root : exec.getCompileSourceRoots()) {
                             writer.startElement("src");

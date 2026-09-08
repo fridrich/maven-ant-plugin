@@ -55,6 +55,8 @@ under the License.
           <instructions>
             <Bundle-SymbolicName>ant-bundle-instructions-test</Bundle-SymbolicName>
             <Export-Package>*</Export-Package>
+            <_exportcontents>org.apache.maven.plugin.ant.*</_exportcontents>
+            <_noee/>
           </instructions>
         </configuration>
       </plugin>

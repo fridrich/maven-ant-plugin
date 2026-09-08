@@ -154,6 +154,11 @@ public class AntMojoTest {
                 mavenBuildXml.contains("<entry key=\"Bundle-SymbolicName\" value=\"ant-bundle-instructions-test\""));
         org.junit.Assert.assertTrue(
                 "Export-Package entry not found", mavenBuildXml.contains("<entry key=\"Export-Package\" value=\"*\""));
+        org.junit.Assert.assertTrue(
+                "-exportcontents directive not found",
+                mavenBuildXml.contains("<entry key=\"-exportcontents\" value=\"org.apache.maven.plugin.ant.*\""));
+        org.junit.Assert.assertTrue(
+                "-noee directive not found", mavenBuildXml.contains("<entry key=\"-noee\" value=\"\""));
 
         int jarTaskIndex = mavenBuildXml.indexOf("<jar jarfile=\"${maven.build.dir}/${maven.build.finalName}.jar\"");
         int bndwrapIndex = mavenBuildXml.indexOf("<bndwrap");

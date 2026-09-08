@@ -436,20 +436,22 @@ public class AntBuildWriterUtil {
 
         boolean hasMultiRelease = false;
         List<CompilerExecution> compilerExecutions = getCompilerExecutions(project);
+        int baseVersion = getBaseCompileVersion(project, compilerExecutions);
         for (CompilerExecution exec : compilerExecutions) {
-            String ver = exec.getRelease();
-            if (ver == null) {
-                ver = exec.getTarget();
-            }
-            if (ver != null) {
-                try {
-                    if ((int) Double.parseDouble(ver) > 8
-                            && !exec.getCompileSourceRoots().isEmpty()) {
-                        hasMultiRelease = true;
-                        break;
+            if (isMultiReleaseExecution(exec, baseVersion, project)) {
+                boolean isModuleInfo = exec.isModuleInfo(project);
+                boolean isModuleInfoOnly = false;
+                if (isModuleInfo) {
+                    for (String root : exec.getCompileSourceRoots()) {
+                        if (project.getCompileSourceRoots().contains(root)) {
+                            isModuleInfoOnly = true;
+                            break;
+                        }
                     }
-                } catch (NumberFormatException e) {
-                    // ignore
+                }
+                if (!isModuleInfoOnly) {
+                    hasMultiRelease = true;
+                    break;
                 }
             }
         }
@@ -1555,5 +1557,63 @@ public class AntBuildWriterUtil {
     /** Whether bnd-maven-plugin's default bnd.bnd file exists in the module basedir. */
     public static boolean hasBndFile(MavenProject project) {
         return new File(project.getBasedir(), "bnd.bnd").isFile();
+    }
+
+    public static int getBaseCompileVersion(MavenProject project, List<CompilerExecution> executions) {
+        for (CompilerExecution exec : executions) {
+            if ("default".equals(exec.getId()) || "default-compile".equals(exec.getId())) {
+                String ver = exec.getRelease() != null ? exec.getRelease() : exec.getTarget();
+                if (ver != null) {
+                    try {
+                        return (int) Double.parseDouble(ver);
+                    } catch (NumberFormatException e) {
+                        // ignore
+                    }
+                }
+            }
+        }
+        try {
+            String ver = getMavenCompilerPluginBasicOption(project, "release", null);
+            if (ver == null) {
+                ver = getMavenCompilerPluginBasicOption(project, "target", null);
+            }
+            if (ver != null) {
+                return (int) Double.parseDouble(ver);
+            }
+        } catch (Exception e) {
+            // ignore
+        }
+        return 8;
+    }
+
+    public static boolean isMultiReleaseExecution(CompilerExecution exec, int baseVersion, MavenProject project) {
+        if ("default".equals(exec.getId()) || "default-compile".equals(exec.getId())) {
+            return false;
+        }
+        if (exec.getCompileSourceRoots() == null || exec.getCompileSourceRoots().isEmpty()) {
+            return false;
+        }
+        String verStr = exec.getRelease() != null ? exec.getRelease() : exec.getTarget();
+        if (verStr == null) {
+            return false;
+        }
+        try {
+            int ver = (int) Double.parseDouble(verStr);
+            if (ver <= 8) {
+                return false;
+            }
+            if (ver > baseVersion) {
+                return true;
+            }
+            if (exec.isModuleInfo(project)) {
+                return true;
+            }
+            if (!exec.getCompileSourceRoots().equals(project.getCompileSourceRoots())) {
+                return true;
+            }
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        return false;
     }
 }

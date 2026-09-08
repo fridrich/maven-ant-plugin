@@ -614,12 +614,10 @@ public class AntBuildWriter {
 
         List<CompilerExecution> compilerExecutions = AntBuildWriterUtil.getCompilerExecutions(project);
         Set<Integer> jreVersions = new TreeSet<Integer>();
+        int baseVersion = AntBuildWriterUtil.getBaseCompileVersion(project, compilerExecutions);
         for (CompilerExecution exec : compilerExecutions) {
-            String ver = exec.getRelease();
-            if (ver == null) {
-                ver = exec.getTarget();
-            }
-            if (ver != null) {
+            if (AntBuildWriterUtil.isMultiReleaseExecution(exec, baseVersion, project)) {
+                String ver = exec.getRelease() != null ? exec.getRelease() : exec.getTarget();
                 try {
                     int intVer = (int) Double.parseDouble(ver);
                     if (intVer > 8) {
@@ -929,12 +927,10 @@ public class AntBuildWriter {
         } else {
             List<CompilerExecution> compilerExecutions = AntBuildWriterUtil.getCompilerExecutions(project);
             Set<Integer> mrVersions = new TreeSet<Integer>();
+            int baseVersion = AntBuildWriterUtil.getBaseCompileVersion(project, compilerExecutions);
             for (CompilerExecution exec : compilerExecutions) {
-                String ver = exec.getRelease();
-                if (ver == null) {
-                    ver = exec.getTarget();
-                }
-                if (ver != null) {
+                if (AntBuildWriterUtil.isMultiReleaseExecution(exec, baseVersion, project)) {
+                    String ver = exec.getRelease() != null ? exec.getRelease() : exec.getTarget();
                     try {
                         int intVer = (int) Double.parseDouble(ver);
                         if (intVer > 8 && !exec.getCompileSourceRoots().isEmpty()) {

@@ -19,6 +19,9 @@
 package org.apache.maven.plugin.ant;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.maven.plugin.testing.MojoRule;
@@ -27,6 +30,7 @@ import org.junit.Rule;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -99,5 +103,28 @@ public class AntBuildWriterUtilTest {
                 AntBuildWriterUtil.toRelative(new File("/home"), new File("/home/dir/sub").getAbsolutePath()));
         assertEquals(".", AntBuildWriterUtil.toRelative(new File("/home"), new File("/home").getAbsolutePath()));
         assertEquals("./", AntBuildWriterUtil.toRelative(new File("/home"), new File("/home").getAbsolutePath() + "/"));
+    }
+
+    @Test
+    public void testMultiReleaseExecutionDetection() {
+        MavenProject project = new MavenProject();
+        project.getBuild().setDirectory("target");
+        project.getBuild().setOutputDirectory("target/classes");
+        project.getBuild().setSourceDirectory("src/main/java");
+
+        CompilerExecution defaultExec11 = new CompilerExecution(
+                "default", "11", "11", "11", Collections.singletonList("src/main/java"), null, null);
+        assertFalse(AntBuildWriterUtil.isMultiReleaseExecution(defaultExec11, 11, project));
+
+        CompilerExecution defaultCompileExec11 = new CompilerExecution(
+                "default-compile", "11", "11", "11", Collections.singletonList("src/main/java"), null, null);
+        assertFalse(AntBuildWriterUtil.isMultiReleaseExecution(defaultCompileExec11, 11, project));
+
+        CompilerExecution java9Exec = new CompilerExecution(
+                "compile-java9", "9", "9", "9", Collections.singletonList("src/main/java9"), null, null);
+        assertTrue(AntBuildWriterUtil.isMultiReleaseExecution(java9Exec, 8, project));
+
+        List<CompilerExecution> executions = Arrays.asList(defaultExec11);
+        assertEquals(11, AntBuildWriterUtil.getBaseCompileVersion(project, executions));
     }
 }
