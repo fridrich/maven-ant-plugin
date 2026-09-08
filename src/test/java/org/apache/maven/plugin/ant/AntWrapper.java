@@ -18,7 +18,11 @@
  */
 package org.apache.maven.plugin.ant;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.file.Files;
 
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.DefaultLogger;
@@ -39,11 +43,14 @@ public class AntWrapper {
         p.setUserProperty("basedir", antBuild.getParentFile().getAbsolutePath());
         p.setUserProperty("build.compiler", "extJavac");
 
-        DefaultLogger consoleLogger = new DefaultLogger();
-        consoleLogger.setErrorPrintStream(System.err);
-        consoleLogger.setOutputPrintStream(System.out);
-        consoleLogger.setMessageOutputLevel(Project.MSG_INFO);
-        p.addBuildListener(consoleLogger);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        PrintStream printStream = new PrintStream(out);
+
+        DefaultLogger buildLogger = new DefaultLogger();
+        buildLogger.setErrorPrintStream(printStream);
+        buildLogger.setOutputPrintStream(printStream);
+        buildLogger.setMessageOutputLevel(Project.MSG_INFO);
+        p.addBuildListener(buildLogger);
 
         try {
             p.fireBuildStarted();
@@ -55,7 +62,12 @@ public class AntWrapper {
             p.fireBuildFinished(null);
         } catch (BuildException e) {
             p.fireBuildFinished(e);
-            throw new BuildException("Error in the Ant build file: " + e.getMessage(), e);
+            throw new BuildException("Error in the Ant build file: " + e.getMessage() + "\n= Ant output =\n" + out, e);
+        } finally {
+            try {
+                Files.write(new File(antBuild.getParentFile(), "build.log").toPath(), out.toByteArray());
+            } catch (IOException ignore) {
+            }
         }
     }
 }
