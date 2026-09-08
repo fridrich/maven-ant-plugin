@@ -1619,11 +1619,22 @@ public class AntBuildWriterUtil {
     }
 
     /**
-     * @param project {@link MavenProject}
-     * @return test framework class name to check for availability
+     * Supported test frameworks.
      */
-    public static String getTestFrameworkClassName(MavenProject project) {
-        String framework = detectTestFramework(project, true);
+    public enum TestFramework {
+        NONE,
+        JUNIT3,
+        JUNIT4,
+        JUNIT5,
+        TESTNG
+    }
+
+    /**
+     * @param project {@link MavenProject}
+     * @return detected test framework
+     */
+    public static TestFramework getTestFramework(MavenProject project) {
+        TestFramework framework = detectTestFramework(project, true);
         if (framework != null) {
             return framework;
         }
@@ -1631,10 +1642,80 @@ public class AntBuildWriterUtil {
         if (framework != null) {
             return framework;
         }
-        return "org.junit.jupiter.api.Test";
+        return TestFramework.JUNIT5;
     }
 
-    private static String detectTestFramework(MavenProject project, boolean testScopeOnly) {
+    /**
+     * @param project {@link MavenProject}
+     * @return test framework class name to check for availability
+     */
+    public static String getTestFrameworkClassName(MavenProject project) {
+        TestFramework framework = getTestFramework(project);
+        switch (framework) {
+            case JUNIT3:
+                return "junit.framework.Test";
+            case JUNIT4:
+                return "org.junit.Test";
+            case TESTNG:
+                return "org.testng.annotations.Test";
+            case JUNIT5:
+            default:
+                return "org.junit.jupiter.api.Test";
+        }
+    }
+
+    /**
+     * @param framework {@link TestFramework}
+     * @return class name of the Ant test task for the framework
+     */
+    public static String getTestRunnerClassName(TestFramework framework) {
+        switch (framework) {
+            case JUNIT3:
+            case JUNIT4:
+                return "org.apache.tools.ant.taskdefs.optional.junit.JUnitTask";
+            case TESTNG:
+                return "org.testng.TestNGAntTask";
+            case JUNIT5:
+            default:
+                return "org.apache.tools.ant.taskdefs.optional.junitlauncher.confined.JUnitLauncherTask";
+        }
+    }
+
+    /**
+     * @param framework {@link TestFramework}
+     * @return property name set when the Ant test task is present
+     */
+    public static String getTestRunnerPresentProperty(TestFramework framework) {
+        switch (framework) {
+            case JUNIT3:
+            case JUNIT4:
+                return "junit.task.present";
+            case TESTNG:
+                return "testng.present";
+            case JUNIT5:
+            default:
+                return "junitlauncher.present";
+        }
+    }
+
+    /**
+     * @param framework {@link TestFramework}
+     * @return target name to run tests for the framework
+     */
+    public static String getTestRunnerTargetName(TestFramework framework) {
+        switch (framework) {
+            case JUNIT3:
+            case JUNIT4:
+                return "-run-tests-junit";
+            case TESTNG:
+                return "-run-tests-testng";
+            case JUNIT5:
+            default:
+                return "-run-tests-junitlauncher";
+        }
+    }
+
+    private static TestFramework detectTestFramework(MavenProject project, boolean testScopeOnly) {
         if (project == null) {
             return null;
         }
@@ -1684,16 +1765,16 @@ public class AntBuildWriterUtil {
         }
 
         if (hasJunit5) {
-            return "org.junit.jupiter.api.Test";
+            return TestFramework.JUNIT5;
         }
         if (hasJunit4) {
-            return "org.junit.Test";
+            return TestFramework.JUNIT4;
         }
         if (hasJunit3) {
-            return "junit.framework.Test";
+            return TestFramework.JUNIT3;
         }
         if (hasTestng) {
-            return "org.testng.annotations.Test";
+            return TestFramework.TESTNG;
         }
         return null;
     }

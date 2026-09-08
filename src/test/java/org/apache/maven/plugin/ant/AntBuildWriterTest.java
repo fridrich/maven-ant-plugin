@@ -78,6 +78,7 @@ public class AntBuildWriterTest {
         dep3.setScope("test");
         projectJunit3.getDependencies().add(dep3);
         assertEquals("junit.framework.Test", AntBuildWriterUtil.getTestFrameworkClassName(projectJunit3));
+        assertEquals(AntBuildWriterUtil.TestFramework.JUNIT3, AntBuildWriterUtil.getTestFramework(projectJunit3));
 
         MavenProject projectJunit4 = new MavenProject();
         Dependency dep4 = new Dependency();
@@ -87,6 +88,7 @@ public class AntBuildWriterTest {
         dep4.setScope("test");
         projectJunit4.getDependencies().add(dep4);
         assertEquals("org.junit.Test", AntBuildWriterUtil.getTestFrameworkClassName(projectJunit4));
+        assertEquals(AntBuildWriterUtil.TestFramework.JUNIT4, AntBuildWriterUtil.getTestFramework(projectJunit4));
 
         MavenProject projectJunit5 = new MavenProject();
         Dependency dep5 = new Dependency();
@@ -96,6 +98,7 @@ public class AntBuildWriterTest {
         dep5.setScope("test");
         projectJunit5.getDependencies().add(dep5);
         assertEquals("org.junit.jupiter.api.Test", AntBuildWriterUtil.getTestFrameworkClassName(projectJunit5));
+        assertEquals(AntBuildWriterUtil.TestFramework.JUNIT5, AntBuildWriterUtil.getTestFramework(projectJunit5));
 
         MavenProject projectTestng = new MavenProject();
         Dependency depTestng = new Dependency();
@@ -105,8 +108,50 @@ public class AntBuildWriterTest {
         depTestng.setScope("test");
         projectTestng.getDependencies().add(depTestng);
         assertEquals("org.testng.annotations.Test", AntBuildWriterUtil.getTestFrameworkClassName(projectTestng));
+        assertEquals(AntBuildWriterUtil.TestFramework.TESTNG, AntBuildWriterUtil.getTestFramework(projectTestng));
 
         MavenProject projectEmpty = new MavenProject();
         assertEquals("org.junit.jupiter.api.Test", AntBuildWriterUtil.getTestFrameworkClassName(projectEmpty));
+        assertEquals(AntBuildWriterUtil.TestFramework.JUNIT5, AntBuildWriterUtil.getTestFramework(projectEmpty));
+
+        assertEquals(
+                "org.apache.tools.ant.taskdefs.optional.junit.JUnitTask",
+                AntBuildWriterUtil.getTestRunnerClassName(AntBuildWriterUtil.TestFramework.JUNIT3));
+        assertEquals(
+                "junit.task.present",
+                AntBuildWriterUtil.getTestRunnerPresentProperty(AntBuildWriterUtil.TestFramework.JUNIT3));
+        assertEquals(
+                "-run-tests-junit",
+                AntBuildWriterUtil.getTestRunnerTargetName(AntBuildWriterUtil.TestFramework.JUNIT3));
+
+        assertEquals(
+                "org.apache.tools.ant.taskdefs.optional.junit.JUnitTask",
+                AntBuildWriterUtil.getTestRunnerClassName(AntBuildWriterUtil.TestFramework.JUNIT4));
+        assertEquals(
+                "junit.task.present",
+                AntBuildWriterUtil.getTestRunnerPresentProperty(AntBuildWriterUtil.TestFramework.JUNIT4));
+        assertEquals(
+                "-run-tests-junit",
+                AntBuildWriterUtil.getTestRunnerTargetName(AntBuildWriterUtil.TestFramework.JUNIT4));
+
+        assertEquals(
+                "org.apache.tools.ant.taskdefs.optional.junitlauncher.confined.JUnitLauncherTask",
+                AntBuildWriterUtil.getTestRunnerClassName(AntBuildWriterUtil.TestFramework.JUNIT5));
+        assertEquals(
+                "junitlauncher.present",
+                AntBuildWriterUtil.getTestRunnerPresentProperty(AntBuildWriterUtil.TestFramework.JUNIT5));
+        assertEquals(
+                "-run-tests-junitlauncher",
+                AntBuildWriterUtil.getTestRunnerTargetName(AntBuildWriterUtil.TestFramework.JUNIT5));
+
+        assertEquals(
+                "org.testng.TestNGAntTask",
+                AntBuildWriterUtil.getTestRunnerClassName(AntBuildWriterUtil.TestFramework.TESTNG));
+        assertEquals(
+                "testng.present",
+                AntBuildWriterUtil.getTestRunnerPresentProperty(AntBuildWriterUtil.TestFramework.TESTNG));
+        assertEquals(
+                "-run-tests-testng",
+                AntBuildWriterUtil.getTestRunnerTargetName(AntBuildWriterUtil.TestFramework.TESTNG));
     }
 }

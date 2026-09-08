@@ -47,6 +47,14 @@ public class AntMojoTest {
         org.junit.Assert.assertFalse(
                 "org.junit.Test should not be generated for JUnit 3 project",
                 mavenBuildXml.contains("<available classname=\"org.junit.Test\""));
+        org.junit.Assert.assertTrue(
+                "junit task runner target not found", mavenBuildXml.contains("<target name=\"-run-tests-junit\""));
+        org.junit.Assert.assertFalse(
+                "junitlauncher task runner should not be generated for JUnit 3 project",
+                mavenBuildXml.contains("<target name=\"-run-tests-junitlauncher\""));
+        org.junit.Assert.assertFalse(
+                "testng task runner should not be generated for JUnit 3 project",
+                mavenBuildXml.contains("<target name=\"-run-tests-testng\""));
     }
 
     @Test

@@ -96,6 +96,8 @@ public class AntBuildWriter {
 
     private final AntExtensionWriter extensionWriter;
 
+    private final AntTestWriter testWriter;
+
     private final Set<Artifact> injectedArtifacts = new java.util.LinkedHashSet<Artifact>();
 
     private final List<MavenProject> reactorProjects;
@@ -123,6 +125,7 @@ public class AntBuildWriter {
         this.overwrite = overwrite;
         this.executionProperties = (executionProperties != null) ? executionProperties : new Properties();
         this.extensionWriter = new AntExtensionWriter(project);
+        this.testWriter = new AntTestWriter(project);
         this.reactorProjects = reactorProjects;
     }
 
@@ -1060,183 +1063,10 @@ public class AntBuildWriter {
         if (AntBuildWriterUtil.isPomPackaging(project)) {
             writePomParts(writer);
         } else {
-            writer.startElement("target");
-            writer.addAttribute("name", "test");
-            AntBuildWriterUtil.addWrapAttribute(writer, "target", "depends", "compile-tests, junit-missing", 2);
-            AntBuildWriterUtil.addWrapAttribute(writer, "target", "unless", "junit.skipped", 2);
-            AntBuildWriterUtil.addWrapAttribute(writer, "target", "description", "Run the test cases", 2);
-
-            if (!testCompileSourceRoots.isEmpty()) {
-                writer.startElement("available");
-                writer.addAttribute(
-                        "classname", "org.apache.tools.ant.taskdefs.optional.junitlauncher.confined.JUnitLauncherTask");
-                writer.addAttribute("property", "junitlauncher.present");
-                writer.endElement(); // available
-
-                writer.startElement("antcall");
-                writer.addAttribute("target", "-run-tests-junitlauncher");
-                writer.endElement(); // antcall
-            }
-            writer.endElement(); // target
-
-            XmlWriterUtil.writeLineBreak(writer, 2, 1);
-
-            if (!testCompileSourceRoots.isEmpty()) {
-                writeJunitLauncher(writer);
-                XmlWriterUtil.writeLineBreak(writer, 2, 1);
-            }
-
-            writer.startElement("target");
-            writer.addAttribute("name", "test-junit-present");
-
-            writer.startElement("available");
-            writer.addAttribute("classname", AntBuildWriterUtil.getTestFrameworkClassName(project));
-            writer.addAttribute("property", "junit.present");
-            writer.addAttribute("classpathref", "build.test.classpath");
-            writer.endElement(); // available
-
-            writer.endElement(); // target
-
-            XmlWriterUtil.writeLineBreak(writer, 2, 1);
-
-            writer.startElement("target");
-            writer.addAttribute("name", "test-junit-status");
-            AntBuildWriterUtil.addWrapAttribute(writer, "target", "depends", "test-junit-present", 2);
-            writer.startElement("condition");
-            writer.addAttribute("property", "junit.missing");
-            writer.startElement("and");
-            writer.startElement("isfalse");
-            writer.addAttribute("value", "${junit.present}");
-            writer.endElement(); // isfalse
-            writer.startElement("isfalse");
-            writer.addAttribute("value", "${maven.test.skip}");
-            writer.endElement(); // isfalse
-            writer.endElement(); // and
-            writer.endElement(); // condition
-            writer.startElement("condition");
-            writer.addAttribute("property", "junit.skipped");
-            writer.startElement("or");
-            writer.startElement("isfalse");
-            writer.addAttribute("value", "${junit.present}");
-            writer.endElement(); // isfalse
-            writer.startElement("istrue");
-            writer.addAttribute("value", "${maven.test.skip}");
-            writer.endElement(); // istrue
-            writer.endElement(); // or
-            writer.endElement(); // condition
-            writer.endElement(); // target
-
-            XmlWriterUtil.writeLineBreak(writer, 2, 1);
-
-            writer.startElement("target");
-            writer.addAttribute("name", "junit-missing");
-            AntBuildWriterUtil.addWrapAttribute(writer, "target", "depends", "test-junit-status", 2);
-            AntBuildWriterUtil.addWrapAttribute(writer, "target", "if", "junit.missing", 2);
-
-            // CHECKSTYLE_OFF: MagicNumber
-            writer.startElement("echo");
-            writer.writeText(StringUtils.repeat("=", 35) + " WARNING " + StringUtils.repeat("=", 35));
-            writer.endElement(); // echo
-
-            writer.startElement("echo");
-            // CHECKSTYLE_OFF: LineLength
-            writer.writeText(
-                    " JUnit is not present in the test classpath or your $ANT_HOME/lib directory. Tests not executed.");
-            // CHECKSTYLE_ON: LineLength
-            writer.endElement(); // echo
-
-            writer.startElement("echo");
-            writer.writeText(StringUtils.repeat("=", 79));
-            writer.endElement(); // echo
-            // CHECKSTYLE_ON: MagicNumber
-
-            writer.endElement(); // target
+            testWriter.writeTestTargets(writer, testCompileSourceRoots, getTestIncludes(), getTestExcludes());
         }
 
         XmlWriterUtil.writeLineBreak(writer);
-    }
-
-    private void writeJunitLauncher(XMLWriter writer) throws IOException {
-        writer.startElement("target");
-        writer.addAttribute("name", "-run-tests-junitlauncher");
-        writer.addAttribute("if", "junitlauncher.present");
-
-        writer.startElement("mkdir");
-        writer.addAttribute("dir", "${maven.test.reports}");
-        writer.endElement(); // mkdir
-
-        writer.startElement("condition");
-        writer.addAttribute("property", "maven.test.includesPattern");
-        writer.addAttribute("value", "**/${test}.class");
-        writer.startElement("isset");
-        writer.addAttribute("property", "test");
-        writer.endElement(); // isset
-        writer.endElement(); // condition
-
-        writer.startElement("junitlauncher");
-        writer.addAttribute("haltOnFailure", "true");
-        writer.addAttribute("printSummary", "true");
-
-        writer.startElement("classpath");
-        writer.startElement("path");
-        writer.addAttribute("refid", "build.test.classpath");
-        writer.endElement(); // path
-        writer.startElement("pathelement");
-        writer.addAttribute("location", "${maven.build.outputDir}");
-        writer.endElement(); // pathelement
-        writer.startElement("pathelement");
-        writer.addAttribute("location", "${maven.build.testOutputDir}");
-        writer.endElement(); // pathelement
-        writer.endElement(); // classpath
-
-        writer.startElement("testclasses");
-        writer.addAttribute("outputdir", "${maven.test.reports}");
-
-        writer.startElement("fileset");
-        writer.addAttribute("dir", "${maven.build.testOutputDir}");
-
-        writer.startElement("include");
-        writer.addAttribute("name", "${maven.test.includesPattern}");
-        writer.addAttribute("if", "test");
-        writer.endElement(); // include
-
-        List includes = getTestIncludes();
-        List excludes = getTestExcludes();
-
-        for (Object incl : includes) {
-            writer.startElement("include");
-            String inclPattern = ((String) incl).replace(".java", ".class");
-            writer.addAttribute("name", inclPattern);
-            writer.addAttribute("unless", "test");
-            writer.endElement(); // include
-        }
-
-        for (Object excl : excludes) {
-            writer.startElement("exclude");
-            String exclPattern = ((String) excl).replace(".java", ".class");
-            writer.addAttribute("name", exclPattern);
-            writer.endElement(); // exclude
-        }
-
-        writer.endElement(); // fileset
-
-        writer.startElement("listener");
-        writer.addAttribute("type", "legacy-xml");
-        writer.addAttribute("sendSysOut", "true");
-        writer.addAttribute("sendSysErr", "true");
-        writer.endElement(); // listener
-
-        writer.startElement("listener");
-        writer.addAttribute("type", "legacy-plain");
-        writer.addAttribute("sendSysOut", "true");
-        writer.addAttribute("sendSysErr", "true");
-        writer.endElement(); // listener
-
-        writer.endElement(); // testclasses
-
-        writer.endElement(); // junitlauncher
-
-        writer.endElement(); // target
     }
 
     /**
