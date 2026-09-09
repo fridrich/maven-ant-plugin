@@ -473,35 +473,113 @@ public class AntBuildWriterUtil {
         Xpp3Dom[] manifestEntries = getJarPluginManifestEntries(project);
         boolean hasManifestEntries = (manifestEntries != null && manifestEntries.length > 0);
 
-        if (hasMultiRelease || hasMainClass || hasManifestEntries) {
-            writer.startElement("manifest");
-            if (hasMainClass) {
-                writer.startElement("attribute");
-                writer.addAttribute("name", "Main-Class");
-                writer.addAttribute("value", mainClass);
-                writer.endElement(); // attribute
-            }
-            if (hasMultiRelease) {
-                writer.startElement("attribute");
-                writer.addAttribute("name", "Multi-Release");
-                writer.addAttribute("value", "true");
-                writer.endElement(); // attribute
-            }
-            if (hasManifestEntries) {
-                for (Xpp3Dom entry : manifestEntries) {
-                    String name = entry.getName();
-                    String value = entry.getValue();
-                    if (name != null && value != null) {
-                        writer.startElement("attribute");
-                        writer.addAttribute("name", name);
-                        writer.addAttribute("value", value);
-                        writer.endElement(); // attribute
-                    }
-                }
-            }
-            writer.endElement(); // manifest
+        boolean addDefaultSpecificationEntries = Boolean.parseBoolean(
+                getMavenJarPluginBasicOption(project, "archive//manifest//addDefaultSpecificationEntries", "false"));
+        boolean addDefaultImplementationEntries = Boolean.parseBoolean(
+                getMavenJarPluginBasicOption(project, "archive//manifest//addDefaultImplementationEntries", "false"));
+
+        if (hasMultiRelease
+                || hasMainClass
+                || hasManifestEntries
+                || addDefaultSpecificationEntries
+                || addDefaultImplementationEntries) {
+            writeJarManifest(writer, project, hasMultiRelease, mainClass, manifestEntries);
         }
         writer.endElement(); // jar
+    }
+
+    private static void writeJarManifest(
+            XMLWriter writer,
+            MavenProject project,
+            boolean hasMultiRelease,
+            String mainClass,
+            Xpp3Dom[] manifestEntries)
+            throws IOException {
+        boolean hasMainClass = (mainClass != null && mainClass.trim().length() > 0);
+        boolean hasManifestEntries = (manifestEntries != null && manifestEntries.length > 0);
+        boolean addDefaultSpecificationEntries = Boolean.parseBoolean(
+                getMavenJarPluginBasicOption(project, "archive//manifest//addDefaultSpecificationEntries", "false"));
+        boolean addDefaultImplementationEntries = Boolean.parseBoolean(
+                getMavenJarPluginBasicOption(project, "archive//manifest//addDefaultImplementationEntries", "false"));
+
+        writer.startElement("manifest");
+        if (hasMainClass) {
+            writer.startElement("attribute");
+            writer.addAttribute("name", "Main-Class");
+            writer.addAttribute("value", mainClass);
+            writer.endElement(); // attribute
+        }
+        if (hasMultiRelease) {
+            writer.startElement("attribute");
+            writer.addAttribute("name", "Multi-Release");
+            writer.addAttribute("value", "true");
+            writer.endElement(); // attribute
+        }
+        if (addDefaultSpecificationEntries) {
+            String specTitle = project.getName() != null ? "${project.name}" : "${project.artifactId}";
+
+            writer.startElement("attribute");
+            writer.addAttribute("name", "Specification-Title");
+            writer.addAttribute("value", specTitle);
+            writer.endElement(); // attribute
+
+            writer.startElement("attribute");
+            writer.addAttribute("name", "Specification-Version");
+            writer.addAttribute("value", "${spec.version}");
+            writer.endElement(); // attribute
+
+            if (project.getOrganization() != null && project.getOrganization().getName() != null) {
+                writer.startElement("attribute");
+                writer.addAttribute("name", "Specification-Vendor");
+                writer.addAttribute("value", "${project.organization.name}");
+                writer.endElement(); // attribute
+            }
+        }
+        if (addDefaultImplementationEntries) {
+            String implTitle = project.getName() != null ? "${project.name}" : "${project.artifactId}";
+
+            writer.startElement("attribute");
+            writer.addAttribute("name", "Implementation-Title");
+            writer.addAttribute("value", implTitle);
+            writer.endElement(); // attribute
+
+            writer.startElement("attribute");
+            writer.addAttribute("name", "Implementation-Version");
+            writer.addAttribute("value", "${project.version}");
+            writer.endElement(); // attribute
+
+            if (project.getOrganization() != null && project.getOrganization().getName() != null) {
+                writer.startElement("attribute");
+                writer.addAttribute("name", "Implementation-Vendor");
+                writer.addAttribute("value", "${project.organization.name}");
+                writer.endElement(); // attribute
+            }
+
+            writer.startElement("attribute");
+            writer.addAttribute("name", "Implementation-Vendor-Id");
+            writer.addAttribute("value", "${project.groupId}");
+            writer.endElement(); // attribute
+
+            if (project.getUrl() != null) {
+                writer.startElement("attribute");
+                writer.addAttribute("name", "Implementation-URL");
+                writer.addAttribute("value", "${project.url}");
+                writer.endElement(); // attribute
+            }
+        }
+        if (hasManifestEntries) {
+            for (Xpp3Dom entry : manifestEntries) {
+                String name = entry.getName();
+                String value = entry.getValue();
+                if (name != null && value != null) {
+                    writer.startElement("attribute");
+                    writer.addAttribute("name", name);
+                    writer.addAttribute("value", value);
+                    writer.endElement(); // attribute
+                }
+            }
+        }
+        writer.endElement(); // manifest
     }
 
     /**

@@ -179,11 +179,32 @@ public class AntBuildWriter {
         addProperty(properties, "project.groupId", project.getGroupId());
         addProperty(properties, "project.artifactId", project.getArtifactId());
         addProperty(properties, "project.version", project.getVersion());
+
+        String version = project.getVersion();
+        String specVersion = version;
+        if (version != null) {
+            java.util.regex.Matcher m =
+                    java.util.regex.Pattern.compile("^(\\d+\\.\\d+)").matcher(version);
+            if (m.find()) {
+                specVersion = m.group(1);
+            }
+        }
+        addProperty(properties, "spec.version", specVersion);
+
         if (project.getName() != null) {
             addProperty(properties, "project.name", project.getName());
         }
         if (project.getDescription() != null) {
             addProperty(properties, "project.description", project.getDescription());
+        }
+        if (project.getOrganization() != null && project.getOrganization().getName() != null) {
+            addProperty(
+                    properties,
+                    "project.organization.name",
+                    project.getOrganization().getName());
+        }
+        if (project.getUrl() != null) {
+            addProperty(properties, "project.url", project.getUrl());
         }
 
         // target
@@ -520,6 +541,20 @@ public class AntBuildWriter {
         writer.addAttribute("value", project.getVersion());
         writer.endElement(); // property
 
+        String version = project.getVersion();
+        String specVersion = version;
+        if (version != null) {
+            java.util.regex.Matcher m =
+                    java.util.regex.Pattern.compile("^(\\d+\\.\\d+)").matcher(version);
+            if (m.find()) {
+                specVersion = m.group(1);
+            }
+        }
+        writer.startElement("property");
+        writer.addAttribute("name", "spec.version");
+        writer.addAttribute("value", specVersion);
+        writer.endElement(); // property
+
         if (project.getName() != null) {
             writer.startElement("property");
             writer.addAttribute("name", "project.name");
@@ -531,6 +566,20 @@ public class AntBuildWriter {
             writer.startElement("property");
             writer.addAttribute("name", "project.description");
             writer.addAttribute("value", project.getDescription());
+            writer.endElement(); // property
+        }
+
+        if (project.getOrganization() != null && project.getOrganization().getName() != null) {
+            writer.startElement("property");
+            writer.addAttribute("name", "project.organization.name");
+            writer.addAttribute("value", project.getOrganization().getName());
+            writer.endElement(); // property
+        }
+
+        if (project.getUrl() != null) {
+            writer.startElement("property");
+            writer.addAttribute("name", "project.url");
+            writer.addAttribute("value", project.getUrl());
             writer.endElement(); // property
         }
 
