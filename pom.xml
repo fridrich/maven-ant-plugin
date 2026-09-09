@@ -61,7 +61,7 @@ under the License.
 
   <properties>
     <mavenVersion>3.9.16</mavenVersion>
-    <resolverVersion>1.9.27</resolverVersion>
+    <resolverVersion>2.0.22</resolverVersion>
     <antVersion>1.10.18</antVersion>
     <annotationsVersion>3.15.2</annotationsVersion>
     <plexusUtilsVersion>4.1.0</plexusUtilsVersion>
