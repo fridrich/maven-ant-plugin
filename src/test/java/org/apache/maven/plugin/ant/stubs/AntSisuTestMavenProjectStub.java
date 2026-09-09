@@ -69,9 +69,21 @@ public class AntSisuTestMavenProjectStub extends AbstractAntTestMavenProjectStub
                 false);
         javaxInject.setFile(new File("javax/inject/javax.inject/1/javax.inject-1.jar"));
 
+        Artifact asm = new DefaultArtifact(
+                "org.ow2.asm",
+                "asm",
+                VersionRange.createFromVersion("9.10.1"),
+                Artifact.SCOPE_COMPILE,
+                "jar",
+                null,
+                new DefaultArtifactHandler("jar"),
+                false);
+        asm.setFile(new File("org/ow2/asm/asm/9.10.1/asm-9.10.1.jar"));
+
         List<Artifact> artifacts = new ArrayList<>(super.getCompileArtifacts());
         artifacts.add(sisuInject);
         artifacts.add(javaxInject);
+        artifacts.add(asm);
         return artifacts;
     }
 

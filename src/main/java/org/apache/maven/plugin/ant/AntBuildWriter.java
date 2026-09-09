@@ -333,10 +333,11 @@ public class AntBuildWriter {
             // ----------------------------------------------------------------------
             // <target name="templates|javacc|jflex|cup" />
             // ----------------------------------------------------------------------
-            if (extensionWriter.isJavaccProject()
-                    || extensionWriter.isTemplatingProject()
-                    || extensionWriter.isJflexProject()
-                    || extensionWriter.isCupProject()) {
+            if (!AntBuildWriterUtil.isPomPackaging(project)
+                    && (extensionWriter.isJavaccProject()
+                            || extensionWriter.isTemplatingProject()
+                            || extensionWriter.isJflexProject()
+                            || extensionWriter.isCupProject())) {
                 extensionWriter.writeGenSourcesTarget(writer);
             }
 
@@ -370,7 +371,7 @@ public class AntBuildWriter {
             // ----------------------------------------------------------------------
             // <target name="sisu" />
             // ----------------------------------------------------------------------
-            if (extensionWriter.isSisuProject()) {
+            if (!AntBuildWriterUtil.isPomPackaging(project) && extensionWriter.isSisuProject()) {
                 extensionWriter.writeSisuTarget(writer);
             }
 

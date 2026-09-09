@@ -726,42 +726,9 @@ public class AntExtensionWriter {
 
         writer.startElement("sequential");
 
-        writer.startElement("available");
-        writer.addAttribute("classname", "org.eclipse.sisu.space.SisuIndex");
-        writer.addAttribute("property", "sisu.present");
-        writer.addAttribute("classpathref", "build.classpath");
-        writer.endElement(); // available
-
-        writer.startElement("antcall");
-        writer.addAttribute("target", "sisu-index");
-        writer.endElement(); // antcall
-
-        writer.startElement("antcall");
-        writer.addAttribute("target", "-sisu-missing");
-        writer.endElement(); // antcall
-
-        writer.endElement(); // sequential
-        writer.endElement(); // target
-
-        writeToolMissingWarning(
-                writer,
-                "-sisu-missing",
-                "sisu.present",
-                "Sisu is not present on the classpath. javax.inject.Named index not generated.");
-
-        writer.startElement("target");
-        writer.addAttribute("name", "sisu-index");
-        writer.addAttribute("if", "sisu.present");
-
-        writer.startElement("sequential");
-
-        writer.startElement("mkdir");
-        writer.addAttribute("dir", "META-INF");
-        writer.endElement(); // mkdir
-
         writer.startElement("java");
         writer.addAttribute("classname", "org.eclipse.sisu.space.SisuIndex");
-        writer.addAttribute("failonerror", "false");
+        writer.addAttribute("failonerror", "true");
         writer.addAttribute("fork", "true");
 
         writer.startElement("classpath");

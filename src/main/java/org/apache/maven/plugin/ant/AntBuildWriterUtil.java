@@ -468,22 +468,17 @@ public class AntBuildWriterUtil {
             }
         }
 
+        String mainClass = getMavenJarPluginBasicOption(project, "archive//manifest//mainClass", null);
+        boolean hasMainClass = (mainClass != null && mainClass.trim().length() > 0);
         Xpp3Dom[] manifestEntries = getJarPluginManifestEntries(project);
         boolean hasManifestEntries = (manifestEntries != null && manifestEntries.length > 0);
 
-        if (hasMultiRelease
-                || getMavenPluginOption(project, "maven-jar-plugin", "archive//manifest", null) != null
-                || hasManifestEntries) {
+        if (hasMultiRelease || hasMainClass || hasManifestEntries) {
             writer.startElement("manifest");
-            if (getMavenPluginOption(project, "maven-jar-plugin", "archive//manifest", null) != null) {
+            if (hasMainClass) {
                 writer.startElement("attribute");
                 writer.addAttribute("name", "Main-Class");
-                addWrapAttribute(
-                        writer,
-                        "attribute",
-                        "value",
-                        getMavenJarPluginBasicOption(project, "archive//manifest//mainClass", null),
-                        5);
+                writer.addAttribute("value", mainClass);
                 writer.endElement(); // attribute
             }
             if (hasMultiRelease) {
