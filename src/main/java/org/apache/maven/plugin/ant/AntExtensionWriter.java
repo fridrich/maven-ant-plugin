@@ -831,6 +831,32 @@ public class AntExtensionWriter {
         Xpp3Dom[] bundleInstructions = AntBuildWriterUtil.getBundlePluginInstructions(project);
         boolean hasBndFile = AntBuildWriterUtil.hasBndFile(project);
 
+        boolean bndFileHasVersion = false;
+        if (hasBndFile) {
+            try {
+                java.io.File bndFile = new java.io.File(project.getBasedir(), "bnd.bnd");
+                if (bndFile.isFile()) {
+                    String bndContent = org.codehaus.plexus.util.FileUtils.fileRead(bndFile);
+                    bndFileHasVersion = bndContent.contains("Bundle-Version");
+                }
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+
+        boolean hasBundleVersion = bndFileHasVersion;
+        if (bundleInstructions != null) {
+            for (Xpp3Dom entry : bundleInstructions) {
+                if ("Bundle-Version".equals(entry.getName())) {
+                    hasBundleVersion = true;
+                    break;
+                }
+            }
+        }
+        if (bndTaskInstructions != null && bndTaskInstructions.contains("Bundle-Version")) {
+            hasBundleVersion = true;
+        }
+
         if (hasBndFile) {
             writer.startElement("copy");
             writer.addAttribute("file", "bnd.bnd");
@@ -858,6 +884,15 @@ public class AntExtensionWriter {
             writer.startElement("echo");
             writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
             writer.writeText(getBndPropertiesText((String) null, false));
+            writer.endElement(); // echo
+        }
+
+        if (!hasBundleVersion) {
+            String normalizedVersion = AntBuildWriterUtil.getNormalizedOSGiVersion(project.getVersion());
+            writer.startElement("echo");
+            writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
+            writer.addAttribute("append", "true");
+            writer.writeText("\nBundle-Version: " + normalizedVersion + "\n");
             writer.endElement(); // echo
         }
     }

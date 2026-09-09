@@ -154,6 +154,9 @@ public class AntMojoTest {
         assertTrue(
                 mavenBuildXml.contains("Bundle-SymbolicName: ant-bnd-inline-test"),
                 "inline instructions must be echoed into bnd.bnd");
+        assertTrue(
+                mavenBuildXml.contains("Bundle-Version: 1.0.0.SNAPSHOT"),
+                "Bundle-Version must be automatically generated and echoed into bnd.bnd");
 
         int jarTaskIndex = mavenBuildXml.indexOf("<jar jarfile=\"${maven.build.dir}/${maven.build.finalName}.jar\"");
         int bndwrapIndex = mavenBuildXml.indexOf("<bndwrap");

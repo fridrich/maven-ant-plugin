@@ -1861,4 +1861,35 @@ public class AntBuildWriterUtil {
                 || cleanVersion.startsWith(prefix + "-")
                 || cleanVersion.equals(prefix);
     }
+
+    /**
+     * Normalizes a Maven project version to a valid OSGi bundle version format.
+     */
+    public static String getNormalizedOSGiVersion(String version) {
+        if (version == null) {
+            return "0.0.0";
+        }
+
+        String clean = version.replace('-', '.');
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^(\\d+)(\\.\\d+)?(\\.\\d+)?(.*)$")
+                .matcher(clean);
+        if (m.matches()) {
+            String major = m.group(1);
+            String minor = m.group(2) != null ? m.group(2) : ".0";
+            String micro = m.group(3) != null ? m.group(3) : ".0";
+            String qualifier = m.group(4) != null ? m.group(4) : "";
+
+            if (qualifier.startsWith(".")) {
+                qualifier = qualifier.substring(1);
+            }
+            if (qualifier.length() > 0) {
+                qualifier = qualifier.replaceAll("[^a-zA-Z0-9_-]", "_");
+                return major + minor + micro + "." + qualifier;
+            } else {
+                return major + minor + micro;
+            }
+        }
+
+        return clean;
+    }
 }
