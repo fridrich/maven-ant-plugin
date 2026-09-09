@@ -159,12 +159,22 @@ public class AntBuildWriter {
      * @throws IOException In case of an failure {@link IOException}
      * @see #DEFAULT_MAVEN_PROPERTIES_FILENAME
      */
+    @SuppressWarnings("checkstyle:MethodLength")
     protected void writeBuildProperties() throws IOException {
         if (AntBuildWriterUtil.isPomPackaging(project)) {
             return;
         }
 
         Properties properties = new Properties();
+
+        // ----------------------------------------------------------------------
+        // Project identification
+        // ----------------------------------------------------------------------
+
+        addProperty(properties, "project.groupId", project.getGroupId());
+        addProperty(properties, "project.artifactId", project.getArtifactId());
+        addProperty(properties, "project.version", project.getVersion());
+        addProperty(properties, "spec.version", AntBuildWriterUtil.getSpecificationVersion(project.getVersion()));
 
         // ----------------------------------------------------------------------
         // Build properties
@@ -176,38 +186,12 @@ public class AntBuildWriter {
                 AntBuildWriterUtil.toRelative(
                         project.getBasedir(), project.getBuild().getFinalName()));
 
-        addProperty(properties, "project.groupId", project.getGroupId());
-        addProperty(properties, "project.artifactId", project.getArtifactId());
-        addProperty(properties, "project.version", project.getVersion());
-
-        String specVersion = AntBuildWriterUtil.getSpecificationVersion(project.getVersion());
-        if (specVersion != null) {
-            addProperty(properties, "spec.version", specVersion);
-        }
-
-        if (project.getName() != null) {
-            addProperty(properties, "project.name", project.getName());
-        }
-        if (project.getDescription() != null) {
-            addProperty(properties, "project.description", project.getDescription());
-        }
-        if (project.getOrganization() != null && project.getOrganization().getName() != null) {
-            addProperty(
-                    properties,
-                    "project.organization.name",
-                    project.getOrganization().getName());
-        }
-        if (project.getUrl() != null) {
-            addProperty(properties, "project.url", project.getUrl());
-        }
-
         // target
         addProperty(
                 properties,
                 "maven.build.dir",
                 AntBuildWriterUtil.toRelative(
                         project.getBasedir(), project.getBuild().getDirectory()));
-        addProperty(properties, "project.build.directory", "${maven.build.dir}");
 
         // ${maven.build.dir}/classes
         addProperty(
@@ -217,7 +201,6 @@ public class AntBuildWriter {
                         + AntBuildWriterUtil.toRelative(
                                 new File(project.getBasedir(), properties.getProperty("maven.build.dir")),
                                 project.getBuild().getOutputDirectory()));
-        addProperty(properties, "project.build.outputDirectory", "${maven.build.outputDir}");
 
         // src/main/java
         if (!project.getCompileSourceRoots().isEmpty()) {
@@ -279,9 +262,48 @@ public class AntBuildWriter {
         // Settings properties
         // ----------------------------------------------------------------------
 
+        addProperty(properties, "maven.repo.local", getLocalRepositoryPath());
         addProperty(properties, "maven.settings.offline", String.valueOf(settings.isOffline()));
         addProperty(properties, "maven.settings.interactiveMode", String.valueOf(settings.isInteractiveMode()));
-        addProperty(properties, "maven.repo.local", getLocalRepositoryPath());
+
+        // ----------------------------------------------------------------------
+        // Project metadata and aliases
+        // ----------------------------------------------------------------------
+
+        addProperty(properties, "project.name", project.getName());
+        addProperty(properties, "project.description", project.getDescription());
+        addProperty(properties, "project.url", project.getUrl());
+        addProperty(
+                properties,
+                "project.organization.name",
+                project.getOrganization() != null ? project.getOrganization().getName() : null);
+        addProperty(
+                properties,
+                "project.organization.url",
+                project.getOrganization() != null ? project.getOrganization().getUrl() : null);
+        addProperty(properties, "project.inceptionYear", project.getInceptionYear());
+        addProperty(properties, "project.packaging", project.getPackaging());
+        addProperty(properties, "project.basedir", "${basedir}");
+
+        addProperty(properties, "project.build.finalName", "${maven.build.finalName}");
+        addProperty(properties, "project.build.directory", "${maven.build.dir}");
+        addProperty(properties, "project.build.outputDirectory", "${maven.build.outputDir}");
+        addProperty(properties, "project.build.testOutputDirectory", "${maven.build.testOutputDir}");
+
+        if (project.getBuild().getSourceDirectory() != null) {
+            addProperty(
+                    properties,
+                    "project.build.sourceDirectory",
+                    AntBuildWriterUtil.toRelative(
+                            project.getBasedir(), project.getBuild().getSourceDirectory()));
+        }
+        if (project.getBuild().getTestSourceDirectory() != null) {
+            addProperty(
+                    properties,
+                    "project.build.testSourceDirectory",
+                    AntBuildWriterUtil.toRelative(
+                            project.getBasedir(), project.getBuild().getTestSourceDirectory()));
+        }
 
         // ----------------------------------------------------------------------
         // Project properties
@@ -296,6 +318,47 @@ public class AntBuildWriter {
                         property.getKey().toString(),
                         property.getValue().toString());
             }
+        }
+
+        // ----------------------------------------------------------------------
+        // Legacy POM aliases
+        // ----------------------------------------------------------------------
+
+        addProperty(properties, "pom.groupId", "${project.groupId}");
+        addProperty(properties, "pom.artifactId", "${project.artifactId}");
+        addProperty(properties, "pom.version", "${project.version}");
+        addProperty(properties, "pom.name", project.getName() != null ? "${project.name}" : null);
+        addProperty(properties, "pom.description", project.getDescription() != null ? "${project.description}" : null);
+        addProperty(properties, "pom.url", project.getUrl() != null ? "${project.url}" : null);
+        addProperty(
+                properties,
+                "pom.organization.name",
+                project.getOrganization() != null && project.getOrganization().getName() != null
+                        ? "${project.organization.name}"
+                        : null);
+        addProperty(
+                properties,
+                "pom.organization.url",
+                project.getOrganization() != null && project.getOrganization().getUrl() != null
+                        ? "${project.organization.url}"
+                        : null);
+        addProperty(
+                properties,
+                "pom.inceptionYear",
+                project.getInceptionYear() != null ? "${project.inceptionYear}" : null);
+        addProperty(properties, "pom.packaging", project.getPackaging() != null ? "${project.packaging}" : null);
+        addProperty(properties, "pom.basedir", "${project.basedir}");
+
+        addProperty(properties, "pom.build.finalName", "${project.build.finalName}");
+        addProperty(properties, "pom.build.directory", "${project.build.directory}");
+        addProperty(properties, "pom.build.outputDirectory", "${project.build.outputDirectory}");
+        addProperty(properties, "pom.build.testOutputDirectory", "${project.build.testOutputDirectory}");
+
+        if (project.getBuild().getSourceDirectory() != null) {
+            addProperty(properties, "pom.build.sourceDirectory", "${project.build.sourceDirectory}");
+        }
+        if (project.getBuild().getTestSourceDirectory() != null) {
+            addProperty(properties, "pom.build.testSourceDirectory", "${project.build.testSourceDirectory}");
         }
 
         try (FileOutputStream os =
@@ -510,157 +573,91 @@ public class AntBuildWriter {
         writer.endElement(); // property
 
         // ----------------------------------------------------------------------
+        // Project identification
+        // ----------------------------------------------------------------------
+
+        XmlWriterUtil.writeLineBreak(writer, 2, 1);
+
+        writeProperty(writer, "project.groupId", project.getGroupId());
+        writeProperty(writer, "project.artifactId", project.getArtifactId());
+        writeProperty(writer, "project.version", project.getVersion());
+        writeProperty(writer, "spec.version", AntBuildWriterUtil.getSpecificationVersion(project.getVersion()));
+
+        // ----------------------------------------------------------------------
         // Build properties
         // ----------------------------------------------------------------------
 
         XmlWriterUtil.writeLineBreak(writer, 2, 1);
 
-        writer.startElement("property");
-        writer.addAttribute("name", "maven.build.finalName");
-        writer.addAttribute("value", project.getBuild().getFinalName());
-        writer.endElement(); // property
-
-        writer.startElement("property");
-        writer.addAttribute("name", "project.groupId");
-        writer.addAttribute("value", project.getGroupId());
-        writer.endElement(); // property
-
-        writer.startElement("property");
-        writer.addAttribute("name", "project.artifactId");
-        writer.addAttribute("value", project.getArtifactId());
-        writer.endElement(); // property
-
-        writer.startElement("property");
-        writer.addAttribute("name", "project.version");
-        writer.addAttribute("value", project.getVersion());
-        writer.endElement(); // property
-
-        String specVersion = AntBuildWriterUtil.getSpecificationVersion(project.getVersion());
-        if (specVersion != null) {
-            writer.startElement("property");
-            writer.addAttribute("name", "spec.version");
-            writer.addAttribute("value", specVersion);
-            writer.endElement(); // property
-        }
-
-        if (project.getName() != null) {
-            writer.startElement("property");
-            writer.addAttribute("name", "project.name");
-            writer.addAttribute("value", project.getName());
-            writer.endElement(); // property
-        }
-
-        if (project.getDescription() != null) {
-            writer.startElement("property");
-            writer.addAttribute("name", "project.description");
-            writer.addAttribute("value", project.getDescription());
-            writer.endElement(); // property
-        }
-
-        if (project.getOrganization() != null && project.getOrganization().getName() != null) {
-            writer.startElement("property");
-            writer.addAttribute("name", "project.organization.name");
-            writer.addAttribute("value", project.getOrganization().getName());
-            writer.endElement(); // property
-        }
-
-        if (project.getUrl() != null) {
-            writer.startElement("property");
-            writer.addAttribute("name", "project.url");
-            writer.addAttribute("value", project.getUrl());
-            writer.endElement(); // property
-        }
-
-        writer.startElement("property");
-        writer.addAttribute("name", "maven.build.dir");
-        writer.addAttribute(
-                "value",
+        writeProperty(
+                writer,
+                "maven.build.finalName",
+                AntBuildWriterUtil.toRelative(
+                        project.getBasedir(), project.getBuild().getFinalName()));
+        writeProperty(
+                writer,
+                "maven.build.dir",
                 AntBuildWriterUtil.toRelative(
                         project.getBasedir(), project.getBuild().getDirectory()));
-        writer.endElement(); // property
-
-        writer.startElement("property");
-        writer.addAttribute("name", "project.build.directory");
-        writer.addAttribute("value", "${maven.build.dir}");
-        writer.endElement(); // property
-
-        writer.startElement("property");
-        writer.addAttribute("name", "maven.build.outputDir");
-        writer.addAttribute(
-                "value",
+        writeProperty(
+                writer,
+                "maven.build.outputDir",
                 "${maven.build.dir}/"
                         + AntBuildWriterUtil.toRelative(
                                 new File(project.getBuild().getDirectory()),
                                 project.getBuild().getOutputDirectory()));
-        writer.endElement(); // property
-
-        writer.startElement("property");
-        writer.addAttribute("name", "project.build.outputDirectory");
-        writer.addAttribute("value", "${maven.build.outputDir}");
-        writer.endElement(); // property
 
         if (!project.getCompileSourceRoots().isEmpty()) {
             List<String> compileSourceRoots = project.getCompileSourceRoots();
             for (int i = 0; i < compileSourceRoots.size(); i++) {
-                writer.startElement("property");
-                writer.addAttribute("name", "maven.build.srcDir." + i);
-                writer.addAttribute(
-                        "value", AntBuildWriterUtil.toRelative(project.getBasedir(), compileSourceRoots.get(i)));
-                writer.endElement(); // property
+                writeProperty(
+                        writer,
+                        "maven.build.srcDir." + i,
+                        AntBuildWriterUtil.toRelative(project.getBasedir(), compileSourceRoots.get(i)));
             }
         }
 
         if (project.getBuild().getResources() != null) {
             List<Resource> resources = project.getBuild().getResources();
             for (int i = 0; i < resources.size(); i++) {
-                writer.startElement("property");
-                writer.addAttribute("name", "maven.build.resourceDir." + i);
-                writer.addAttribute(
-                        "value",
+                writeProperty(
+                        writer,
+                        "maven.build.resourceDir." + i,
                         AntBuildWriterUtil.toRelative(
                                 project.getBasedir(), resources.get(i).getDirectory()));
-                writer.endElement(); // property
             }
         }
 
-        writer.startElement("property");
-        writer.addAttribute("name", "maven.build.testOutputDir");
-        writer.addAttribute(
-                "value",
+        writeProperty(
+                writer,
+                "maven.build.testOutputDir",
                 "${maven.build.dir}/"
                         + AntBuildWriterUtil.toRelative(
                                 new File(project.getBuild().getDirectory()),
                                 project.getBuild().getTestOutputDirectory()));
-        writer.endElement(); // property
 
         if (!project.getTestCompileSourceRoots().isEmpty()) {
             List<String> compileSourceRoots = project.getTestCompileSourceRoots();
             for (int i = 0; i < compileSourceRoots.size(); i++) {
-                writer.startElement("property");
-                writer.addAttribute("name", "maven.build.testDir." + i);
-                writer.addAttribute(
-                        "value", AntBuildWriterUtil.toRelative(project.getBasedir(), compileSourceRoots.get(i)));
-                writer.endElement(); // property
+                writeProperty(
+                        writer,
+                        "maven.build.testDir." + i,
+                        AntBuildWriterUtil.toRelative(project.getBasedir(), compileSourceRoots.get(i)));
             }
         }
 
         if (project.getBuild().getTestResources() != null) {
             List<Resource> resources = project.getBuild().getTestResources();
             for (int i = 0; i < resources.size(); i++) {
-                writer.startElement("property");
-                writer.addAttribute("name", "maven.build.testResourceDir." + i);
-                writer.addAttribute(
-                        "value",
+                writeProperty(
+                        writer,
+                        "maven.build.testResourceDir." + i,
                         AntBuildWriterUtil.toRelative(
                                 project.getBasedir(), resources.get(i).getDirectory()));
-                writer.endElement(); // property
             }
         }
 
-        writer.startElement("property");
-        writer.addAttribute("name", "maven.test.reports");
-        writer.addAttribute("value", "${maven.build.dir}/test-reports");
-        writer.endElement(); // property
+        writeProperty(writer, "maven.test.reports", "${maven.build.dir}/test-reports");
 
         String reportingOutputDir = (project.getModel().getReporting() != null)
                 ? project.getModel().getReporting().getOutputDirectory()
@@ -669,35 +666,64 @@ public class AntBuildWriter {
         if (!new File(reportingOutputDir).isAbsolute()) {
             reportingOutputDir = new File(project.getBasedir(), reportingOutputDir).getAbsolutePath();
         }
-        writer.startElement("property");
-        writer.addAttribute("name", "maven.reporting.outputDirectory");
-        writer.addAttribute(
-                "value",
+        writeProperty(
+                writer,
+                "maven.reporting.outputDirectory",
                 "${maven.build.dir}/"
                         + AntBuildWriterUtil.toRelative(
                                 new File(project.getBuild().getDirectory()), reportingOutputDir));
-        writer.endElement(); // property
 
         // ----------------------------------------------------------------------
-        // Setting properties
+        // Settings properties
         // ----------------------------------------------------------------------
 
         XmlWriterUtil.writeLineBreak(writer, 2, 1);
 
-        writer.startElement("property");
-        writer.addAttribute("name", "maven.repo.local");
-        writer.addAttribute("value", getLocalRepositoryPath());
-        writer.endElement(); // property
+        writeProperty(writer, "maven.repo.local", getLocalRepositoryPath());
+        writeProperty(writer, "maven.settings.offline", String.valueOf(settings.isOffline()));
+        writeProperty(writer, "maven.settings.interactiveMode", String.valueOf(settings.isInteractiveMode()));
 
-        writer.startElement("property");
-        writer.addAttribute("name", "maven.settings.offline");
-        writer.addAttribute("value", String.valueOf(settings.isOffline()));
-        writer.endElement(); // property
+        // ----------------------------------------------------------------------
+        // Project metadata and aliases
+        // ----------------------------------------------------------------------
 
-        writer.startElement("property");
-        writer.addAttribute("name", "maven.settings.interactiveMode");
-        writer.addAttribute("value", String.valueOf(settings.isInteractiveMode()));
-        writer.endElement(); // property
+        XmlWriterUtil.writeLineBreak(writer, 2, 1);
+
+        writeProperty(writer, "project.name", project.getName());
+        writeProperty(writer, "project.description", project.getDescription());
+        writeProperty(writer, "project.url", project.getUrl());
+        writeProperty(
+                writer,
+                "project.organization.name",
+                project.getOrganization() != null ? project.getOrganization().getName() : null);
+        writeProperty(
+                writer,
+                "project.organization.url",
+                project.getOrganization() != null ? project.getOrganization().getUrl() : null);
+        writeProperty(writer, "project.inceptionYear", project.getInceptionYear());
+        writeProperty(writer, "project.packaging", project.getPackaging());
+        writeProperty(writer, "project.basedir", "${basedir}");
+
+        writeProperty(writer, "project.build.finalName", "${maven.build.finalName}");
+        writeProperty(writer, "project.build.directory", "${maven.build.dir}");
+        writeProperty(writer, "project.build.outputDirectory", "${maven.build.outputDir}");
+        writeProperty(writer, "project.build.testOutputDirectory", "${maven.build.testOutputDir}");
+
+        if (project.getBuild().getSourceDirectory() != null) {
+            writeProperty(
+                    writer,
+                    "project.build.sourceDirectory",
+                    AntBuildWriterUtil.toRelative(
+                            project.getBasedir(), project.getBuild().getSourceDirectory()));
+        }
+
+        if (project.getBuild().getTestSourceDirectory() != null) {
+            writeProperty(
+                    writer,
+                    "project.build.testSourceDirectory",
+                    AntBuildWriterUtil.toRelative(
+                            project.getBasedir(), project.getBuild().getTestSourceDirectory()));
+        }
 
         // ----------------------------------------------------------------------
         // Project properties
@@ -709,14 +735,50 @@ public class AntBuildWriter {
             List<String> propertyNames = new ArrayList<>(project.getProperties().stringPropertyNames());
             Collections.sort(propertyNames);
             for (String name : propertyNames) {
-                String value = project.getProperties().getProperty(name);
-                if (value != null) {
-                    writer.startElement("property");
-                    writer.addAttribute("name", name);
-                    writer.addAttribute("value", value);
-                    writer.endElement(); // property
-                }
+                writeProperty(writer, name, project.getProperties().getProperty(name));
             }
+        }
+
+        // ----------------------------------------------------------------------
+        // Legacy POM aliases
+        // ----------------------------------------------------------------------
+
+        XmlWriterUtil.writeLineBreak(writer, 2, 1);
+
+        writeProperty(writer, "pom.groupId", "${project.groupId}");
+        writeProperty(writer, "pom.artifactId", "${project.artifactId}");
+        writeProperty(writer, "pom.version", "${project.version}");
+        writeProperty(writer, "pom.name", project.getName() != null ? "${project.name}" : null);
+        writeProperty(writer, "pom.description", project.getDescription() != null ? "${project.description}" : null);
+        writeProperty(writer, "pom.url", project.getUrl() != null ? "${project.url}" : null);
+        writeProperty(
+                writer,
+                "pom.organization.name",
+                project.getOrganization() != null && project.getOrganization().getName() != null
+                        ? "${project.organization.name}"
+                        : null);
+        writeProperty(
+                writer,
+                "pom.organization.url",
+                project.getOrganization() != null && project.getOrganization().getUrl() != null
+                        ? "${project.organization.url}"
+                        : null);
+        writeProperty(
+                writer, "pom.inceptionYear", project.getInceptionYear() != null ? "${project.inceptionYear}" : null);
+        writeProperty(writer, "pom.packaging", project.getPackaging() != null ? "${project.packaging}" : null);
+        writeProperty(writer, "pom.basedir", "${project.basedir}");
+
+        writeProperty(writer, "pom.build.finalName", "${project.build.finalName}");
+        writeProperty(writer, "pom.build.directory", "${project.build.directory}");
+        writeProperty(writer, "pom.build.outputDirectory", "${project.build.outputDirectory}");
+        writeProperty(writer, "pom.build.testOutputDirectory", "${project.build.testOutputDirectory}");
+
+        if (project.getBuild().getSourceDirectory() != null) {
+            writeProperty(writer, "pom.build.sourceDirectory", "${project.build.sourceDirectory}");
+        }
+
+        if (project.getBuild().getTestSourceDirectory() != null) {
+            writeProperty(writer, "pom.build.testSourceDirectory", "${project.build.testSourceDirectory}");
         }
 
         List<CompilerExecution> compilerExecutions = AntBuildWriterUtil.getCompilerExecutions(project);
@@ -1805,14 +1867,32 @@ public class AntBuildWriter {
     // ----------------------------------------------------------------------
 
     /**
-     * Put a property in properties defined by a name and a value
+     * Put a property in properties defined by a name and a value if value is not null.
      *
      * @param properties not null
      * @param name
-     * @param value not null
+     * @param value
      */
     private static void addProperty(Properties properties, String name, String value) {
-        properties.put(name, StringUtils.isNotEmpty(value) ? value : "");
+        if (value != null) {
+            properties.put(name, value);
+        }
+    }
+
+    /**
+     * Write an XML property element if value is not null.
+     *
+     * @param writer not null
+     * @param name
+     * @param value
+     */
+    private static void writeProperty(XMLWriter writer, String name, String value) {
+        if (value != null) {
+            writer.startElement("property");
+            writer.addAttribute("name", name);
+            writer.addAttribute("value", value);
+            writer.endElement(); // property
+        }
     }
 
     /**

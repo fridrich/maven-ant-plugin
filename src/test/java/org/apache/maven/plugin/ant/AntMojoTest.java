@@ -70,12 +70,19 @@ public class AntMojoTest {
                 mavenBuildXml.contains("<attribute name=\"My-Custom-Entry\" value=\"Hello-World\"/>"),
                 "custom My-Custom-Entry attribute not found in jar manifest");
         assertTrue(
+                mavenBuildXml.contains(
+                        "<property name=\"project.build.finalName\" value=\"${maven.build.finalName}\"/>"),
+                "project.build.finalName property not found");
+        assertTrue(
                 mavenBuildXml.contains("<property name=\"project.build.directory\" value=\"${maven.build.dir}\"/>"),
                 "project.build.directory property not found");
         assertTrue(
                 mavenBuildXml.contains(
                         "<property name=\"project.build.outputDirectory\" value=\"${maven.build.outputDir}\"/>"),
                 "project.build.outputDirectory property not found");
+        assertTrue(
+                mavenBuildXml.contains("<property name=\"pom.build.finalName\" value=\"${project.build.finalName}\"/>"),
+                "pom.build.finalName property not found");
     }
 
     @Test
