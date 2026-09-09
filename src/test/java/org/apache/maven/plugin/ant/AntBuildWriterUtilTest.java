@@ -140,4 +140,15 @@ public class AntBuildWriterUtilTest {
         List<CompilerExecution> executions = Arrays.asList(defaultExec11);
         assertEquals(11, AntBuildWriterUtil.getBaseCompileVersion(project, executions));
     }
+
+    @Test
+    public void testNormalizedOSGiVersion() {
+        assertEquals("0.0.0", AntBuildWriterUtil.getNormalizedOSGiVersion(null));
+        assertEquals("3.3.0", AntBuildWriterUtil.getNormalizedOSGiVersion("3.3"));
+        assertEquals("3.28.2", AntBuildWriterUtil.getNormalizedOSGiVersion("3.28.2"));
+        assertEquals("3.28.2.SNAPSHOT", AntBuildWriterUtil.getNormalizedOSGiVersion("3.28.2-SNAPSHOT"));
+        assertEquals("3.10.0.rc_1", AntBuildWriterUtil.getNormalizedOSGiVersion("3.10.0-rc-1"));
+        assertEquals("1.0.0.beta_2", AntBuildWriterUtil.getNormalizedOSGiVersion("1.0-beta-2"));
+        assertEquals("1.2.3.4", AntBuildWriterUtil.getNormalizedOSGiVersion("1.2.3.4"));
+    }
 }

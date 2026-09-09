@@ -120,6 +120,9 @@ public class AntMojoTest {
         assertFalse(
                 mavenBuildXml.contains("META-INF/MANIFEST.MF"),
                 "manifest file path must not be mentioned for bnd project");
+        assertFalse(
+                mavenBuildXml.contains("Bundle-Version:"),
+                "pre-specified Bundle-Version in bnd.bnd must not be appended");
 
         // ant-bnd-test/bnd.bnd is a real physical file, not inline pom config: must be <copy>-ed
         // live, not snapshotted into the build via <echo>.
