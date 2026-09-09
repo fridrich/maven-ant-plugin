@@ -176,6 +176,16 @@ public class AntBuildWriter {
                 AntBuildWriterUtil.toRelative(
                         project.getBasedir(), project.getBuild().getFinalName()));
 
+        addProperty(properties, "project.groupId", project.getGroupId());
+        addProperty(properties, "project.artifactId", project.getArtifactId());
+        addProperty(properties, "project.version", project.getVersion());
+        if (project.getName() != null) {
+            addProperty(properties, "project.name", project.getName());
+        }
+        if (project.getDescription() != null) {
+            addProperty(properties, "project.description", project.getDescription());
+        }
+
         // target
         addProperty(
                 properties,
@@ -494,6 +504,35 @@ public class AntBuildWriter {
         writer.addAttribute("name", "maven.build.finalName");
         writer.addAttribute("value", project.getBuild().getFinalName());
         writer.endElement(); // property
+
+        writer.startElement("property");
+        writer.addAttribute("name", "project.groupId");
+        writer.addAttribute("value", project.getGroupId());
+        writer.endElement(); // property
+
+        writer.startElement("property");
+        writer.addAttribute("name", "project.artifactId");
+        writer.addAttribute("value", project.getArtifactId());
+        writer.endElement(); // property
+
+        writer.startElement("property");
+        writer.addAttribute("name", "project.version");
+        writer.addAttribute("value", project.getVersion());
+        writer.endElement(); // property
+
+        if (project.getName() != null) {
+            writer.startElement("property");
+            writer.addAttribute("name", "project.name");
+            writer.addAttribute("value", project.getName());
+            writer.endElement(); // property
+        }
+
+        if (project.getDescription() != null) {
+            writer.startElement("property");
+            writer.addAttribute("name", "project.description");
+            writer.addAttribute("value", project.getDescription());
+            writer.endElement(); // property
+        }
 
         writer.startElement("property");
         writer.addAttribute("name", "maven.build.dir");
