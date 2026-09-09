@@ -69,7 +69,7 @@ under the License.
     <xalanVersion>2.7.3</xalanVersion>
     <sisuVersion>1.1.0</sisuVersion>
     <testingHarnessVersion>3.5.1</testingHarnessVersion>
-    <plexusTestingVersion>2.1.0</plexusTestingVersion>
+    <plexusTestingVersion>2.2.0</plexusTestingVersion>
     <surefireVersion>3.6.0</surefireVersion>
     <junitBomVersion>6.1.3</junitBomVersion>
     <junitVersion>4.13.2</junitVersion>
