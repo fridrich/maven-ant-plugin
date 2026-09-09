@@ -788,30 +788,46 @@ public class AntExtensionWriter {
     }
 
     /**
+     * Whether bnd.bnd-syntax content defines the given key, line-anchored so a comment merely
+     * mentioning the key (e.g. "# Bundle-Version is computed below") doesn't false-positive.
+     */
+    private static boolean hasBndKey(String bndContent, String key) {
+        if (bndContent == null) {
+            return false;
+        }
+        for (String line : bndContent.split("\n", -1)) {
+            String trimmed = line.trim();
+            if (!trimmed.startsWith("#") && trimmed.startsWith(key + ":")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Writes target/bnd.bnd: a real bnd.bnd file in the module is copied as-is (kept live rather
-     * than snapshotted into the generated build); bnd-maven-plugin's <bnd> config (an opaque
-     * bnd.bnd-syntax blob) is echoed out fresh; maven-bundle-plugin's <instructions> (already
-     * discrete key/value pairs) are written via <propertyfile>, no string-building needed.
+     * than snapshotted into the generated build); both bnd-maven-plugin's <bnd> blob and
+     * maven-bundle-plugin's <instructions> are echoed as real bnd.bnd syntax (see
+     * getBndPropertiesTextFromInstructions for the underscore/flag-directive/continuation handling
+     * the latter needs, since XML element names can't start with '-').
      */
     private void writeBndDefinitionsFile(XMLWriter writer) {
         String bndTaskInstructions = AntBuildWriterUtil.getBndTaskInstructions(project);
         Xpp3Dom[] bundleInstructions = AntBuildWriterUtil.getBundlePluginInstructions(project);
         boolean hasBndFile = AntBuildWriterUtil.hasBndFile(project);
 
-        boolean bndFileHasVersion = false;
+        boolean hasBundleVersion = false;
         if (hasBndFile) {
             try {
                 java.io.File bndFile = new java.io.File(project.getBasedir(), "bnd.bnd");
                 if (bndFile.isFile()) {
-                    String bndContent = org.codehaus.plexus.util.FileUtils.fileRead(bndFile);
-                    bndFileHasVersion = bndContent.contains("Bundle-Version");
+                    hasBundleVersion =
+                            hasBndKey(org.codehaus.plexus.util.FileUtils.fileRead(bndFile), "Bundle-Version");
                 }
             } catch (Exception e) {
                 // ignore
             }
         }
-
-        boolean hasBundleVersion = bndFileHasVersion;
         if (bundleInstructions != null) {
             for (Xpp3Dom entry : bundleInstructions) {
                 if ("Bundle-Version".equals(entry.getName())) {
@@ -820,7 +836,7 @@ public class AntExtensionWriter {
                 }
             }
         }
-        if (bndTaskInstructions != null && bndTaskInstructions.contains("Bundle-Version")) {
+        if (hasBndKey(bndTaskInstructions, "Bundle-Version")) {
             hasBundleVersion = true;
         }
 

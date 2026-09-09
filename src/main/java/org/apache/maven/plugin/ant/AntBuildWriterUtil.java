@@ -405,16 +405,7 @@ public class AntBuildWriterUtil {
      * @throws IOException if any
      */
     public static void writeJarTask(XMLWriter writer, MavenProject project) throws IOException {
-        boolean isBnd = false;
-        if (project.getBuildPlugins() != null) {
-            for (Plugin plugin : project.getBuildPlugins()) {
-                if ("bnd-maven-plugin".equals(plugin.getArtifactId())
-                        || "maven-bundle-plugin".equals(plugin.getArtifactId())) {
-                    isBnd = true;
-                    break;
-                }
-            }
-        }
+        boolean isBnd = new AntExtensionWriter(project).isBndProject();
 
         String manifestFile = isBnd ? null : getMavenJarPluginBasicOption(project, "archive//manifestFile", null);
         // already Maven-interpolated to an absolute path by the time plugin.getConfiguration() sees
@@ -468,45 +459,46 @@ public class AntBuildWriterUtil {
             }
         }
 
-        String mainClass = getMavenJarPluginBasicOption(project, "archive//manifest//mainClass", null);
-        boolean hasMainClass = (mainClass != null && mainClass.trim().length() > 0);
-        Xpp3Dom[] manifestEntries = getJarPluginManifestEntries(project);
-        boolean hasManifestEntries = (manifestEntries != null && manifestEntries.length > 0);
-
-        boolean addDefaultSpecificationEntries = Boolean.parseBoolean(
-                getMavenJarPluginBasicOption(project, "archive//manifest//addDefaultSpecificationEntries", "false"));
-        boolean addDefaultImplementationEntries = Boolean.parseBoolean(
-                getMavenJarPluginBasicOption(project, "archive//manifest//addDefaultImplementationEntries", "false"));
+        JarManifestOptions manifestOptions = new JarManifestOptions(project);
 
         if (hasMultiRelease
-                || hasMainClass
-                || hasManifestEntries
-                || addDefaultSpecificationEntries
-                || addDefaultImplementationEntries) {
-            writeJarManifest(writer, project, hasMultiRelease, mainClass, manifestEntries);
+                || manifestOptions.hasMainClass
+                || manifestOptions.hasManifestEntries
+                || manifestOptions.addDefaultSpecificationEntries
+                || manifestOptions.addDefaultImplementationEntries) {
+            writeJarManifest(writer, project, hasMultiRelease, manifestOptions);
         }
         writer.endElement(); // jar
     }
 
-    private static void writeJarManifest(
-            XMLWriter writer,
-            MavenProject project,
-            boolean hasMultiRelease,
-            String mainClass,
-            Xpp3Dom[] manifestEntries)
-            throws IOException {
-        boolean hasMainClass = (mainClass != null && mainClass.trim().length() > 0);
-        boolean hasManifestEntries = (manifestEntries != null && manifestEntries.length > 0);
-        boolean addDefaultSpecificationEntries = Boolean.parseBoolean(
-                getMavenJarPluginBasicOption(project, "archive//manifest//addDefaultSpecificationEntries", "false"));
-        boolean addDefaultImplementationEntries = Boolean.parseBoolean(
-                getMavenJarPluginBasicOption(project, "archive//manifest//addDefaultImplementationEntries", "false"));
+    /** Options for {@link #writeJarManifest}, computed once instead of per-attribute. */
+    private static final class JarManifestOptions {
+        final String mainClass;
+        final boolean hasMainClass;
+        final Xpp3Dom[] manifestEntries;
+        final boolean hasManifestEntries;
+        final boolean addDefaultSpecificationEntries;
+        final boolean addDefaultImplementationEntries;
 
+        JarManifestOptions(MavenProject project) throws IOException {
+            mainClass = getMavenJarPluginBasicOption(project, "archive//manifest//mainClass", null);
+            hasMainClass = (mainClass != null && mainClass.trim().length() > 0);
+            manifestEntries = getJarPluginManifestEntries(project);
+            hasManifestEntries = (manifestEntries != null && manifestEntries.length > 0);
+            addDefaultSpecificationEntries = Boolean.parseBoolean(getMavenJarPluginBasicOption(
+                    project, "archive//manifest//addDefaultSpecificationEntries", "false"));
+            addDefaultImplementationEntries = Boolean.parseBoolean(getMavenJarPluginBasicOption(
+                    project, "archive//manifest//addDefaultImplementationEntries", "false"));
+        }
+    }
+
+    private static void writeJarManifest(
+            XMLWriter writer, MavenProject project, boolean hasMultiRelease, JarManifestOptions manifestOptions) {
         writer.startElement("manifest");
-        if (hasMainClass) {
+        if (manifestOptions.hasMainClass) {
             writer.startElement("attribute");
             writer.addAttribute("name", "Main-Class");
-            writer.addAttribute("value", mainClass);
+            writer.addAttribute("value", manifestOptions.mainClass);
             writer.endElement(); // attribute
         }
         if (hasMultiRelease) {
@@ -515,7 +507,7 @@ public class AntBuildWriterUtil {
             writer.addAttribute("value", "true");
             writer.endElement(); // attribute
         }
-        if (addDefaultSpecificationEntries) {
+        if (manifestOptions.addDefaultSpecificationEntries) {
             String specTitle = project.getName() != null ? "${project.name}" : "${project.artifactId}";
 
             writer.startElement("attribute");
@@ -535,7 +527,7 @@ public class AntBuildWriterUtil {
                 writer.endElement(); // attribute
             }
         }
-        if (addDefaultImplementationEntries) {
+        if (manifestOptions.addDefaultImplementationEntries) {
             String implTitle = project.getName() != null ? "${project.name}" : "${project.artifactId}";
 
             writer.startElement("attribute");
@@ -567,8 +559,8 @@ public class AntBuildWriterUtil {
                 writer.endElement(); // attribute
             }
         }
-        if (hasManifestEntries) {
-            for (Xpp3Dom entry : manifestEntries) {
+        if (manifestOptions.hasManifestEntries) {
+            for (Xpp3Dom entry : manifestOptions.manifestEntries) {
                 String name = entry.getName();
                 String value = entry.getValue();
                 if (name != null && value != null) {

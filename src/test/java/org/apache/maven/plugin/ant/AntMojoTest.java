@@ -181,8 +181,9 @@ public class AntMojoTest {
     @Test
     @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-bundle-instructions-test/pom.xml")
     public void testProjectWithBundlePluginInstructions(AntMojo mojo) throws Exception {
-        // maven-bundle-plugin's <instructions> are already discrete key/value pairs, so they must
-        // go through <propertyfile><entry .../></propertyfile>, not a hand-built <echo> string.
+        // maven-bundle-plugin's <instructions> are echoed as real bnd.bnd syntax: underscore
+        // prefixes become dashes (XML names can't start with '-'), and flag directives (no value)
+        // get written without a trailing colon.
         File testPom = new File("src/test/resources/unit/ant-bundle-instructions-test");
         File antBasedir = new File("target/test/unit/ant-bundle-instructions-test/");
 
