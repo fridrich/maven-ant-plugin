@@ -791,14 +791,17 @@ public class AntExtensionWriter {
      * Whether bnd.bnd-syntax content defines the given key, line-anchored so a comment merely
      * mentioning the key (e.g. "# Bundle-Version is computed below") doesn't false-positive.
      */
-    private static boolean hasBndKey(String bndContent, String key) {
+    static boolean hasBndKey(String bndContent, String key) {
         if (bndContent == null) {
             return false;
         }
         for (String line : bndContent.split("\n", -1)) {
             String trimmed = line.trim();
-            if (!trimmed.startsWith("#") && trimmed.startsWith(key + ":")) {
-                return true;
+            if (!trimmed.startsWith("#") && !trimmed.startsWith("!") && trimmed.startsWith(key)) {
+                String rest = trimmed.substring(key.length()).trim();
+                if (rest.startsWith(":") || rest.startsWith("=")) {
+                    return true;
+                }
             }
         }
         return false;

@@ -1933,6 +1933,23 @@ public class AntBuildWriterUtil {
                 || cleanVersion.equals(prefix);
     }
 
+    private static final java.util.regex.Pattern SPEC_VERSION_PATTERN =
+            java.util.regex.Pattern.compile("^(\\d+\\.\\d+)");
+
+    /**
+     * Extracts the specification version (major.minor) from a Maven version string.
+     */
+    public static String getSpecificationVersion(String version) {
+        if (version == null) {
+            return null;
+        }
+        java.util.regex.Matcher m = SPEC_VERSION_PATTERN.matcher(version);
+        if (m.find()) {
+            return m.group(1);
+        }
+        return version;
+    }
+
     /**
      * Normalizes a Maven project version to a valid OSGi bundle version format.
      */

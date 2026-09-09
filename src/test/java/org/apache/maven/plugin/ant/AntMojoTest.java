@@ -69,12 +69,42 @@ public class AntMojoTest {
         assertTrue(
                 mavenBuildXml.contains("<attribute name=\"My-Custom-Entry\" value=\"Hello-World\"/>"),
                 "custom My-Custom-Entry attribute not found in jar manifest");
+        assertTrue(
+                mavenBuildXml.contains("<property name=\"project.build.directory\" value=\"${maven.build.dir}\"/>"),
+                "project.build.directory property not found");
+        assertTrue(
+                mavenBuildXml.contains(
+                        "<property name=\"project.build.outputDirectory\" value=\"${maven.build.outputDir}\"/>"),
+                "project.build.outputDirectory property not found");
     }
 
     @Test
     @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-nodep-test/pom.xml")
     public void testProjectWithNoDep(AntMojo mojo) throws Exception {
         invokeAntMojo(mojo, "ant-nodep-test");
+    }
+
+    @Test
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-nodep-test/pom.xml")
+    public void testBuildWithoutPropertiesFile(AntMojo mojo) throws Exception {
+        File antBasedir = new File("target/test/unit/ant-nodep-test/");
+        mojo.execute();
+
+        File antProperties = new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_PROPERTIES_FILENAME);
+        assertTrue(antProperties.exists());
+        assertTrue(antProperties.delete());
+        assertFalse(antProperties.exists());
+
+        File srcDir = new File("src/test/resources/unit/ant-nodep-test", "src");
+        if (srcDir.exists()) {
+            FileUtils.copyDirectoryStructure(srcDir, new File(antBasedir, "src"));
+        }
+
+        File antBuild = new File(antBasedir, AntBuildWriter.DEFAULT_BUILD_FILENAME);
+        AntWrapper.invoke(antBuild);
+
+        assertTrue(new File(antBasedir, "target/classes").exists());
+        assertTrue(new File(antBasedir, "target/ant-nodep-test.jar").exists());
     }
 
     @Test
@@ -293,5 +323,21 @@ public class AntMojoTest {
             String repo = properties.getProperty("maven.repo.local");
             assertTrue(repo.equals(new File("target/local-repo").getAbsolutePath()));
         }
+    }
+
+    @Test
+    public void testHasBndKey() {
+        assertFalse(AntExtensionWriter.hasBndKey(null, "Bundle-Version"));
+        assertFalse(AntExtensionWriter.hasBndKey("", "Bundle-Version"));
+        assertTrue(AntExtensionWriter.hasBndKey("Bundle-Version: 1.0.0", "Bundle-Version"));
+        assertTrue(AntExtensionWriter.hasBndKey("Bundle-Version:1.0.0", "Bundle-Version"));
+        assertTrue(AntExtensionWriter.hasBndKey("Bundle-Version = 1.0.0", "Bundle-Version"));
+        assertTrue(AntExtensionWriter.hasBndKey("Bundle-Version=1.0.0", "Bundle-Version"));
+        assertTrue(AntExtensionWriter.hasBndKey("  Bundle-Version : 1.0.0", "Bundle-Version"));
+        assertFalse(AntExtensionWriter.hasBndKey("# Bundle-Version: 1.0.0", "Bundle-Version"));
+        assertFalse(AntExtensionWriter.hasBndKey("! Bundle-Version: 1.0.0", "Bundle-Version"));
+        assertFalse(
+                AntExtensionWriter.hasBndKey("# Note: Bundle-Version is below\nExport-Package: *", "Bundle-Version"));
+        assertFalse(AntExtensionWriter.hasBndKey("Bundle-Version-Extra: 1.0.0", "Bundle-Version"));
     }
 }

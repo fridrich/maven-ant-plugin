@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @PlexusTest
@@ -150,5 +151,16 @@ public class AntBuildWriterUtilTest {
         assertEquals("3.10.0.rc_1", AntBuildWriterUtil.getNormalizedOSGiVersion("3.10.0-rc-1"));
         assertEquals("1.0.0.beta_2", AntBuildWriterUtil.getNormalizedOSGiVersion("1.0-beta-2"));
         assertEquals("1.2.3.4", AntBuildWriterUtil.getNormalizedOSGiVersion("1.2.3.4"));
+    }
+
+    @Test
+    public void testSpecificationVersion() {
+        assertNull(AntBuildWriterUtil.getSpecificationVersion(null));
+        assertEquals("1", AntBuildWriterUtil.getSpecificationVersion("1"));
+        assertEquals("1.0", AntBuildWriterUtil.getSpecificationVersion("1.0"));
+        assertEquals("1.2", AntBuildWriterUtil.getSpecificationVersion("1.2.3"));
+        assertEquals("1.2", AntBuildWriterUtil.getSpecificationVersion("1.2.3.4"));
+        assertEquals("3.0", AntBuildWriterUtil.getSpecificationVersion("3.0.0-SNAPSHOT"));
+        assertEquals("2.4", AntBuildWriterUtil.getSpecificationVersion("2.4-beta-1"));
     }
 }

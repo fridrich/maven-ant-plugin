@@ -180,16 +180,10 @@ public class AntBuildWriter {
         addProperty(properties, "project.artifactId", project.getArtifactId());
         addProperty(properties, "project.version", project.getVersion());
 
-        String version = project.getVersion();
-        String specVersion = version;
-        if (version != null) {
-            java.util.regex.Matcher m =
-                    java.util.regex.Pattern.compile("^(\\d+\\.\\d+)").matcher(version);
-            if (m.find()) {
-                specVersion = m.group(1);
-            }
+        String specVersion = AntBuildWriterUtil.getSpecificationVersion(project.getVersion());
+        if (specVersion != null) {
+            addProperty(properties, "spec.version", specVersion);
         }
-        addProperty(properties, "spec.version", specVersion);
 
         if (project.getName() != null) {
             addProperty(properties, "project.name", project.getName());
@@ -541,19 +535,13 @@ public class AntBuildWriter {
         writer.addAttribute("value", project.getVersion());
         writer.endElement(); // property
 
-        String version = project.getVersion();
-        String specVersion = version;
-        if (version != null) {
-            java.util.regex.Matcher m =
-                    java.util.regex.Pattern.compile("^(\\d+\\.\\d+)").matcher(version);
-            if (m.find()) {
-                specVersion = m.group(1);
-            }
+        String specVersion = AntBuildWriterUtil.getSpecificationVersion(project.getVersion());
+        if (specVersion != null) {
+            writer.startElement("property");
+            writer.addAttribute("name", "spec.version");
+            writer.addAttribute("value", specVersion);
+            writer.endElement(); // property
         }
-        writer.startElement("property");
-        writer.addAttribute("name", "spec.version");
-        writer.addAttribute("value", specVersion);
-        writer.endElement(); // property
 
         if (project.getName() != null) {
             writer.startElement("property");
@@ -592,6 +580,11 @@ public class AntBuildWriter {
         writer.endElement(); // property
 
         writer.startElement("property");
+        writer.addAttribute("name", "project.build.directory");
+        writer.addAttribute("value", "${maven.build.dir}");
+        writer.endElement(); // property
+
+        writer.startElement("property");
         writer.addAttribute("name", "maven.build.outputDir");
         writer.addAttribute(
                 "value",
@@ -599,6 +592,11 @@ public class AntBuildWriter {
                         + AntBuildWriterUtil.toRelative(
                                 new File(project.getBuild().getDirectory()),
                                 project.getBuild().getOutputDirectory()));
+        writer.endElement(); // property
+
+        writer.startElement("property");
+        writer.addAttribute("name", "project.build.outputDirectory");
+        writer.addAttribute("value", "${maven.build.outputDir}");
         writer.endElement(); // property
 
         if (!project.getCompileSourceRoots().isEmpty()) {
@@ -688,7 +686,7 @@ public class AntBuildWriter {
 
         writer.startElement("property");
         writer.addAttribute("name", "maven.repo.local");
-        writer.addAttribute("value", "${user.home}/.m2/repository");
+        writer.addAttribute("value", getLocalRepositoryPath());
         writer.endElement(); // property
 
         writer.startElement("property");
@@ -700,6 +698,26 @@ public class AntBuildWriter {
         writer.addAttribute("name", "maven.settings.interactiveMode");
         writer.addAttribute("value", String.valueOf(settings.isInteractiveMode()));
         writer.endElement(); // property
+
+        // ----------------------------------------------------------------------
+        // Project properties
+        // ----------------------------------------------------------------------
+
+        if (project.getProperties() != null && !project.getProperties().isEmpty()) {
+            XmlWriterUtil.writeLineBreak(writer, 2, 1);
+            XmlWriterUtil.writeCommentText(writer, "Project properties", 1);
+            List<String> propertyNames = new ArrayList<>(project.getProperties().stringPropertyNames());
+            Collections.sort(propertyNames);
+            for (String name : propertyNames) {
+                String value = project.getProperties().getProperty(name);
+                if (value != null) {
+                    writer.startElement("property");
+                    writer.addAttribute("name", name);
+                    writer.addAttribute("value", value);
+                    writer.endElement(); // property
+                }
+            }
+        }
 
         List<CompilerExecution> compilerExecutions = AntBuildWriterUtil.getCompilerExecutions(project);
         Set<Integer> jreVersions = new TreeSet<Integer>();
