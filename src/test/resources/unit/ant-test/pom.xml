@@ -49,6 +49,19 @@ under the License.
           <settings implementation="org.apache.maven.plugin.ant.stubs.SettingsStub"/>
         </configuration>
       </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <archive>
+            <manifestEntries>
+              <Automatic-Module-Name>org.apache.maven.plugins.ant.test</Automatic-Module-Name>
+              <My-Custom-Entry>Hello-World</My-Custom-Entry>
+            </manifestEntries>
+          </archive>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
   <properties>

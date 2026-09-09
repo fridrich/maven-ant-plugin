@@ -25,6 +25,14 @@ import java.util.Properties;
  * @version $Id: AntTestMavenProjectStub.java 639646 2008-03-21 13:58:11Z bentmann $
  */
 public class AntTestMavenProjectStub extends AbstractAntTestMavenProjectStub {
+    public AntTestMavenProjectStub() {
+        super();
+        org.apache.maven.model.Model model = getModel();
+        if (model.getBuild() != null) {
+            getBuild().setPlugins(model.getBuild().getPlugins());
+        }
+    }
+
     /**
      * @see org.apache.maven.plugin.ant.stubs.AbstractAntTestMavenProjectStub#getProjetPath()
      */

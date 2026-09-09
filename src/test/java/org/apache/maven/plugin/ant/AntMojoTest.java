@@ -61,6 +61,14 @@ public class AntMojoTest {
         assertFalse(
                 mavenBuildXml.contains("<target name=\"-run-tests-testng\""),
                 "testng task runner should not be generated for JUnit 3 project");
+
+        assertTrue(
+                mavenBuildXml.contains(
+                        "<attribute name=\"Automatic-Module-Name\" value=\"org.apache.maven.plugins.ant.test\"/>"),
+                "custom Automatic-Module-Name attribute not found in jar manifest");
+        assertTrue(
+                mavenBuildXml.contains("<attribute name=\"My-Custom-Entry\" value=\"Hello-World\"/>"),
+                "custom My-Custom-Entry attribute not found in jar manifest");
     }
 
     @Test
@@ -107,6 +115,11 @@ public class AntMojoTest {
         assertTrue(jarTaskIndex >= 0, "jar task not found");
         assertTrue(bndwrapIndex >= 0, "bndwrap task not found");
         assertTrue(jarTaskIndex < bndwrapIndex, "bndwrap must run after the jar it wraps");
+
+        assertFalse(mavenBuildXml.contains("<touch file="), "manifest file must not be touched for bnd project");
+        assertFalse(
+                mavenBuildXml.contains("META-INF/MANIFEST.MF"),
+                "manifest file path must not be mentioned for bnd project");
 
         // ant-bnd-test/bnd.bnd is a real physical file, not inline pom config: must be <copy>-ed
         // live, not snapshotted into the build via <echo>.

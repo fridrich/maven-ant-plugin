@@ -51,6 +51,17 @@ under the License.
         <artifactId>bnd-maven-plugin</artifactId>
         <version>7.4.0</version>
       </plugin>
+      <!-- Configure maven-jar-plugin with manifestFile configuration -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.1</version>
+        <configuration>
+          <archive>
+            <manifestFile>target/classes/META-INF/MANIFEST.MF</manifestFile>
+          </archive>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 </project>

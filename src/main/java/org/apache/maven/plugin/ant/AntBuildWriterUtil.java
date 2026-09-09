@@ -406,7 +406,18 @@ public class AntBuildWriterUtil {
      * @throws IOException if any
      */
     public static void writeJarTask(XMLWriter writer, MavenProject project) throws IOException {
-        String manifestFile = getMavenJarPluginBasicOption(project, "archive//manifestFile", null);
+        boolean isBnd = false;
+        if (project.getBuildPlugins() != null) {
+            for (Plugin plugin : project.getBuildPlugins()) {
+                if ("bnd-maven-plugin".equals(plugin.getArtifactId())
+                        || "maven-bundle-plugin".equals(plugin.getArtifactId())) {
+                    isBnd = true;
+                    break;
+                }
+            }
+        }
+
+        String manifestFile = isBnd ? null : getMavenJarPluginBasicOption(project, "archive//manifestFile", null);
         // already Maven-interpolated to an absolute path by the time plugin.getConfiguration() sees
         // it; relativize so the generated build stays portable, like every other path it writes.
         if (manifestFile != null) {
@@ -458,7 +469,12 @@ public class AntBuildWriterUtil {
             }
         }
 
-        if (hasMultiRelease || getMavenPluginOption(project, "maven-jar-plugin", "archive//manifest", null) != null) {
+        Xpp3Dom[] manifestEntries = getJarPluginManifestEntries(project);
+        boolean hasManifestEntries = (manifestEntries != null && manifestEntries.length > 0);
+
+        if (hasMultiRelease
+                || getMavenPluginOption(project, "maven-jar-plugin", "archive//manifest", null) != null
+                || hasManifestEntries) {
             writer.startElement("manifest");
             if (getMavenPluginOption(project, "maven-jar-plugin", "archive//manifest", null) != null) {
                 writer.startElement("attribute");
@@ -476,6 +492,18 @@ public class AntBuildWriterUtil {
                 writer.addAttribute("name", "Multi-Release");
                 writer.addAttribute("value", "true");
                 writer.endElement(); // attribute
+            }
+            if (hasManifestEntries) {
+                for (Xpp3Dom entry : manifestEntries) {
+                    String name = entry.getName();
+                    String value = entry.getValue();
+                    if (name != null && value != null) {
+                        writer.startElement("attribute");
+                        writer.addAttribute("name", name);
+                        writer.addAttribute("value", value);
+                        writer.endElement(); // attribute
+                    }
+                }
             }
             writer.endElement(); // manifest
         }
@@ -1537,6 +1565,23 @@ public class AntBuildWriterUtil {
             Xpp3Dom instNode = bundleConfigDom.getChild("instructions");
             if (instNode != null) {
                 return instNode.getChildren();
+            }
+        }
+        return null;
+    }
+
+    /**
+     * maven-jar-plugin's &lt;manifestEntries&gt; config as ordered key/value pairs, if configured.
+     */
+    public static Xpp3Dom[] getJarPluginManifestEntries(MavenProject project) {
+        Xpp3Dom jarConfigDom = getPluginConfigurationDOM(project, "maven-jar-plugin");
+        if (jarConfigDom != null) {
+            Xpp3Dom archiveNode = jarConfigDom.getChild("archive");
+            if (archiveNode != null) {
+                Xpp3Dom entriesNode = archiveNode.getChild("manifestEntries");
+                if (entriesNode != null) {
+                    return entriesNode.getChildren();
+                }
             }
         }
         return null;
