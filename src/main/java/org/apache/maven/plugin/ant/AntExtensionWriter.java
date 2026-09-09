@@ -306,42 +306,6 @@ public class AntExtensionWriter {
     }
 
     /**
-     * A tool's if="x.present"-gated target otherwise fails silently, surfacing as a confusing
-     * error several steps later (missing generated sources, empty manifest, etc). Mirrors the
-     * existing junit-missing target: warn loudly instead.
-     */
-    private void writeWarningBanner(XMLWriter writer, String message) {
-        // CHECKSTYLE_OFF: MagicNumber
-        writer.startElement("echo");
-        writer.writeText(StringUtils.repeat("=", 35) + " WARNING " + StringUtils.repeat("=", 35));
-        writer.endElement(); // echo
-
-        writer.startElement("echo");
-        writer.writeText(" " + message);
-        writer.endElement(); // echo
-
-        writer.startElement("echo");
-        writer.writeText(StringUtils.repeat("=", 79));
-        writer.endElement(); // echo
-        // CHECKSTYLE_ON: MagicNumber
-    }
-
-    private void writeToolMissingWarning(XMLWriter writer, String targetName, String presentProperty, String message) {
-        writer.startElement("target");
-        writer.addAttribute("name", targetName);
-        writer.addAttribute("unless", presentProperty);
-
-        writeWarningBanner(writer, message);
-
-        writer.endElement(); // target
-
-        // plain writeLineBreak() leaves the writer's indent state broken for whatever element
-        // comes right after (no writeCommentText() in between to reset it) - see writeLineBreak(3
-        // args) below, which also emits the indent text itself.
-        XmlWriterUtil.writeLineBreak(writer, 1, 1);
-    }
-
-    /**
      * Plain writeLineBreak() leaves the writer's indent state broken for whatever element comes
      * right after, unless writeCommentText() follows to reset it - see writeLineBreak(3 args),
      * which also emits the indent text itself.
@@ -822,7 +786,7 @@ public class AntExtensionWriter {
         boolean hasBundleVersion = false;
         if (hasBndFile) {
             try {
-                java.io.File bndFile = new java.io.File(project.getBasedir(), "bnd.bnd");
+                File bndFile = new File(project.getBasedir(), "bnd.bnd");
                 if (bndFile.isFile()) {
                     hasBundleVersion =
                             hasBndKey(org.codehaus.plexus.util.FileUtils.fileRead(bndFile), "Bundle-Version");

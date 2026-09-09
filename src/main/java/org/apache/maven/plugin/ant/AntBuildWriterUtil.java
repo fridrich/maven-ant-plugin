@@ -1106,8 +1106,8 @@ public class AntBuildWriterUtil {
                 Plugin plugin = (Plugin) next;
 
                 // using out-of-box Maven plugins
-                if (!((plugin.getGroupId().equals("org.apache.maven.plugins"))
-                        && (plugin.getArtifactId().equals(pluginArtifactId)))) {
+                if (!(plugin.getGroupId().equals("org.apache.maven.plugins")
+                        && plugin.getArtifactId().equals(pluginArtifactId))) {
                     continue;
                 }
 
@@ -1121,8 +1121,8 @@ public class AntBuildWriterUtil {
                 ReportPlugin reportPlugin = (ReportPlugin) next;
 
                 // using out-of-box Maven plugins
-                if (!((reportPlugin.getGroupId().equals("org.apache.maven.plugins"))
-                        && (reportPlugin.getArtifactId().equals(pluginArtifactId)))) {
+                if (!(reportPlugin.getGroupId().equals("org.apache.maven.plugins")
+                        && reportPlugin.getArtifactId().equals(pluginArtifactId))) {
                     continue;
                 }
 
@@ -1297,7 +1297,7 @@ public class AntBuildWriterUtil {
         for (int i = 0; i < children.getLength(); i++) {
             Node child = children.item(i);
             if (child.getNodeType() == Node.ELEMENT_NODE) {
-                isList = isList || (child.getNodeName().equals(lastNodeName));
+                isList = isList || child.getNodeName().equals(lastNodeName);
                 lastNodeName = child.getNodeName();
             }
         }

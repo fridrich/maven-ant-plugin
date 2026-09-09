@@ -260,5 +260,46 @@ under the License.
         </pluginManagement>
       </build>
     </profile>
+    <profile>
+      <id>pmd</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-pmd-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>pmd-check</id>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+                <phase>verify</phase>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>spotbugs</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs-maven-plugin</artifactId>
+            <version>4.9.2.0</version>
+            <executions>
+              <execution>
+                <id>spotbugs-check</id>
+                <goals>
+                  <goal>check</goal>
+                </goals>
+                <phase>verify</phase>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 </project>
