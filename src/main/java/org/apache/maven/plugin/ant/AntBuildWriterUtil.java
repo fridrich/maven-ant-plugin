@@ -223,8 +223,7 @@ public class AntBuildWriterUtil {
                 "stylesheetfile",
                 getMavenJavadocPluginBasicOption(project, "stylesheetfile", null),
                 3);
-        addWrapAttribute(
-                writer, "javadoc", "charset", getMavenJavadocPluginBasicOption(project, "charset", "ISO-8859-1"), 3);
+        addWrapAttribute(writer, "javadoc", "charset", getMavenJavadocPluginBasicOption(project, "charset", null), 3);
         addWrapAttribute(
                 writer, "javadoc", "docencoding", getMavenJavadocPluginBasicOption(project, "docencoding", null), 3);
         addWrapAttribute(
@@ -873,8 +872,15 @@ public class AntBuildWriterUtil {
      */
     private static String getMavenPluginBasicOption(
             MavenProject project, String pluginArtifactId, String optionName, String defaultValue) throws IOException {
-        return (String) getMavenPluginConfigurationsImpl(project, pluginArtifactId, optionName, defaultValue)
+        String value = (String) getMavenPluginConfigurationsImpl(project, pluginArtifactId, optionName, defaultValue)
                 .get(optionName);
+        if (value == null && "encoding".equals(optionName)) {
+            value = project.getProperties().getProperty("project.build.sourceEncoding");
+            if (value == null) {
+                value = "UTF-8";
+            }
+        }
+        return value != null ? value : defaultValue;
     }
 
     /**
