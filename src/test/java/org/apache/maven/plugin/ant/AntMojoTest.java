@@ -347,4 +347,62 @@ public class AntMojoTest {
                 AntExtensionWriter.hasBndKey("# Note: Bundle-Version is below\nExport-Package: *", "Bundle-Version"));
         assertFalse(AntExtensionWriter.hasBndKey("Bundle-Version-Extra: 1.0.0", "Bundle-Version"));
     }
+
+    @Test
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-modello-test/pom.xml")
+    public void testProjectWithModello(AntMojo mojo) throws Exception {
+        File antBasedir = new File("target/test/unit/ant-modello-test/");
+        mojo.execute();
+
+        File buildXmlFile = new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME);
+        assertTrue(buildXmlFile.exists(), "maven-build.xml was not created");
+        String mavenBuildXml = FileUtils.fileRead(buildXmlFile);
+
+        assertTrue(
+                mavenBuildXml.contains("<property name=\"maven.build.mdoDir\" value=\"src/main/mdo\"/>"),
+                "maven.build.mdoDir property not found");
+        assertTrue(
+                mavenBuildXml.contains(
+                        "<property name=\"maven.build.mdoOutputDir\" value=\"${maven.build.dir}/generated-sources/modello\"/>"),
+                "maven.build.mdoOutputDir property not found");
+
+        assertTrue(
+                mavenBuildXml.contains(
+                        "<target name=\"mdo\" depends=\"get-deps\" description=\"Generate sources from mdo files\">"),
+                "mdo target not found");
+        assertTrue(
+                mavenBuildXml.contains("<typedef resource=\"com/github/fridrich/modello/ant/antlib.xml\"/>"),
+                "modello typedef not found");
+        assertTrue(mavenBuildXml.contains("<modello"), "modello task element not found");
+        assertTrue(mavenBuildXml.contains("version=\"1.0.0\""), "modello version not found");
+        assertTrue(
+                mavenBuildXml.contains("outputDirectory=\"${maven.build.mdoOutputDir}\""), "outputDirectory not found");
+        assertTrue(mavenBuildXml.contains("javaSource=\"8\""), "javaSource not found");
+        assertTrue(
+                mavenBuildXml.contains("<model file=\"${maven.build.mdoDir}/test.mdo\"/>"), "model element not found");
+        assertTrue(mavenBuildXml.contains("<goal name=\"java\"/>"), "java goal not found");
+        assertTrue(mavenBuildXml.contains("<goal name=\"xpp3-reader\"/>"), "xpp3-reader goal not found");
+        assertTrue(mavenBuildXml.contains("<goal name=\"xpp3-writer\"/>"), "xpp3-writer goal not found");
+        assertFalse(mavenBuildXml.contains("<goal name=\"xdoc\"/>"), "site phase xdoc goal should not be present");
+
+        assertTrue(
+                mavenBuildXml.contains("<target name=\"compile\" depends=\"mdo\""),
+                "compile target should depend on mdo");
+        assertTrue(
+                mavenBuildXml.contains("<target name=\"javadoc\" depends=\"mdo\""),
+                "javadoc target should depend on mdo");
+        assertTrue(
+                mavenBuildXml.contains("<pathelement location=\"${maven.build.mdoOutputDir}\"/>"),
+                "mdoOutputDir not added to compile pathelement");
+
+        File propertiesFile = new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_PROPERTIES_FILENAME);
+        assertTrue(propertiesFile.exists(), "maven-build.properties was not created");
+        Properties properties = new Properties();
+        try (FileInputStream fis = new FileInputStream(propertiesFile)) {
+            properties.load(fis);
+            assertTrue("src/main/mdo".equals(properties.getProperty("maven.build.mdoDir")));
+            assertTrue("${maven.build.dir}/generated-sources/modello"
+                    .equals(properties.getProperty("maven.build.mdoOutputDir")));
+        }
+    }
 }

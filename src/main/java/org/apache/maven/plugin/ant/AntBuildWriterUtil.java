@@ -169,7 +169,7 @@ public class AntBuildWriterUtil {
         }
 
         // No sources
-        if (sources.isEmpty()) {
+        if (sources.isEmpty() && (extraSourceDirs == null || extraSourceDirs.isEmpty())) {
             return;
         }
 

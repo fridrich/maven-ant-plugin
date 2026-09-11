@@ -258,6 +258,11 @@ public class AntBuildWriter {
 
         addProperty(properties, "maven.reporting.outputDirectory", "${maven.build.dir}/site");
 
+        if (extensionWriter.isModelloProject()) {
+            addProperty(properties, "maven.build.mdoDir", extensionWriter.getModelloMdoDir());
+            addProperty(properties, "maven.build.mdoOutputDir", "${maven.build.dir}/generated-sources/modello");
+        }
+
         // ----------------------------------------------------------------------
         // Settings properties
         // ----------------------------------------------------------------------
@@ -419,13 +424,14 @@ public class AntBuildWriter {
             writeCleanTarget(writer);
 
             // ----------------------------------------------------------------------
-            // <target name="templates|javacc|jflex|cup" />
+            // <target name="templates|javacc|jflex|cup|mdo" />
             // ----------------------------------------------------------------------
             if (!AntBuildWriterUtil.isPomPackaging(project)
                     && (extensionWriter.isJavaccProject()
                             || extensionWriter.isTemplatingProject()
                             || extensionWriter.isJflexProject()
-                            || extensionWriter.isCupProject())) {
+                            || extensionWriter.isCupProject()
+                            || extensionWriter.isModelloProject())) {
                 extensionWriter.writeGenSourcesTarget(writer);
             }
 
@@ -672,6 +678,11 @@ public class AntBuildWriter {
                 "${maven.build.dir}/"
                         + AntBuildWriterUtil.toRelative(
                                 new File(project.getBuild().getDirectory()), reportingOutputDir));
+
+        if (extensionWriter.isModelloProject()) {
+            writeProperty(writer, "maven.build.mdoDir", extensionWriter.getModelloMdoDir());
+            writeProperty(writer, "maven.build.mdoOutputDir", "${maven.build.dir}/generated-sources/modello");
+        }
 
         // ----------------------------------------------------------------------
         // Settings properties
@@ -1446,6 +1457,13 @@ public class AntBuildWriter {
             }
         }
 
+        if (extensionWriter.isModelloProject()) {
+            String modelloOutputDir = "${maven.build.mdoOutputDir}";
+            if (!isCompileSourceRoot(compileSourceRoots, modelloOutputDir) && !dirs.contains(modelloOutputDir)) {
+                dirs.add(modelloOutputDir);
+            }
+        }
+
         return dirs;
     }
 
@@ -1466,7 +1484,9 @@ public class AntBuildWriter {
     private boolean isCompileSourceRoot(List<String> compileSourceRoots, String dir) {
         for (String root : compileSourceRoots) {
             String relRoot = AntBuildWriterUtil.toRelative(project.getBasedir(), root);
-            String relDir = dir.startsWith("${maven.build.dir}") ? dir.replace("${maven.build.dir}", "target") : dir;
+            String relDir = dir.startsWith("${maven.build.dir}")
+                    ? dir.replace("${maven.build.dir}", "target")
+                    : (dir.equals("${maven.build.mdoOutputDir}") ? "target/generated-sources/modello" : dir);
             if (root.contains(relDir) || relRoot.contains(relDir) || relDir.contains(relRoot)) {
                 return true;
             }
@@ -1544,7 +1564,9 @@ public class AntBuildWriter {
         List<String> extraStaticDirs = isTest ? Collections.emptyList() : getExtraStaticSourceDirs(compileSourceRoots);
 
         // CHECKSTYLE_OFF: LineLength
-        if (!compileSourceRoots.isEmpty()) {
+        boolean hasSources =
+                !compileSourceRoots.isEmpty() || !extraGeneratedDirs.isEmpty() || !extraStaticDirs.isEmpty();
+        if (hasSources) {
             writer.startElement("javac");
             writer.addAttribute("destdir", outputDirectory);
             AntBuildWriterUtil.addWrapAttribute(
@@ -1632,7 +1654,7 @@ public class AntBuildWriter {
                     AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "release", "8"),
                     3);
 
-            if (!compileSourceRoots.isEmpty()) {
+            if (hasSources) {
                 writer.startElement("src");
                 for (int i = 0; i < compileSourceRoots.size(); i++) {
                     writer.startElement("pathelement");

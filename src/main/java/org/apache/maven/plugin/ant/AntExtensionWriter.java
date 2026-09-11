@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -269,6 +270,296 @@ public class AntExtensionWriter {
         return Xpp3Dom.mergeXpp3Dom(execConfig, pluginConfig);
     }
 
+    public boolean isModelloProject() {
+        return !getMergedModelloExecutions().isEmpty();
+    }
+
+    public List<ModelloExecution> getModelloExecutions() {
+        List<ModelloExecution> list = new ArrayList<>();
+        if (project.getBuildPlugins() == null) {
+            return list;
+        }
+        for (Plugin plugin : project.getBuildPlugins()) {
+            if (!"modello-maven-plugin".equals(plugin.getArtifactId())) {
+                continue;
+            }
+            Xpp3Dom pluginConfig = (Xpp3Dom) plugin.getConfiguration();
+            if (plugin.getExecutions() != null && !plugin.getExecutions().isEmpty()) {
+                for (PluginExecution exec : plugin.getExecutions()) {
+                    if (exec.getPhase() != null && exec.getPhase().contains("site")) {
+                        continue;
+                    }
+                    Xpp3Dom execConfig = (Xpp3Dom) exec.getConfiguration();
+                    List<String> goals = extractModelloGoals(exec, execConfig, pluginConfig);
+                    if (goals.isEmpty()) {
+                        continue;
+                    }
+                    list.add(createModelloExecution(exec.getId(), execConfig, pluginConfig, goals));
+                }
+            } else if (pluginConfig != null) {
+                List<String> goals = extractModelloGoals(null, null, pluginConfig);
+                if (!goals.isEmpty()) {
+                    list.add(createModelloExecution("default", null, pluginConfig, goals));
+                }
+            }
+        }
+        return list;
+    }
+
+    public List<ModelloExecution> getMergedModelloExecutions() {
+        List<ModelloExecution> raw = getModelloExecutions();
+        List<ModelloExecution> merged = new ArrayList<>();
+        for (ModelloExecution exec : raw) {
+            boolean matched = false;
+            for (ModelloExecution existing : merged) {
+                if (existing.canMergeWith(exec)) {
+                    for (String g : exec.getGoals()) {
+                        if (!existing.getGoals().contains(g)) {
+                            existing.getGoals().add(g);
+                        }
+                    }
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                merged.add(new ModelloExecution(exec));
+            }
+        }
+        return merged;
+    }
+
+    private ModelloExecution createModelloExecution(
+            String id, Xpp3Dom execConfig, Xpp3Dom pluginConfig, List<String> goals) {
+        String version = getModelloOption(execConfig, pluginConfig, "version", project.getVersion());
+        String outputDir = getModelloOption(execConfig, pluginConfig, "outputDirectory", "${maven.build.mdoOutputDir}");
+        outputDir = interpolate(outputDir);
+        if ("${maven.build.dir}/generated-sources/modello".equals(outputDir)) {
+            outputDir = "${maven.build.mdoOutputDir}";
+        }
+
+        String javaSource = getModelloOption(execConfig, pluginConfig, "javaSource", "8");
+        String velocityBasedir = getModelloOption(execConfig, pluginConfig, "velocityBasedir", null);
+        if (velocityBasedir != null) {
+            velocityBasedir = resolveModelloRelativePath(velocityBasedir);
+        }
+
+        String encoding = getModelloOption(execConfig, pluginConfig, "encoding", null);
+        if (encoding == null && velocityBasedir != null) {
+            encoding = "utf-8";
+        }
+
+        String packageWithVersionStr = getModelloOption(execConfig, pluginConfig, "packageWithVersion", "false");
+        boolean packageWithVersion = "true".equalsIgnoreCase(packageWithVersionStr);
+
+        String basedir = getModelloOption(execConfig, pluginConfig, "basedir", null);
+        List<String> models = extractModelloModels(execConfig, pluginConfig, basedir);
+        List<String> templates = extractModelloTemplates(execConfig, pluginConfig);
+        Map<String, String> params = extractModelloParams(execConfig, pluginConfig);
+
+        ModelloExecution execution = new ModelloExecution(id, version, outputDir, javaSource);
+        execution.setEncoding(encoding);
+        execution.setPackageWithVersion(packageWithVersion);
+        execution.setVelocityBasedir(velocityBasedir);
+        execution.getModels().addAll(models);
+        execution.getGoals().addAll(goals);
+        execution.getTemplates().addAll(templates);
+        execution.getParams().putAll(params);
+        return execution;
+    }
+
+    private String getModelloOption(Xpp3Dom execConfig, Xpp3Dom pluginConfig, String name, String defaultValue) {
+        if (execConfig != null && execConfig.getChild(name) != null) {
+            return execConfig.getChild(name).getValue();
+        }
+        if (pluginConfig != null && pluginConfig.getChild(name) != null) {
+            return pluginConfig.getChild(name).getValue();
+        }
+        return defaultValue;
+    }
+
+    private String resolveModelloRelativePath(String path) {
+        if (path == null) {
+            return null;
+        }
+        String p = path.trim();
+        if (p.startsWith("${project.basedir}/")) {
+            p = p.substring("${project.basedir}/".length());
+        } else if (p.equals("${project.basedir}")) {
+            p = ".";
+        } else if (p.contains("${project.basedir}")) {
+            p = p.replace("${project.basedir}/", "").replace("${project.basedir}", ".");
+        }
+        if (new File(p).isAbsolute()) {
+            p = AntBuildWriterUtil.toRelative(project.getBasedir(), p);
+        }
+        return p.replace('\\', '/');
+    }
+
+    private List<String> extractModelloModels(Xpp3Dom execConfig, Xpp3Dom pluginConfig, String basedir) {
+        List<String> rawModels = extractModelNodes(execConfig);
+        if (rawModels.isEmpty()) {
+            rawModels = extractModelNodes(pluginConfig);
+        }
+        if (rawModels.isEmpty()) {
+            File mdoDir = new File(project.getBasedir(), "src/main/mdo");
+            if (mdoDir.isDirectory()) {
+                File[] files = mdoDir.listFiles();
+                if (files != null) {
+                    for (File f : files) {
+                        if (f.isFile() && f.getName().endsWith(".mdo")) {
+                            rawModels.add("src/main/mdo/" + f.getName());
+                        }
+                    }
+                }
+            }
+        }
+        String base = resolveModelloRelativePath(basedir);
+        List<String> resolved = new ArrayList<>();
+        for (String m : rawModels) {
+            String rel = resolveModelloRelativePath(m);
+            if (base != null && !base.isEmpty() && !".".equals(base)) {
+                resolved.add(base + "/" + rel);
+            } else {
+                resolved.add(rel);
+            }
+        }
+        return resolved;
+    }
+
+    private List<String> extractModelNodes(Xpp3Dom config) {
+        List<String> models = new ArrayList<>();
+        if (config == null) {
+            return models;
+        }
+        Xpp3Dom modelsNode = config.getChild("models");
+        if (modelsNode != null) {
+            for (Xpp3Dom child : modelsNode.getChildren("model")) {
+                if (child.getValue() != null && !child.getValue().trim().isEmpty()) {
+                    models.add(child.getValue().trim());
+                }
+            }
+        }
+        if (models.isEmpty()) {
+            Xpp3Dom modelNode = config.getChild("model");
+            if (modelNode != null
+                    && modelNode.getValue() != null
+                    && !modelNode.getValue().trim().isEmpty()) {
+                models.add(modelNode.getValue().trim());
+            }
+        }
+        return models;
+    }
+
+    private List<String> extractModelloGoals(PluginExecution exec, Xpp3Dom execConfig, Xpp3Dom pluginConfig) {
+        List<String> goals = new ArrayList<>();
+        if (exec != null && exec.getGoals() != null && !exec.getGoals().isEmpty()) {
+            goals.addAll(exec.getGoals());
+        }
+        if (goals.isEmpty()) {
+            goals.addAll(extractGoalNodes(execConfig));
+        }
+        if (goals.isEmpty()) {
+            goals.addAll(extractGoalNodes(pluginConfig));
+        }
+        goals.remove("help");
+        return goals;
+    }
+
+    private List<String> extractGoalNodes(Xpp3Dom config) {
+        List<String> goals = new ArrayList<>();
+        if (config == null) {
+            return goals;
+        }
+        Xpp3Dom goalsNode = config.getChild("goals");
+        if (goalsNode != null) {
+            for (Xpp3Dom child : goalsNode.getChildren("goal")) {
+                if (child.getValue() != null && !child.getValue().trim().isEmpty()) {
+                    goals.add(child.getValue().trim());
+                }
+            }
+        }
+        if (goals.isEmpty()) {
+            Xpp3Dom goalNode = config.getChild("goal");
+            if (goalNode != null
+                    && goalNode.getValue() != null
+                    && !goalNode.getValue().trim().isEmpty()) {
+                goals.add(goalNode.getValue().trim());
+            }
+        }
+        return goals;
+    }
+
+    private List<String> extractModelloTemplates(Xpp3Dom execConfig, Xpp3Dom pluginConfig) {
+        List<String> templates = extractTemplateNodes(execConfig);
+        if (templates.isEmpty()) {
+            templates = extractTemplateNodes(pluginConfig);
+        }
+        return templates;
+    }
+
+    private List<String> extractTemplateNodes(Xpp3Dom config) {
+        List<String> templates = new ArrayList<>();
+        if (config == null) {
+            return templates;
+        }
+        Xpp3Dom templatesNode = config.getChild("templates");
+        if (templatesNode != null) {
+            for (Xpp3Dom child : templatesNode.getChildren("template")) {
+                if (child.getValue() != null && !child.getValue().trim().isEmpty()) {
+                    templates.add(child.getValue().trim());
+                }
+            }
+        }
+        if (templates.isEmpty()) {
+            Xpp3Dom templateNode = config.getChild("template");
+            if (templateNode != null
+                    && templateNode.getValue() != null
+                    && !templateNode.getValue().trim().isEmpty()) {
+                templates.add(templateNode.getValue().trim());
+            }
+        }
+        return templates;
+    }
+
+    private Map<String, String> extractModelloParams(Xpp3Dom execConfig, Xpp3Dom pluginConfig) {
+        Map<String, String> params = new LinkedHashMap<>();
+        addParamNodes(pluginConfig, params);
+        addParamNodes(execConfig, params);
+        return params;
+    }
+
+    private void addParamNodes(Xpp3Dom config, Map<String, String> params) {
+        if (config == null) {
+            return;
+        }
+        Xpp3Dom paramsNode = config.getChild("params");
+        if (paramsNode != null) {
+            for (Xpp3Dom child : paramsNode.getChildren("param")) {
+                String text = child.getValue();
+                if (text != null && text.contains("=")) {
+                    int eqIdx = text.indexOf('=');
+                    String key = text.substring(0, eqIdx).trim();
+                    String val = text.substring(eqIdx + 1).trim();
+                    params.put(key, val);
+                } else if (child.getAttribute("name") != null) {
+                    params.put(child.getAttribute("name"), child.getAttribute("value"));
+                }
+            }
+        }
+    }
+
+    public String getModelloMdoDir() {
+        for (ModelloExecution exec : getMergedModelloExecutions()) {
+            for (String model : exec.getModels()) {
+                if (model.contains("/")) {
+                    return model.substring(0, model.lastIndexOf('/'));
+                }
+            }
+        }
+        return "src/main/mdo";
+    }
+
     private List<String> getGrammarFiles(String sourceDirectory, String extension) {
         List<String> files = new ArrayList<>();
         File dir = new File(sourceDirectory);
@@ -336,6 +627,9 @@ public class AntExtensionWriter {
         if (isCupProject()) {
             names.add("cup");
         }
+        if (isModelloProject()) {
+            names.add("mdo");
+        }
         return StringUtils.join(names.iterator(), ",");
     }
 
@@ -368,7 +662,7 @@ public class AntExtensionWriter {
 
             writer.endElement(); // target
 
-            writeTargetSeparator(writer, isJavaccProject() || isJflexProject() || isCupProject());
+            writeTargetSeparator(writer, isJavaccProject() || isJflexProject() || isCupProject() || isModelloProject());
         }
 
         // no more if="x.present"/<fail> gating here: each of these is now a real, unconditional
@@ -425,7 +719,7 @@ public class AntExtensionWriter {
             writer.endElement(); // sequential
             writer.endElement(); // target
 
-            writeTargetSeparator(writer, isJflexProject() || isCupProject());
+            writeTargetSeparator(writer, isJflexProject() || isCupProject() || isModelloProject());
         }
 
         if (isJflexProject()) {
@@ -434,6 +728,10 @@ public class AntExtensionWriter {
 
         if (isCupProject()) {
             writeCupCompileTarget(writer);
+        }
+
+        if (isModelloProject()) {
+            writeModelloTarget(writer);
         }
     }
 
@@ -492,7 +790,7 @@ public class AntExtensionWriter {
         writer.endElement(); // sequential
         writer.endElement(); // target
 
-        writeTargetSeparator(writer, isCupProject());
+        writeTargetSeparator(writer, isCupProject() || isModelloProject());
     }
 
     public void writeCupCompileTarget(XMLWriter writer) throws IOException {
@@ -549,7 +847,77 @@ public class AntExtensionWriter {
         writer.endElement(); // sequential
         writer.endElement(); // target
 
-        // always last in the gen-sources chain; writeCompileTarget() follows with its own comment.
+        writeTargetSeparator(writer, isModelloProject());
+    }
+
+    public void writeModelloTarget(XMLWriter writer) throws IOException {
+        XmlWriterUtil.writeCommentText(writer, "Code generation target", 1);
+
+        writer.startElement("target");
+        writer.addAttribute("name", "mdo");
+        writer.addAttribute("depends", "get-deps");
+        writer.addAttribute("description", "Generate sources from mdo files");
+
+        writer.startElement("mkdir");
+        writer.addAttribute("dir", "${maven.build.mdoOutputDir}");
+        writer.endElement(); // mkdir
+
+        writer.startElement("typedef");
+        writer.addAttribute("resource", "com/github/fridrich/modello/ant/antlib.xml");
+        writer.endElement(); // typedef
+
+        String mdoDir = getModelloMdoDir();
+        for (ModelloExecution exec : getMergedModelloExecutions()) {
+            writer.startElement("modello");
+            AntBuildWriterUtil.addWrapAttribute(writer, "modello", "version", exec.getVersion(), 3);
+            AntBuildWriterUtil.addWrapAttribute(writer, "modello", "outputDirectory", exec.getOutputDirectory(), 3);
+            if (exec.getVelocityBasedir() != null) {
+                AntBuildWriterUtil.addWrapAttribute(writer, "modello", "velocityBasedir", exec.getVelocityBasedir(), 3);
+            }
+            if (exec.getJavaSource() != null) {
+                AntBuildWriterUtil.addWrapAttribute(writer, "modello", "javaSource", exec.getJavaSource(), 3);
+            }
+            if (exec.getEncoding() != null) {
+                AntBuildWriterUtil.addWrapAttribute(writer, "modello", "encoding", exec.getEncoding(), 3);
+            }
+            if (exec.isPackageWithVersion()) {
+                AntBuildWriterUtil.addWrapAttribute(writer, "modello", "packageWithVersion", "true", 3);
+            }
+
+            for (String model : exec.getModels()) {
+                writer.startElement("model");
+                if (model.startsWith(mdoDir + "/")) {
+                    writer.addAttribute("file", "${maven.build.mdoDir}/" + model.substring(mdoDir.length() + 1));
+                } else {
+                    writer.addAttribute("file", model);
+                }
+                writer.endElement(); // model
+            }
+
+            for (String goal : exec.getGoals()) {
+                writer.startElement("goal");
+                writer.addAttribute("name", goal);
+                writer.endElement(); // goal
+            }
+
+            for (String template : exec.getTemplates()) {
+                writer.startElement("template");
+                writer.addAttribute("name", template);
+                writer.endElement(); // template
+            }
+
+            for (Map.Entry<String, String> entry : exec.getParams().entrySet()) {
+                writer.startElement("param");
+                writer.addAttribute("name", entry.getKey());
+                writer.addAttribute("value", entry.getValue());
+                writer.endElement(); // param
+            }
+
+            writer.endElement(); // modello
+        }
+
+        writer.endElement(); // target
+
         XmlWriterUtil.writeLineBreak(writer);
     }
 
