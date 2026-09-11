@@ -22,9 +22,11 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Plugin;
@@ -260,14 +262,46 @@ public class AntExtensionWriter {
         return executions;
     }
 
-    private Xpp3Dom mergeConfigurations(Xpp3Dom execConfig, Xpp3Dom pluginConfig) {
-        if (execConfig == null) {
-            return pluginConfig;
+    private Xpp3Dom mergeConfigurations(Xpp3Dom dominant, Xpp3Dom recessive) {
+        if (dominant == null) {
+            return recessive != null ? new Xpp3Dom(recessive) : null;
         }
-        if (pluginConfig == null) {
-            return execConfig;
+        if (recessive == null) {
+            return new Xpp3Dom(dominant);
         }
-        return Xpp3Dom.mergeXpp3Dom(execConfig, pluginConfig);
+        return Xpp3Dom.mergeXpp3Dom(new Xpp3Dom(dominant), recessive);
+    }
+
+    private Plugin findModelloPlugin(List<Plugin> plugins) {
+        if (plugins == null) {
+            return null;
+        }
+        for (Plugin plugin : plugins) {
+            if ("modello-maven-plugin".equals(plugin.getArtifactId())) {
+                return plugin;
+            }
+        }
+        return null;
+    }
+
+    private PluginExecution findExecutionById(Plugin plugin, String id) {
+        if (plugin == null || plugin.getExecutions() == null || id == null) {
+            return null;
+        }
+        for (PluginExecution exec : plugin.getExecutions()) {
+            if (id.equals(exec.getId())) {
+                return exec;
+            }
+        }
+        return null;
+    }
+
+    private boolean isInactivePhase(String phase) {
+        if (phase == null) {
+            return false;
+        }
+        String p = phase.toLowerCase();
+        return p.contains("site") || "none".equals(p);
     }
 
     public boolean isModelloProject() {
@@ -276,33 +310,117 @@ public class AntExtensionWriter {
 
     public List<ModelloExecution> getModelloExecutions() {
         List<ModelloExecution> list = new ArrayList<>();
-        if (project.getBuildPlugins() == null) {
+        if (project == null) {
             return list;
         }
-        for (Plugin plugin : project.getBuildPlugins()) {
-            if (!"modello-maven-plugin".equals(plugin.getArtifactId())) {
-                continue;
-            }
-            Xpp3Dom pluginConfig = (Xpp3Dom) plugin.getConfiguration();
-            if (plugin.getExecutions() != null && !plugin.getExecutions().isEmpty()) {
-                for (PluginExecution exec : plugin.getExecutions()) {
-                    if (exec.getPhase() != null && exec.getPhase().contains("site")) {
-                        continue;
-                    }
-                    Xpp3Dom execConfig = (Xpp3Dom) exec.getConfiguration();
-                    List<String> goals = extractModelloGoals(exec, execConfig, pluginConfig);
-                    if (goals.isEmpty()) {
-                        continue;
-                    }
-                    list.add(createModelloExecution(exec.getId(), execConfig, pluginConfig, goals));
-                }
-            } else if (pluginConfig != null) {
-                List<String> goals = extractModelloGoals(null, null, pluginConfig);
-                if (!goals.isEmpty()) {
-                    list.add(createModelloExecution("default", null, pluginConfig, goals));
+
+        Plugin childPlugin = findModelloPlugin(project.getBuildPlugins());
+
+        Plugin parentBuildPlugin = null;
+        if (childPlugin == null) {
+            for (MavenProject p = project.getParent(); p != null; p = p.getParent()) {
+                parentBuildPlugin = findModelloPlugin(p.getBuildPlugins());
+                if (parentBuildPlugin != null) {
+                    break;
                 }
             }
         }
+
+        if (childPlugin == null && parentBuildPlugin == null) {
+            return list;
+        }
+
+        Plugin activePlugin = childPlugin != null ? childPlugin : parentBuildPlugin;
+        Xpp3Dom childPluginConfig = (Xpp3Dom) activePlugin.getConfiguration();
+
+        List<Plugin> fallbackPlugins = new ArrayList<>();
+        if (project.getBuild() != null && project.getBuild().getPluginManagement() != null) {
+            Plugin p =
+                    findModelloPlugin(project.getBuild().getPluginManagement().getPlugins());
+            if (p != null && p != activePlugin) {
+                fallbackPlugins.add(p);
+            }
+        }
+        for (MavenProject p = project.getParent(); p != null; p = p.getParent()) {
+            if (p.getBuildPlugins() != null) {
+                Plugin bp = findModelloPlugin(p.getBuildPlugins());
+                if (bp != null && bp != activePlugin && !fallbackPlugins.contains(bp)) {
+                    fallbackPlugins.add(bp);
+                }
+            }
+            if (p.getBuild() != null && p.getBuild().getPluginManagement() != null) {
+                Plugin mp = findModelloPlugin(p.getBuild().getPluginManagement().getPlugins());
+                if (mp != null && mp != activePlugin && !fallbackPlugins.contains(mp)) {
+                    fallbackPlugins.add(mp);
+                }
+            }
+        }
+
+        Xpp3Dom effectivePluginConfig = childPluginConfig;
+        for (Plugin fallback : fallbackPlugins) {
+            effectivePluginConfig = mergeConfigurations(effectivePluginConfig, (Xpp3Dom) fallback.getConfiguration());
+        }
+
+        Set<String> handledExecutionIds = new HashSet<>();
+
+        if (activePlugin.getExecutions() != null) {
+            for (PluginExecution exec : activePlugin.getExecutions()) {
+                handledExecutionIds.add(exec.getId());
+                if (isInactivePhase(exec.getPhase())) {
+                    continue;
+                }
+                Xpp3Dom execConfig = (Xpp3Dom) exec.getConfiguration();
+                for (Plugin fallback : fallbackPlugins) {
+                    PluginExecution fallbackExec = findExecutionById(fallback, exec.getId());
+                    if (fallbackExec != null) {
+                        execConfig = mergeConfigurations(execConfig, (Xpp3Dom) fallbackExec.getConfiguration());
+                    }
+                }
+                List<String> goals = extractModelloGoals(exec, execConfig, effectivePluginConfig);
+                if (goals.isEmpty()) {
+                    for (Plugin fallback : fallbackPlugins) {
+                        PluginExecution fallbackExec = findExecutionById(fallback, exec.getId());
+                        if (fallbackExec != null) {
+                            goals = extractModelloGoals(fallbackExec, execConfig, effectivePluginConfig);
+                            if (!goals.isEmpty()) {
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (!goals.isEmpty()) {
+                    list.add(createModelloExecution(exec.getId(), execConfig, effectivePluginConfig, goals));
+                }
+            }
+        }
+
+        for (Plugin fallback : fallbackPlugins) {
+            if (fallback.getExecutions() == null) {
+                continue;
+            }
+            for (PluginExecution exec : fallback.getExecutions()) {
+                if (handledExecutionIds.contains(exec.getId())) {
+                    continue;
+                }
+                handledExecutionIds.add(exec.getId());
+                if (isInactivePhase(exec.getPhase())) {
+                    continue;
+                }
+                Xpp3Dom execConfig = (Xpp3Dom) exec.getConfiguration();
+                List<String> goals = extractModelloGoals(exec, execConfig, effectivePluginConfig);
+                if (!goals.isEmpty()) {
+                    list.add(createModelloExecution(exec.getId(), execConfig, effectivePluginConfig, goals));
+                }
+            }
+        }
+
+        if (list.isEmpty() && effectivePluginConfig != null) {
+            List<String> goals = extractModelloGoals(null, null, effectivePluginConfig);
+            if (!goals.isEmpty()) {
+                list.add(createModelloExecution("default", null, effectivePluginConfig, goals));
+            }
+        }
+
         return list;
     }
 
