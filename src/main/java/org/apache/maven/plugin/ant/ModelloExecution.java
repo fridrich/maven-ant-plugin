@@ -41,6 +41,7 @@ public class ModelloExecution {
     private final List<String> goals = new ArrayList<>();
     private final List<String> templates = new ArrayList<>();
     private final Map<String, String> params = new LinkedHashMap<>();
+    private final Map<String, String> pluralExceptions = new LinkedHashMap<>();
 
     public ModelloExecution(String id, String version, String outputDirectory, String javaSource) {
         this.id = id;
@@ -59,6 +60,7 @@ public class ModelloExecution {
         this.goals.addAll(other.goals);
         this.templates.addAll(other.templates);
         this.params.putAll(other.params);
+        this.pluralExceptions.putAll(other.pluralExceptions);
     }
 
     public String getId() {
@@ -157,6 +159,16 @@ public class ModelloExecution {
         }
     }
 
+    public Map<String, String> getPluralExceptions() {
+        return new LinkedHashMap<>(pluralExceptions);
+    }
+
+    public void addPluralExceptions(Map<String, String> pluralExceptions) {
+        if (pluralExceptions != null) {
+            this.pluralExceptions.putAll(pluralExceptions);
+        }
+    }
+
     public boolean canMergeWith(ModelloExecution other) {
         if (other == null) {
             return false;
@@ -170,6 +182,7 @@ public class ModelloExecution {
                 && Objects.equals(velocityBasedir, other.velocityBasedir)
                 && Objects.equals(models, other.models)
                 && Objects.equals(templates, other.templates)
-                && Objects.equals(params, other.params);
+                && Objects.equals(params, other.params)
+                && Objects.equals(pluralExceptions, other.pluralExceptions);
     }
 }

@@ -284,4 +284,10 @@ public class ArtifactResolverWrapper {
         }
         return null;
     }
+
+    public Artifact createArtifact(String groupId, String artifactId, String version, String type, String classifier) {
+        org.eclipse.aether.artifact.Artifact aetherArtifact = new org.eclipse.aether.artifact.DefaultArtifact(
+                groupId, artifactId, classifier, type != null ? type : "jar", version);
+        return RepositoryUtils.toArtifact(aetherArtifact);
+    }
 }

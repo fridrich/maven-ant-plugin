@@ -27,7 +27,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -431,7 +432,8 @@ public class AntBuildWriter {
                             || extensionWriter.isTemplatingProject()
                             || extensionWriter.isJflexProject()
                             || extensionWriter.isCupProject()
-                            || extensionWriter.isModelloProject())) {
+                            || extensionWriter.isModelloProject()
+                            || extensionWriter.isDependencyUnpackProject())) {
                 extensionWriter.writeGenSourcesTarget(writer);
             }
 
@@ -877,20 +879,7 @@ public class AntBuildWriter {
         writer.startElement("path");
         writer.addAttribute("id", id);
 
-        boolean sisuInjectPresent = false;
-        boolean bndAntPresent = false;
-        boolean javaccPresent = false;
         for (Artifact artifact : artifacts) {
-            if ("org.eclipse.sisu.inject".equals(artifact.getArtifactId())) {
-                sisuInjectPresent = true;
-            }
-            if ("biz.aQute.bnd.ant".equals(artifact.getArtifactId())) {
-                bndAntPresent = true;
-            }
-            if ("javacc".equals(artifact.getArtifactId())) {
-                javaccPresent = true;
-            }
-
             writer.startElement("pathelement");
 
             String path;
@@ -909,112 +898,10 @@ public class AntBuildWriter {
             writer.endElement(); // pathelement
         }
 
-        if (extensionWriter.isSisuProject() && !sisuInjectPresent && "build.classpath".equals(id)) {
-            try {
-                String sisuVer = extensionWriter.getSisuVersion();
-                Set<Artifact> resolved = artifactResolverWrapper.resolveTransitively(
-                        "org.eclipse.sisu", "org.eclipse.sisu.inject", sisuVer);
-                injectedArtifacts.addAll(resolved);
-                for (Artifact art : resolved) {
-                    writer.startElement("pathelement");
-                    writer.addAttribute(
-                            "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
-                    writer.endElement(); // pathelement
-                }
-            } catch (Exception e) {
-                // ignore
-            }
-        }
-
-        if (extensionWriter.isBndProject() && !bndAntPresent && "build.classpath".equals(id)) {
-            resolveBndClasspaths(writer);
-        }
-
-        if (extensionWriter.isJavaccProject() && !javaccPresent && "build.classpath".equals(id)) {
-            try {
-                // Always classic JavaCC, even for ph-javacc-maven-plugin projects (which use the
-                // parser-generator-cc fork instead) - functionally fine, minor output differences.
-                Set<Artifact> resolved =
-                        artifactResolverWrapper.resolveTransitively("net.java.dev.javacc", "javacc", "7.0.12");
-                injectedArtifacts.addAll(resolved);
-                for (Artifact art : resolved) {
-                    writer.startElement("pathelement");
-                    writer.addAttribute(
-                            "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
-                    writer.endElement(); // pathelement
-                }
-            } catch (Exception e) {
-                // ignore
-            }
-        }
-
-        if (extensionWriter.isJflexProject() && "build.classpath".equals(id)) {
-            try {
-                // jflex-generated lexers always implement java_cup.runtime.Scanner, even without
-                // CUP; transitive resolution misses it (version property in jflex's parent pom).
-                Set<Artifact> resolved = new HashSet<>();
-                resolved.addAll(artifactResolverWrapper.resolveTransitively(
-                        "de.jflex", "jflex", extensionWriter.getJflexVersion()));
-                resolved.addAll(artifactResolverWrapper.resolveTransitively(
-                        "com.github.vbmacher", "java-cup-runtime", "11b-20160615-1"));
-                injectedArtifacts.addAll(resolved);
-                for (Artifact art : resolved) {
-                    writer.startElement("pathelement");
-                    writer.addAttribute(
-                            "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
-                    writer.endElement(); // pathelement
-                }
-            } catch (Exception e) {
-                // ignore
-            }
-        }
-
-        if (extensionWriter.isCupProject() && "build.classpath".equals(id)) {
-            try {
-                String cupVer = extensionWriter.getCupVersion();
-                Set<Artifact> resolved =
-                        artifactResolverWrapper.resolveTransitively("com.github.vbmacher", "java-cup", cupVer);
-                injectedArtifacts.addAll(resolved);
-                for (Artifact art : resolved) {
-                    writer.startElement("pathelement");
-                    writer.addAttribute(
-                            "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
-                    writer.endElement(); // pathelement
-                }
-            } catch (Exception e) {
-                // ignore
-            }
-        }
+        ExtensionClasspathHelper.writeExtensionClasspaths(
+                writer, id, project, extensionWriter, artifactResolverWrapper, injectedArtifacts, artifacts);
 
         writer.endElement(); // path
-    }
-
-    private void resolveBndClasspaths(XMLWriter writer) throws IOException {
-        try {
-            Set<Artifact> resolved = new HashSet<>();
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bnd.ant", "7.4.0"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bndlib", "7.4.0"));
-            resolved.addAll(
-                    artifactResolverWrapper.resolveTransitively("biz.aQute.bnd", "biz.aQute.bnd.util", "7.4.0"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.core", "6.0.0"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.slf4j", "slf4j-api", "1.7.36"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.slf4j", "slf4j-simple", "1.7.36"));
-            resolved.addAll(
-                    artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.service.repository", "1.1.0"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.service.log", "1.4.0"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.util.promise", "1.2.0"));
-            resolved.addAll(artifactResolverWrapper.resolveTransitively("org.osgi", "org.osgi.util.function", "1.2.0"));
-            injectedArtifacts.addAll(resolved);
-
-            for (Artifact art : resolved) {
-                writer.startElement("pathelement");
-                writer.addAttribute(
-                        "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
-                writer.endElement(); // pathelement
-            }
-        } catch (IOException e) {
-            // ignore
-        }
     }
 
     private String getUninterpolatedSystemPath(Artifact artifact) {
@@ -1074,10 +961,8 @@ public class AntBuildWriter {
         writer.addAttribute("description", "Clean the output directory");
 
         if (AntBuildWriterUtil.isPomPackaging(project)) {
-            if (project.getModules() != null) {
-                for (String moduleSubPath : project.getModules()) {
-                    AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "clean");
-                }
+            for (String moduleSubPath : getSortedModules()) {
+                AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "clean");
             }
         } else {
             writer.startElement("delete");
@@ -1104,10 +989,8 @@ public class AntBuildWriter {
             writer.startElement("target");
             writer.addAttribute("name", "compile");
             writer.addAttribute("description", "Compile the code");
-            if (project.getModules() != null) {
-                for (String moduleSubPath : project.getModules()) {
-                    AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "compile");
-                }
+            for (String moduleSubPath : getSortedModules()) {
+                AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "compile");
             }
             writer.endElement(); // target
         } else {
@@ -1206,10 +1089,8 @@ public class AntBuildWriter {
             writer.startElement("target");
             writer.addAttribute("name", "compile-tests");
             writer.addAttribute("description", "Compile the test code");
-            if (project.getModules() != null) {
-                for (String moduleSubPath : project.getModules()) {
-                    AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "compile-tests");
-                }
+            for (String moduleSubPath : getSortedModules()) {
+                AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "compile-tests");
             }
             writer.endElement(); // target
         } else {
@@ -1258,10 +1139,8 @@ public class AntBuildWriter {
         writer.startElement("target");
         writer.addAttribute("name", "test");
         writer.addAttribute("description", "Run the test cases");
-        if (project.getModules() != null) {
-            for (String moduleSubPath : project.getModules()) {
-                AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "test");
-            }
+        for (String moduleSubPath : getSortedModules()) {
+            AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "test");
         }
         writer.endElement(); // target
     }
@@ -1320,10 +1199,8 @@ public class AntBuildWriter {
         writer.addAttribute("description", "Generates the Javadoc of the application");
 
         if (AntBuildWriterUtil.isPomPackaging(project)) {
-            if (project.getModules() != null) {
-                for (String moduleSubPath : project.getModules()) {
-                    AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "javadoc");
-                }
+            for (String moduleSubPath : getSortedModules()) {
+                AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "javadoc");
             }
         } else {
             List<String> extraSourceDirs = getExtraGeneratedSourceDirs(compileSourceRoots);
@@ -1366,10 +1243,8 @@ public class AntBuildWriter {
         writer.addAttribute("description", "Package the application");
 
         if (AntBuildWriterUtil.isPomPackaging(project)) {
-            if (project.getModules() != null) {
-                for (String moduleSubPath : project.getModules()) {
-                    AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "package");
-                }
+            for (String moduleSubPath : getSortedModules()) {
+                AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "package");
             }
         } else {
             if (AntBuildWriterUtil.isJarPackaging(project)) {
@@ -1989,5 +1864,35 @@ public class AntBuildWriter {
             }
         }
         return list;
+    }
+
+    private List<String> getSortedModules() {
+        if (project.getModules() == null) {
+            return Collections.emptyList();
+        }
+        List<String> modules = new ArrayList<>(project.getModules());
+        if (reactorProjects == null || reactorProjects.isEmpty()) {
+            return modules;
+        }
+        Map<String, Integer> orderMap = new HashMap<>();
+        for (int i = 0; i < reactorProjects.size(); i++) {
+            MavenProject rp = reactorProjects.get(i);
+            if (rp.getBasedir() != null) {
+                try {
+                    orderMap.put(rp.getBasedir().getCanonicalPath(), i);
+                } catch (IOException e) {
+                    orderMap.put(rp.getBasedir().getAbsolutePath(), i);
+                }
+            }
+        }
+        modules.sort(Comparator.comparingInt(m -> {
+            File modDir = new File(project.getBasedir(), m);
+            try {
+                return orderMap.getOrDefault(modDir.getCanonicalPath(), Integer.MAX_VALUE);
+            } catch (IOException e) {
+                return orderMap.getOrDefault(modDir.getAbsolutePath(), Integer.MAX_VALUE);
+            }
+        }));
+        return modules;
     }
 }

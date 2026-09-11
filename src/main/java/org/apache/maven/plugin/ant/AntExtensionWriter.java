@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
@@ -586,6 +587,7 @@ public class AntExtensionWriter {
         List<String> models = extractModelloModels(execConfig, pluginConfig, basedir);
         List<String> templates = extractModelloTemplates(execConfig, pluginConfig);
         Map<String, String> params = extractModelloParams(execConfig, pluginConfig);
+        Map<String, String> pluralExceptions = extractModelloPluralExceptions(execConfig, pluginConfig);
 
         ModelloExecution execution = new ModelloExecution(id, version, outputDir, javaSource);
         execution.setEncoding(encoding);
@@ -596,6 +598,7 @@ public class AntExtensionWriter {
         execution.addGoals(goals);
         execution.addTemplates(templates);
         execution.addParams(params);
+        execution.addPluralExceptions(pluralExceptions);
         return execution;
     }
 
@@ -725,6 +728,29 @@ public class AntExtensionWriter {
         }
     }
 
+    private Map<String, String> extractModelloPluralExceptions(Xpp3Dom execConfig, Xpp3Dom pluginConfig) {
+        Map<String, String> exceptions = new LinkedHashMap<>();
+        addPluralExceptionNodes(pluginConfig, exceptions);
+        addPluralExceptionNodes(execConfig, exceptions);
+        return exceptions;
+    }
+
+    private void addPluralExceptionNodes(Xpp3Dom config, Map<String, String> exceptions) {
+        if (config == null) {
+            return;
+        }
+        Xpp3Dom peNode = config.getChild("pluralExceptions");
+        if (peNode != null) {
+            for (Xpp3Dom child : peNode.getChildren()) {
+                String plural = child.getName();
+                String singular = child.getValue();
+                if (plural != null && singular != null && !singular.trim().isEmpty()) {
+                    exceptions.put(plural.trim(), singular.trim());
+                }
+            }
+        }
+    }
+
     public String getModelloMdoDir() {
         for (ModelloExecution exec : getMergedModelloExecutions()) {
             for (String model : exec.getModels()) {
@@ -805,6 +831,9 @@ public class AntExtensionWriter {
         }
         if (isModelloProject()) {
             names.add("mdo");
+        }
+        if (isDependencyUnpackProject()) {
+            names.add("unpack-dependencies");
         }
         return StringUtils.join(names.iterator(), ",");
     }
@@ -908,6 +937,10 @@ public class AntExtensionWriter {
 
         if (isModelloProject()) {
             writeModelloTarget(writer);
+        }
+
+        if (isDependencyUnpackProject()) {
+            writeDependencyUnpackTarget(writer);
         }
     }
 
@@ -1092,12 +1125,289 @@ public class AntExtensionWriter {
                 writer.endElement(); // param
             }
 
+            for (Map.Entry<String, String> entry : exec.getPluralExceptions().entrySet()) {
+                writer.startElement("pluralException");
+                writer.addAttribute("name", entry.getKey());
+                writer.addAttribute("value", entry.getValue());
+                writer.endElement(); // pluralException
+            }
+
             writer.endElement(); // modello
         }
 
         writer.endElement(); // target
 
-        XmlWriterUtil.writeLineBreak(writer);
+        writeTargetSeparator(writer, isDependencyUnpackProject());
+    }
+
+    public void writeDependencyUnpackTarget(XMLWriter writer) {
+        List<DependencyUnpackItem> items = getDependencyUnpackItems();
+        if (items.isEmpty()) {
+            return;
+        }
+
+        XmlWriterUtil.writeCommentText(writer, "Unpack dependencies target", 1);
+        writer.startElement("target");
+        writer.addAttribute("name", "unpack-dependencies");
+        writer.addAttribute("depends", "get-deps");
+        writer.addAttribute("description", "Unpack dependencies");
+
+        for (DependencyUnpackItem item : items) {
+            String outDir = item.getOutputDirectory() != null
+                    ? item.getOutputDirectory()
+                    : "${maven.build.dir}/generated-sources/dependency";
+            writer.startElement("mkdir");
+            writer.addAttribute("dir", outDir);
+            writer.endElement(); // mkdir
+
+            writer.startElement("unjar");
+            String relPath = getArtifactPath(
+                    item.getGroupId(), item.getArtifactId(), item.getVersion(), item.getType(), item.getClassifier());
+            writer.addAttribute("src", "${maven.repo.local}/" + relPath);
+            writer.addAttribute("dest", outDir);
+
+            if (!item.getIncludes().isEmpty() || !item.getExcludes().isEmpty()) {
+                writer.startElement("patternset");
+                for (String inc : item.getIncludes()) {
+                    writer.startElement("include");
+                    writer.addAttribute("name", inc);
+                    writer.endElement(); // include
+                }
+                for (String exc : item.getExcludes()) {
+                    writer.startElement("exclude");
+                    writer.addAttribute("name", exc);
+                    writer.endElement(); // exclude
+                }
+                writer.endElement(); // patternset
+            }
+
+            writer.endElement(); // unjar
+        }
+
+        writer.endElement(); // target
+
+        writeTargetSeparator(writer, false);
+    }
+
+    public boolean isDependencyUnpackProject() {
+        return !getDependencyUnpackItems().isEmpty();
+    }
+
+    public List<DependencyUnpackItem> getDependencyUnpackItems() {
+        List<DependencyUnpackItem> items = new ArrayList<>();
+        if (project == null || project.getBuildPlugins() == null) {
+            return items;
+        }
+        for (Plugin plugin : project.getBuildPlugins()) {
+            if ("maven-dependency-plugin".equals(plugin.getArtifactId())) {
+                Xpp3Dom pluginConfig = (Xpp3Dom) plugin.getConfiguration();
+                if (plugin.getExecutions() != null) {
+                    for (PluginExecution exec : plugin.getExecutions()) {
+                        if (exec.getGoals() != null && exec.getGoals().contains("unpack")) {
+                            Xpp3Dom execConfig = (Xpp3Dom) exec.getConfiguration();
+                            Xpp3Dom config = mergeConfigurations(execConfig, pluginConfig);
+                            items.addAll(extractArtifactItems(config));
+                        }
+                    }
+                }
+            }
+        }
+        return items;
+    }
+
+    private List<DependencyUnpackItem> extractArtifactItems(Xpp3Dom config) {
+        List<DependencyUnpackItem> result = new ArrayList<>();
+        if (config == null) {
+            return result;
+        }
+        Xpp3Dom itemsNode = config.getChild("artifactItems");
+        if (itemsNode != null) {
+            for (Xpp3Dom itemNode : itemsNode.getChildren("artifactItem")) {
+                DependencyUnpackItem item = new DependencyUnpackItem();
+                Xpp3Dom gid = itemNode.getChild("groupId");
+                if (gid != null) {
+                    item.setGroupId(gid.getValue());
+                }
+                Xpp3Dom aid = itemNode.getChild("artifactId");
+                if (aid != null) {
+                    item.setArtifactId(aid.getValue());
+                }
+                Xpp3Dom ver = itemNode.getChild("version");
+                if (ver != null
+                        && ver.getValue() != null
+                        && !ver.getValue().trim().isEmpty()) {
+                    item.setVersion(ver.getValue().trim());
+                } else {
+                    item.setVersion(resolveDependencyVersion(item.getGroupId(), item.getArtifactId()));
+                }
+                Xpp3Dom type = itemNode.getChild("type");
+                if (type != null && type.getValue() != null) {
+                    item.setType(type.getValue().trim());
+                }
+                Xpp3Dom classifier = itemNode.getChild("classifier");
+                if (classifier != null && classifier.getValue() != null) {
+                    item.setClassifier(classifier.getValue().trim());
+                }
+                Xpp3Dom outDir = itemNode.getChild("outputDirectory");
+                if (outDir != null && outDir.getValue() != null) {
+                    item.setOutputDirectory(toAntOutputDir(outDir.getValue()));
+                }
+                Xpp3Dom inc = itemNode.getChild("includes");
+                if (inc != null && inc.getValue() != null) {
+                    for (String s : inc.getValue().split("[,\\n\\r]+")) {
+                        if (!s.trim().isEmpty()) {
+                            item.getIncludes().add(s.trim());
+                        }
+                    }
+                }
+                Xpp3Dom exc = itemNode.getChild("excludes");
+                if (exc != null && exc.getValue() != null) {
+                    for (String s : exc.getValue().split("[,\\n\\r]+")) {
+                        if (!s.trim().isEmpty()) {
+                            item.getExcludes().add(s.trim());
+                        }
+                    }
+                }
+                if (item.getGroupId() != null && item.getArtifactId() != null && item.getVersion() != null) {
+                    result.add(item);
+                }
+            }
+        }
+        return result;
+    }
+
+    private String resolveDependencyVersion(String groupId, String artifactId) {
+        if (groupId == null || artifactId == null) {
+            return null;
+        }
+        if (project.getDependencies() != null) {
+            for (Dependency dep : project.getDependencies()) {
+                if (groupId.equals(dep.getGroupId()) && artifactId.equals(dep.getArtifactId())) {
+                    if (dep.getVersion() != null) {
+                        return dep.getVersion();
+                    }
+                }
+            }
+        }
+        if (project.getDependencyManagement() != null
+                && project.getDependencyManagement().getDependencies() != null) {
+            for (Dependency dep : project.getDependencyManagement().getDependencies()) {
+                if (groupId.equals(dep.getGroupId()) && artifactId.equals(dep.getArtifactId())) {
+                    if (dep.getVersion() != null) {
+                        return dep.getVersion();
+                    }
+                }
+            }
+        }
+        if (project.getArtifacts() != null) {
+            for (Artifact art : project.getArtifacts()) {
+                if (groupId.equals(art.getGroupId()) && artifactId.equals(art.getArtifactId())) {
+                    return art.getVersion();
+                }
+            }
+        }
+        return null;
+    }
+
+    private String toAntOutputDir(String dir) {
+        if (dir == null) {
+            return null;
+        }
+        String replaced = dir.trim();
+        String buildDirProp = "${project.build.directory}";
+        if (replaced.startsWith(buildDirProp)) {
+            replaced = "${maven.build.dir}" + replaced.substring(buildDirProp.length());
+        }
+        String basedirProp = "${project.basedir}/";
+        if (replaced.startsWith(basedirProp)) {
+            replaced = replaced.substring(basedirProp.length());
+        }
+        return replaced;
+    }
+
+    public String getArtifactPath(String groupId, String artifactId, String version, String type, String classifier) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(groupId.replace('.', '/'))
+                .append('/')
+                .append(artifactId)
+                .append('/')
+                .append(version)
+                .append('/')
+                .append(artifactId)
+                .append('-')
+                .append(version);
+        if (classifier != null && !classifier.trim().isEmpty()) {
+            sb.append('-').append(classifier.trim());
+        }
+        sb.append('.').append(type != null ? type : "jar");
+        return sb.toString();
+    }
+
+    public static class DependencyUnpackItem {
+        private String groupId;
+        private String artifactId;
+        private String version;
+        private String type = "jar";
+        private String classifier;
+        private String outputDirectory;
+        private final List<String> includes = new ArrayList<>();
+        private final List<String> excludes = new ArrayList<>();
+
+        public String getGroupId() {
+            return groupId;
+        }
+
+        public void setGroupId(String groupId) {
+            this.groupId = groupId;
+        }
+
+        public String getArtifactId() {
+            return artifactId;
+        }
+
+        public void setArtifactId(String artifactId) {
+            this.artifactId = artifactId;
+        }
+
+        public String getVersion() {
+            return version;
+        }
+
+        public void setVersion(String version) {
+            this.version = version;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public void setType(String type) {
+            this.type = type;
+        }
+
+        public String getClassifier() {
+            return classifier;
+        }
+
+        public void setClassifier(String classifier) {
+            this.classifier = classifier;
+        }
+
+        public String getOutputDirectory() {
+            return outputDirectory;
+        }
+
+        public void setOutputDirectory(String outputDirectory) {
+            this.outputDirectory = outputDirectory;
+        }
+
+        public List<String> getIncludes() {
+            return includes;
+        }
+
+        public List<String> getExcludes() {
+            return excludes;
+        }
     }
 
     private void writeJjtreeTask(XMLWriter writer, String sourceDirectory, String outputDirectory, Xpp3Dom config)
@@ -1265,8 +1575,10 @@ public class AntExtensionWriter {
 
         writer.startElement("move");
         writer.addAttribute("todir", "${maven.build.outputDir}/META-INF");
+        writer.addAttribute("failonerror", "false");
         writer.startElement("fileset");
         writer.addAttribute("dir", "META-INF");
+        writer.addAttribute("erroronmissingdir", "false");
         writer.endElement(); // fileset
         writer.endElement(); // move
 
