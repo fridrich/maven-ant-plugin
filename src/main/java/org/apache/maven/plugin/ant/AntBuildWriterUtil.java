@@ -19,6 +19,8 @@
 package org.apache.maven.plugin.ant;
 
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.transform.TransformerException;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -47,6 +49,7 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
 /**
  * Utility class for the <code>AntBuildWriter</code> class.
@@ -1221,7 +1224,7 @@ public class AntBuildWriterUtil {
                         return option;
                     }
                 }
-            } catch (Exception e) {
+            } catch (ParserConfigurationException | SAXException | TransformerException | IOException e) {
                 throw new IOException("Exception occured: " + e.getMessage());
             }
         }
@@ -1540,7 +1543,7 @@ public class AntBuildWriterUtil {
             Map[] excludes = parseCompilerPluginOptions(doc, "excludes");
 
             return new CompilerExecution(id, release, source, target, roots, includes, excludes);
-        } catch (Exception e) {
+        } catch (ParserConfigurationException | SAXException | IOException e) {
             return null;
         }
     }
@@ -1684,7 +1687,7 @@ public class AntBuildWriterUtil {
             if (ver != null) {
                 return (int) Double.parseDouble(ver);
             }
-        } catch (Exception e) {
+        } catch (IOException | NumberFormatException e) {
             // ignore
         }
         return 8;

@@ -1005,7 +1005,7 @@ public class AntBuildWriter {
                         "location", "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(art));
                 writer.endElement(); // pathelement
             }
-        } catch (Exception e) {
+        } catch (IOException e) {
             // ignore
         }
     }
