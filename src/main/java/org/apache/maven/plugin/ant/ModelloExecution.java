@@ -34,6 +34,7 @@ public class ModelloExecution {
     private final String javaSource;
     private String encoding;
     private boolean packageWithVersion;
+    private boolean domAsXpp3 = true;
     private String velocityBasedir;
     private final List<String> models = new ArrayList<>();
     private final List<String> goals = new ArrayList<>();
@@ -51,6 +52,7 @@ public class ModelloExecution {
         this(other.id, other.version, other.outputDirectory, other.javaSource);
         this.encoding = other.encoding;
         this.packageWithVersion = other.packageWithVersion;
+        this.domAsXpp3 = other.domAsXpp3;
         this.velocityBasedir = other.velocityBasedir;
         this.models.addAll(other.models);
         this.goals.addAll(other.goals);
@@ -90,6 +92,14 @@ public class ModelloExecution {
         this.packageWithVersion = packageWithVersion;
     }
 
+    public boolean isDomAsXpp3() {
+        return domAsXpp3;
+    }
+
+    public void setDomAsXpp3(boolean domAsXpp3) {
+        this.domAsXpp3 = domAsXpp3;
+    }
+
     public String getVelocityBasedir() {
         return velocityBasedir;
     }
@@ -123,6 +133,7 @@ public class ModelloExecution {
                 && Objects.equals(javaSource, other.javaSource)
                 && Objects.equals(encoding, other.encoding)
                 && packageWithVersion == other.packageWithVersion
+                && domAsXpp3 == other.domAsXpp3
                 && Objects.equals(velocityBasedir, other.velocityBasedir)
                 && Objects.equals(models, other.models)
                 && Objects.equals(templates, other.templates)

@@ -378,6 +378,7 @@ public class AntMojoTest {
         assertTrue(
                 mavenBuildXml.contains("outputDirectory=\"${maven.build.mdoOutputDir}\""), "outputDirectory not found");
         assertTrue(mavenBuildXml.contains("javaSource=\"8\""), "javaSource not found");
+        assertFalse(mavenBuildXml.contains("domAsXpp3="), "default domAsXpp3 should not be emitted");
         assertTrue(
                 mavenBuildXml.contains("<model file=\"${maven.build.mdoDir}/test.mdo\"/>"), "model element not found");
         assertTrue(mavenBuildXml.contains("<goal name=\"java\"/>"), "java goal not found");

@@ -352,6 +352,9 @@ public class AntExtensionWriter {
         String packageWithVersionStr = getModelloOption(execConfig, pluginConfig, "packageWithVersion", "false");
         boolean packageWithVersion = "true".equalsIgnoreCase(packageWithVersionStr);
 
+        String domAsXpp3Str = getModelloOption(execConfig, pluginConfig, "domAsXpp3", "true");
+        boolean domAsXpp3 = !"false".equalsIgnoreCase(domAsXpp3Str);
+
         String basedir = getModelloOption(execConfig, pluginConfig, "basedir", null);
         List<String> models = extractModelloModels(execConfig, pluginConfig, basedir);
         List<String> templates = extractModelloTemplates(execConfig, pluginConfig);
@@ -360,6 +363,7 @@ public class AntExtensionWriter {
         ModelloExecution execution = new ModelloExecution(id, version, outputDir, javaSource);
         execution.setEncoding(encoding);
         execution.setPackageWithVersion(packageWithVersion);
+        execution.setDomAsXpp3(domAsXpp3);
         execution.setVelocityBasedir(velocityBasedir);
         execution.getModels().addAll(models);
         execution.getGoals().addAll(goals);
@@ -882,6 +886,9 @@ public class AntExtensionWriter {
             }
             if (exec.isPackageWithVersion()) {
                 AntBuildWriterUtil.addWrapAttribute(writer, "modello", "packageWithVersion", "true", 3);
+            }
+            if (!exec.isDomAsXpp3()) {
+                AntBuildWriterUtil.addWrapAttribute(writer, "modello", "domAsXpp3", "false", 3);
             }
 
             for (String model : exec.getModels()) {
