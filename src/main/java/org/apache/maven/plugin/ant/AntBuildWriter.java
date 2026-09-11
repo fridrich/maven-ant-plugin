@@ -470,6 +470,13 @@ public class AntBuildWriter {
             }
 
             // ----------------------------------------------------------------------
+            // <target name="plexus" />
+            // ----------------------------------------------------------------------
+            if (!AntBuildWriterUtil.isPomPackaging(project) && extensionWriter.isPlexusProject()) {
+                extensionWriter.writePlexusTarget(writer, compileSourceRoots);
+            }
+
+            // ----------------------------------------------------------------------
             // <target name="package" />
             // ----------------------------------------------------------------------
             writePackageTarget(writer);
@@ -1343,15 +1350,18 @@ public class AntBuildWriter {
         writer.addAttribute("name", "package");
 
         if (!AntBuildWriterUtil.isPomPackaging(project)) {
-            String dependsList;
-            if (extensionWriter.isBndProject()) {
-                dependsList = "compile,test";
-            } else if (extensionWriter.isSisuProject()) {
-                dependsList = "sisu,test";
-            } else {
-                dependsList = "compile,test";
+            List<String> depends = new ArrayList<>();
+            if (extensionWriter.isSisuProject()) {
+                depends.add("sisu");
             }
-            writer.addAttribute("depends", dependsList);
+            if (extensionWriter.isPlexusProject()) {
+                depends.add("plexus");
+            }
+            if (depends.isEmpty()) {
+                depends.add("compile");
+            }
+            depends.add("test");
+            writer.addAttribute("depends", String.join(",", depends));
         }
         writer.addAttribute("description", "Package the application");
 

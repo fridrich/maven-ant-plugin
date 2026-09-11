@@ -70,6 +70,123 @@ public class AntExtensionWriter {
         return "1.1.0"; // default fallback
     }
 
+    public boolean isPlexusProject() {
+        if (project == null || AntBuildWriterUtil.isPomPackaging(project)) {
+            return false;
+        }
+        Plugin plugin = findActivePlexusMetadataPlugin();
+        if (plugin == null) {
+            return false;
+        }
+        if (plugin.getExecutions() != null && !plugin.getExecutions().isEmpty()) {
+            for (PluginExecution exec : plugin.getExecutions()) {
+                if (!isInactivePhase(exec.getPhase())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return true;
+    }
+
+    public Plugin findActivePlexusMetadataPlugin() {
+        if (project == null) {
+            return null;
+        }
+        Plugin childPlugin = findPlexusMetadataPlugin(project.getBuildPlugins());
+        if (childPlugin != null) {
+            return childPlugin;
+        }
+        for (MavenProject p = project.getParent(); p != null; p = p.getParent()) {
+            Plugin parentPlugin = findPlexusMetadataPlugin(p.getBuildPlugins());
+            if (parentPlugin != null) {
+                return parentPlugin;
+            }
+        }
+        return null;
+    }
+
+    private List<Plugin> getPlexusMetadataFallbackPlugins(Plugin activePlugin) {
+        List<Plugin> fallbackPlugins = new ArrayList<>();
+        if (project == null) {
+            return fallbackPlugins;
+        }
+        if (project.getBuild() != null && project.getBuild().getPluginManagement() != null) {
+            Plugin p = findPlexusMetadataPlugin(
+                    project.getBuild().getPluginManagement().getPlugins());
+            if (p != null && p != activePlugin) {
+                fallbackPlugins.add(p);
+            }
+        }
+        for (MavenProject parent = project.getParent(); parent != null; parent = parent.getParent()) {
+            if (parent.getBuild() != null && parent.getBuild().getPluginManagement() != null) {
+                Plugin p = findPlexusMetadataPlugin(
+                        parent.getBuild().getPluginManagement().getPlugins());
+                if (p != null && p != activePlugin) {
+                    fallbackPlugins.add(p);
+                }
+            }
+        }
+        return fallbackPlugins;
+    }
+
+    private Plugin findPlexusMetadataPlugin(List<Plugin> plugins) {
+        if (plugins == null) {
+            return null;
+        }
+        for (Plugin plugin : plugins) {
+            if ("plexus-component-metadata".equals(plugin.getArtifactId())) {
+                return plugin;
+            }
+        }
+        return null;
+    }
+
+    private String getPlexusOption(Plugin activePlugin, List<Plugin> fallbackPlugins, String name, String alias) {
+        String val = getPlexusOption(activePlugin, name, alias);
+        if (val != null) {
+            return interpolate(val);
+        }
+        if (fallbackPlugins != null) {
+            for (Plugin p : fallbackPlugins) {
+                val = getPlexusOption(p, name, alias);
+                if (val != null) {
+                    return interpolate(val);
+                }
+            }
+        }
+        return null;
+    }
+
+    private String getPlexusOption(Plugin plugin, String name, String alias) {
+        if (plugin == null) {
+            return null;
+        }
+        Xpp3Dom config = (Xpp3Dom) plugin.getConfiguration();
+        if (config != null) {
+            if (config.getChild(name) != null) {
+                return config.getChild(name).getValue();
+            }
+            if (alias != null && config.getChild(alias) != null) {
+                return config.getChild(alias).getValue();
+            }
+        }
+        if (plugin.getExecutions() != null) {
+            for (PluginExecution exec : plugin.getExecutions()) {
+                Xpp3Dom execConfig = (Xpp3Dom) exec.getConfiguration();
+                if (execConfig != null) {
+                    if (execConfig.getChild(name) != null) {
+                        return execConfig.getChild(name).getValue();
+                    }
+                    if (alias != null && execConfig.getChild(alias) != null) {
+                        return execConfig.getChild(alias).getValue();
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     public boolean isJflexProject() {
         if (project.getBuildPlugins() != null) {
             for (Plugin plugin : project.getBuildPlugins()) {
@@ -1084,8 +1201,17 @@ public class AntExtensionWriter {
         if (value.contains("${project.build.directory}")) {
             value = value.replace("${project.build.directory}", "${maven.build.dir}");
         }
+        if (value.contains("${project.build.outputDirectory}")) {
+            value = value.replace("${project.build.outputDirectory}", "${maven.build.outputDir}");
+        }
         if (value.contains("${project.build.sourceEncoding}")) {
             value = value.replace("${project.build.sourceEncoding}", "UTF-8");
+        }
+        if (value.contains("${basedir}")) {
+            value = value.replace("${basedir}/", "").replace("${basedir}", ".");
+        }
+        if (value.contains("${project.basedir}")) {
+            value = value.replace("${project.basedir}/", "").replace("${project.basedir}", ".");
         }
         return value;
     }
@@ -1148,6 +1274,63 @@ public class AntExtensionWriter {
         writer.endElement(); // target
 
         // writePackageTarget() follows next with its own comment.
+        XmlWriterUtil.writeLineBreak(writer);
+    }
+
+    public void writePlexusTarget(XMLWriter writer, List<String> compileSourceRoots) {
+        XmlWriterUtil.writeCommentText(writer, "Target to generate Plexus component.xml", 1);
+
+        writer.startElement("target");
+        writer.addAttribute("name", "plexus");
+        AntBuildWriterUtil.addWrapAttribute(writer, "target", "depends", "compile", 2);
+        AntBuildWriterUtil.addWrapAttribute(writer, "target", "description", "Generate Plexus component.xml", 2);
+
+        writer.startElement("typedef");
+        writer.addAttribute("resource", "org/codehaus/plexus/metadata/ant/antlib.xml");
+        writer.endElement(); // typedef
+
+        writer.startElement("plexus-metadata");
+        writer.addAttribute("classesDirectory", "${maven.build.outputDir}");
+
+        Plugin activePlugin = findActivePlexusMetadataPlugin();
+        List<Plugin> fallbackPlugins = getPlexusMetadataFallbackPlugins(activePlugin);
+
+        String outputFile = getPlexusOption(activePlugin, fallbackPlugins, "outputFile", "generatedMetadata");
+        if (outputFile != null) {
+            writer.addAttribute("outputFile", outputFile);
+        }
+        String descriptorsDir =
+                getPlexusOption(activePlugin, fallbackPlugins, "descriptorsDirectory", "staticMetadataDirectory");
+        if (descriptorsDir != null) {
+            writer.addAttribute("descriptorsDirectory", descriptorsDir);
+        }
+        String extractors = getPlexusOption(activePlugin, fallbackPlugins, "extractors", null);
+        if (extractors != null) {
+            writer.addAttribute("extractors", extractors);
+        }
+
+        List<String> srcRoots = compileSourceRoots;
+        if (srcRoots == null || srcRoots.isEmpty()) {
+            if (project != null) {
+                srcRoots = project.getCompileSourceRoots();
+            }
+        }
+        if (srcRoots != null && !srcRoots.isEmpty()) {
+            for (int i = 0; i < srcRoots.size(); i++) {
+                writer.startElement("sourceDirectory");
+                writer.addAttribute("location", "${maven.build.srcDir." + i + "}");
+                writer.endElement(); // sourceDirectory
+            }
+        }
+
+        writer.startElement("classpath");
+        writer.addAttribute("refid", "build.classpath");
+        writer.endElement(); // classpath
+
+        writer.endElement(); // plexus-metadata
+
+        writer.endElement(); // target
+
         XmlWriterUtil.writeLineBreak(writer);
     }
 

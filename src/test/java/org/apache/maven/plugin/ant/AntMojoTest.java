@@ -406,4 +406,30 @@ public class AntMojoTest {
                     .equals(properties.getProperty("maven.build.mdoOutputDir")));
         }
     }
+
+    @Test
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-plexus-metadata-test/pom.xml")
+    public void testProjectWithPlexusMetadata(AntMojo mojo) throws Exception {
+        File antBasedir = new File("target/test/unit/ant-plexus-metadata-test/");
+        mojo.execute();
+
+        File buildXmlFile = new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME);
+        assertTrue(buildXmlFile.exists(), "maven-build.xml was not created");
+        String mavenBuildXml = FileUtils.fileRead(buildXmlFile);
+
+        assertTrue(mavenBuildXml.contains("<target name=\"plexus\""), "plexus target not found");
+        assertTrue(
+                mavenBuildXml.contains("<typedef resource=\"org/codehaus/plexus/metadata/ant/antlib.xml\"/>"),
+                "plexus antlib typedef not found");
+        assertTrue(
+                mavenBuildXml.contains("<plexus-metadata classesDirectory=\"${maven.build.outputDir}\">"),
+                "plexus-metadata element not found");
+        assertTrue(
+                mavenBuildXml.contains("<sourceDirectory location=\"${maven.build.srcDir.0}\"/>"),
+                "sourceDirectory not found");
+        assertTrue(mavenBuildXml.contains("<classpath refid=\"build.classpath\"/>"), "classpath refid not found");
+        assertTrue(
+                mavenBuildXml.contains("<target name=\"package\" depends=\"plexus,test\""),
+                "package target should depend on plexus,test");
+    }
 }
