@@ -370,23 +370,19 @@ public class AntExtensionWriter {
                     continue;
                 }
                 Xpp3Dom execConfig = (Xpp3Dom) exec.getConfiguration();
+                List<String> fallbackGoals = Collections.emptyList();
                 for (Plugin fallback : fallbackPlugins) {
                     PluginExecution fallbackExec = findExecutionById(fallback, exec.getId());
                     if (fallbackExec != null) {
                         execConfig = mergeConfigurations(execConfig, (Xpp3Dom) fallbackExec.getConfiguration());
+                        if (fallbackGoals.isEmpty()) {
+                            fallbackGoals = extractModelloGoals(fallbackExec, execConfig, effectivePluginConfig);
+                        }
                     }
                 }
                 List<String> goals = extractModelloGoals(exec, execConfig, effectivePluginConfig);
                 if (goals.isEmpty()) {
-                    for (Plugin fallback : fallbackPlugins) {
-                        PluginExecution fallbackExec = findExecutionById(fallback, exec.getId());
-                        if (fallbackExec != null) {
-                            goals = extractModelloGoals(fallbackExec, execConfig, effectivePluginConfig);
-                            if (!goals.isEmpty()) {
-                                break;
-                            }
-                        }
-                    }
+                    goals = fallbackGoals;
                 }
                 if (!goals.isEmpty()) {
                     list.add(createModelloExecution(exec.getId(), execConfig, effectivePluginConfig, goals));
@@ -504,14 +500,7 @@ public class AntExtensionWriter {
         if (path == null) {
             return null;
         }
-        String p = path.trim();
-        if (p.startsWith("${project.basedir}/")) {
-            p = p.substring("${project.basedir}/".length());
-        } else if (p.equals("${project.basedir}")) {
-            p = ".";
-        } else if (p.contains("${project.basedir}")) {
-            p = p.replace("${project.basedir}/", "").replace("${project.basedir}", ".");
-        }
+        String p = path.trim().replace("${project.basedir}/", "").replace("${project.basedir}", ".");
         if (new File(p).isAbsolute()) {
             p = AntBuildWriterUtil.toRelative(project.getBasedir(), p);
         }
@@ -519,9 +508,9 @@ public class AntExtensionWriter {
     }
 
     private List<String> extractModelloModels(Xpp3Dom execConfig, Xpp3Dom pluginConfig, String basedir) {
-        List<String> rawModels = extractModelNodes(execConfig);
+        List<String> rawModels = extractConfigList(execConfig, "models", "model");
         if (rawModels.isEmpty()) {
-            rawModels = extractModelNodes(pluginConfig);
+            rawModels = extractConfigList(pluginConfig, "models", "model");
         }
         if (rawModels.isEmpty()) {
             File mdoDir = new File(project.getBasedir(), "src/main/mdo");
@@ -549,28 +538,28 @@ public class AntExtensionWriter {
         return resolved;
     }
 
-    private List<String> extractModelNodes(Xpp3Dom config) {
-        List<String> models = new ArrayList<>();
+    private List<String> extractConfigList(Xpp3Dom config, String plural, String singular) {
+        List<String> result = new ArrayList<>();
         if (config == null) {
-            return models;
+            return result;
         }
-        Xpp3Dom modelsNode = config.getChild("models");
-        if (modelsNode != null) {
-            for (Xpp3Dom child : modelsNode.getChildren("model")) {
+        Xpp3Dom pluralNode = config.getChild(plural);
+        if (pluralNode != null) {
+            for (Xpp3Dom child : pluralNode.getChildren(singular)) {
                 if (child.getValue() != null && !child.getValue().trim().isEmpty()) {
-                    models.add(child.getValue().trim());
+                    result.add(child.getValue().trim());
                 }
             }
         }
-        if (models.isEmpty()) {
-            Xpp3Dom modelNode = config.getChild("model");
-            if (modelNode != null
-                    && modelNode.getValue() != null
-                    && !modelNode.getValue().trim().isEmpty()) {
-                models.add(modelNode.getValue().trim());
+        if (result.isEmpty()) {
+            Xpp3Dom singleNode = config.getChild(singular);
+            if (singleNode != null
+                    && singleNode.getValue() != null
+                    && !singleNode.getValue().trim().isEmpty()) {
+                result.add(singleNode.getValue().trim());
             }
         }
-        return models;
+        return result;
     }
 
     private List<String> extractModelloGoals(PluginExecution exec, Xpp3Dom execConfig, Xpp3Dom pluginConfig) {
@@ -579,67 +568,19 @@ public class AntExtensionWriter {
             goals.addAll(exec.getGoals());
         }
         if (goals.isEmpty()) {
-            goals.addAll(extractGoalNodes(execConfig));
+            goals.addAll(extractConfigList(execConfig, "goals", "goal"));
         }
         if (goals.isEmpty()) {
-            goals.addAll(extractGoalNodes(pluginConfig));
+            goals.addAll(extractConfigList(pluginConfig, "goals", "goal"));
         }
         goals.remove("help");
         return goals;
     }
 
-    private List<String> extractGoalNodes(Xpp3Dom config) {
-        List<String> goals = new ArrayList<>();
-        if (config == null) {
-            return goals;
-        }
-        Xpp3Dom goalsNode = config.getChild("goals");
-        if (goalsNode != null) {
-            for (Xpp3Dom child : goalsNode.getChildren("goal")) {
-                if (child.getValue() != null && !child.getValue().trim().isEmpty()) {
-                    goals.add(child.getValue().trim());
-                }
-            }
-        }
-        if (goals.isEmpty()) {
-            Xpp3Dom goalNode = config.getChild("goal");
-            if (goalNode != null
-                    && goalNode.getValue() != null
-                    && !goalNode.getValue().trim().isEmpty()) {
-                goals.add(goalNode.getValue().trim());
-            }
-        }
-        return goals;
-    }
-
     private List<String> extractModelloTemplates(Xpp3Dom execConfig, Xpp3Dom pluginConfig) {
-        List<String> templates = extractTemplateNodes(execConfig);
+        List<String> templates = extractConfigList(execConfig, "templates", "template");
         if (templates.isEmpty()) {
-            templates = extractTemplateNodes(pluginConfig);
-        }
-        return templates;
-    }
-
-    private List<String> extractTemplateNodes(Xpp3Dom config) {
-        List<String> templates = new ArrayList<>();
-        if (config == null) {
-            return templates;
-        }
-        Xpp3Dom templatesNode = config.getChild("templates");
-        if (templatesNode != null) {
-            for (Xpp3Dom child : templatesNode.getChildren("template")) {
-                if (child.getValue() != null && !child.getValue().trim().isEmpty()) {
-                    templates.add(child.getValue().trim());
-                }
-            }
-        }
-        if (templates.isEmpty()) {
-            Xpp3Dom templateNode = config.getChild("template");
-            if (templateNode != null
-                    && templateNode.getValue() != null
-                    && !templateNode.getValue().trim().isEmpty()) {
-                templates.add(templateNode.getValue().trim());
-            }
+            templates = extractConfigList(pluginConfig, "templates", "template");
         }
         return templates;
     }
