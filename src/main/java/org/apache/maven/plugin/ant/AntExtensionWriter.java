@@ -427,11 +427,7 @@ public class AntExtensionWriter {
             boolean matched = false;
             for (ModelloExecution existing : merged) {
                 if (existing.canMergeWith(exec)) {
-                    for (String g : exec.getGoals()) {
-                        if (!existing.getGoals().contains(g)) {
-                            existing.getGoals().add(g);
-                        }
-                    }
+                    existing.addGoals(exec.getGoals());
                     matched = true;
                     break;
                 }
@@ -479,10 +475,10 @@ public class AntExtensionWriter {
         execution.setPackageWithVersion(packageWithVersion);
         execution.setDomAsXpp3(domAsXpp3);
         execution.setVelocityBasedir(velocityBasedir);
-        execution.getModels().addAll(models);
-        execution.getGoals().addAll(goals);
-        execution.getTemplates().addAll(templates);
-        execution.getParams().putAll(params);
+        execution.addModels(models);
+        execution.addGoals(goals);
+        execution.addTemplates(templates);
+        execution.addParams(params);
         return execution;
     }
 

@@ -1484,9 +1484,12 @@ public class AntBuildWriter {
     private boolean isCompileSourceRoot(List<String> compileSourceRoots, String dir) {
         for (String root : compileSourceRoots) {
             String relRoot = AntBuildWriterUtil.toRelative(project.getBasedir(), root);
-            String relDir = dir.startsWith("${maven.build.dir}")
-                    ? dir.replace("${maven.build.dir}", "target")
-                    : (dir.equals("${maven.build.mdoOutputDir}") ? "target/generated-sources/modello" : dir);
+            String relDir = dir;
+            if (dir.startsWith("${maven.build.dir}")) {
+                relDir = dir.replace("${maven.build.dir}", "target");
+            } else if (dir.equals("${maven.build.mdoOutputDir}")) {
+                relDir = "target/generated-sources/modello";
+            }
             if (root.contains(relDir) || relRoot.contains(relDir) || relDir.contains(relRoot)) {
                 return true;
             }

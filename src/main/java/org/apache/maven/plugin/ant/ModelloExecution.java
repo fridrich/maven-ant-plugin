@@ -19,6 +19,7 @@
 package org.apache.maven.plugin.ant;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -109,19 +110,51 @@ public class ModelloExecution {
     }
 
     public List<String> getModels() {
-        return models;
+        return new ArrayList<>(models);
+    }
+
+    public void addModels(Collection<String> models) {
+        if (models != null) {
+            this.models.addAll(models);
+        }
     }
 
     public List<String> getGoals() {
-        return goals;
+        return new ArrayList<>(goals);
+    }
+
+    public void addGoal(String goal) {
+        if (goal != null && !this.goals.contains(goal)) {
+            this.goals.add(goal);
+        }
+    }
+
+    public void addGoals(Collection<String> goals) {
+        if (goals != null) {
+            for (String goal : goals) {
+                addGoal(goal);
+            }
+        }
     }
 
     public List<String> getTemplates() {
-        return templates;
+        return new ArrayList<>(templates);
+    }
+
+    public void addTemplates(Collection<String> templates) {
+        if (templates != null) {
+            this.templates.addAll(templates);
+        }
     }
 
     public Map<String, String> getParams() {
-        return params;
+        return new LinkedHashMap<>(params);
+    }
+
+    public void addParams(Map<String, String> params) {
+        if (params != null) {
+            this.params.putAll(params);
+        }
     }
 
     public boolean canMergeWith(ModelloExecution other) {
