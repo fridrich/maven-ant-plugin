@@ -1699,6 +1699,15 @@ public class AntBuildWriter {
 
                 for (Object o1 : project.getRepositories()) {
                     Repository repository = (Repository) o1;
+                    if (artifact.isSnapshot()) {
+                        if (repository.getSnapshots() != null
+                                && !repository.getSnapshots().isEnabled()) {
+                            continue;
+                        }
+                    } else if (repository.getReleases() != null
+                            && !repository.getReleases().isEnabled()) {
+                        continue;
+                    }
                     String url = repository.getUrl();
 
                     String localDir = getProjectRepoDirectory(url, basedir);

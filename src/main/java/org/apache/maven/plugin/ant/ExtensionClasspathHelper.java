@@ -104,7 +104,7 @@ class ExtensionClasspathHelper {
         }
 
         if (extensionWriter.isDependencyUnpackProject()) {
-            for (AntExtensionWriter.DependencyUnpackItem item : extensionWriter.getDependencyUnpackItems()) {
+            for (DependencyUnpackItem item : extensionWriter.getDependencyUnpackItems()) {
                 try {
                     Artifact art = artifactResolverWrapper.createArtifact(
                             item.getGroupId(),
