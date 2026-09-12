@@ -37,6 +37,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
@@ -380,7 +381,6 @@ public class AntBuildWriter {
      * @see #DEFAULT_MAVEN_BUILD_FILENAME
      */
     private void writeGeneratedBuildXml() throws IOException {
-        // TODO: parameter
         File outputFile = new File(project.getBasedir(), DEFAULT_MAVEN_BUILD_FILENAME);
 
         String encoding = "UTF-8";
@@ -577,8 +577,6 @@ public class AntBuildWriter {
             return;
         }
 
-        // TODO: optional in m1
-        // TODO: USD properties
         XmlWriterUtil.writeCommentText(writer, "Build environment properties", 1);
 
         // ----------------------------------------------------------------------
@@ -808,21 +806,8 @@ public class AntBuildWriter {
         }
 
         List<CompilerExecution> compilerExecutions = AntBuildWriterUtil.getCompilerExecutions(project);
-        Set<Integer> jreVersions = new TreeSet<Integer>();
         int baseVersion = AntBuildWriterUtil.getBaseCompileVersion(project, compilerExecutions);
-        for (CompilerExecution exec : compilerExecutions) {
-            if (AntBuildWriterUtil.isMultiReleaseExecution(exec, baseVersion, project)) {
-                String ver = exec.getRelease() != null ? exec.getRelease() : exec.getTarget();
-                try {
-                    int intVer = (int) Double.parseDouble(ver);
-                    if (intVer > 8) {
-                        jreVersions.add(intVer);
-                    }
-                } catch (NumberFormatException e) {
-                    // ignore
-                }
-            }
-        }
+        Set<Integer> jreVersions = computeMultiReleaseVersions(compilerExecutions, baseVersion, false);
 
         if (!jreVersions.isEmpty()) {
             XmlWriterUtil.writeLineBreak(writer, 2, 1);
@@ -838,6 +823,34 @@ public class AntBuildWriter {
         }
 
         XmlWriterUtil.writeLineBreak(writer);
+    }
+
+    /**
+     * Compute the set of multi-release JDK versions (&gt; 8) used by the given compiler executions.
+     *
+     * @param compilerExecutions the compiler executions
+     * @param baseVersion the base compile version
+     * @param requireSources if true, only executions with non-empty compile source roots are considered
+     * @return sorted set of JDK versions
+     */
+    private Set<Integer> computeMultiReleaseVersions(
+            List<CompilerExecution> compilerExecutions, int baseVersion, boolean requireSources) {
+        Set<Integer> versions = new TreeSet<>();
+        for (CompilerExecution exec : compilerExecutions) {
+            if (AntBuildWriterUtil.isMultiReleaseExecution(exec, baseVersion, project)) {
+                String ver = exec.getRelease() != null ? exec.getRelease() : exec.getTarget();
+                try {
+                    int intVer = (int) Double.parseDouble(ver);
+                    if (intVer > 8
+                            && (!requireSources || !exec.getCompileSourceRoots().isEmpty())) {
+                        versions.add(intVer);
+                    }
+                } catch (NumberFormatException e) {
+                    // ignore
+                }
+            }
+        }
+        return versions;
     }
 
     /**
@@ -967,9 +980,7 @@ public class AntBuildWriter {
         writer.addAttribute("description", "Clean the output directory");
 
         if (AntBuildWriterUtil.isPomPackaging(project)) {
-            for (String moduleSubPath : getSortedModules()) {
-                AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "clean");
-            }
+            writeModuleTasks(writer, "clean");
         } else {
             writer.startElement("delete");
             writer.addAttribute("dir", "${maven.build.dir}");
@@ -995,27 +1006,12 @@ public class AntBuildWriter {
             writer.startElement("target");
             writer.addAttribute("name", "compile");
             writer.addAttribute("description", "Compile the code");
-            for (String moduleSubPath : getSortedModules()) {
-                AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "compile");
-            }
+            writeModuleTasks(writer, "compile");
             writer.endElement(); // target
         } else {
             List<CompilerExecution> compilerExecutions = AntBuildWriterUtil.getCompilerExecutions(project);
-            Set<Integer> mrVersions = new TreeSet<>();
             int baseVersion = AntBuildWriterUtil.getBaseCompileVersion(project, compilerExecutions);
-            for (CompilerExecution exec : compilerExecutions) {
-                if (AntBuildWriterUtil.isMultiReleaseExecution(exec, baseVersion, project)) {
-                    String ver = exec.getRelease() != null ? exec.getRelease() : exec.getTarget();
-                    try {
-                        int intVer = (int) Double.parseDouble(ver);
-                        if (intVer > 8 && !exec.getCompileSourceRoots().isEmpty()) {
-                            mrVersions.add(intVer);
-                        }
-                    } catch (NumberFormatException e) {
-                        // ignore
-                    }
-                }
-            }
+            Set<Integer> mrVersions = computeMultiReleaseVersions(compilerExecutions, baseVersion, true);
 
             String genSourceTargets = extensionWriter.getGenSourceTargets();
             String baseDepends = genSourceTargets.isEmpty() ? "get-deps" : genSourceTargets;
@@ -1095,9 +1091,7 @@ public class AntBuildWriter {
             writer.startElement("target");
             writer.addAttribute("name", "compile-tests");
             writer.addAttribute("description", "Compile the test code");
-            for (String moduleSubPath : getSortedModules()) {
-                AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "compile-tests");
-            }
+            writeModuleTasks(writer, "compile-tests");
             writer.endElement(); // target
         } else {
             writer.startElement("target");
@@ -1145,9 +1139,7 @@ public class AntBuildWriter {
         writer.startElement("target");
         writer.addAttribute("name", "test");
         writer.addAttribute("description", "Run the test cases");
-        for (String moduleSubPath : getSortedModules()) {
-            AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "test");
-        }
+        writeModuleTasks(writer, "test");
         writer.endElement(); // target
     }
 
@@ -1205,9 +1197,7 @@ public class AntBuildWriter {
         writer.addAttribute("description", "Generates the Javadoc of the application");
 
         if (AntBuildWriterUtil.isPomPackaging(project)) {
-            for (String moduleSubPath : getSortedModules()) {
-                AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "javadoc");
-            }
+            writeModuleTasks(writer, "javadoc");
         } else {
             List<String> extraSourceDirs = getExtraGeneratedSourceDirs(compileSourceRoots);
             extraSourceDirs.addAll(getExtraStaticSourceDirs(compileSourceRoots));
@@ -1249,9 +1239,7 @@ public class AntBuildWriter {
         writer.addAttribute("description", "Package the application");
 
         if (AntBuildWriterUtil.isPomPackaging(project)) {
-            for (String moduleSubPath : getSortedModules()) {
-                AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, "package");
-            }
+            writeModuleTasks(writer, "package");
         } else {
             if (AntBuildWriterUtil.isJarPackaging(project)) {
                 AntBuildWriterUtil.writeJarTask(writer, project);
@@ -1475,78 +1463,29 @@ public class AntBuildWriter {
             Map[] excludes = AntBuildWriterUtil.getMavenCompilerPluginOptions(project, "excludes", null);
             AntBuildWriterUtil.addWrapAttribute(
                     writer, "javac", "excludes", getCommaSeparatedList(excludes, "exclude"), 3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "javac",
-                    "encoding",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "encoding", null),
-                    3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "javac",
-                    "nowarn",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "showWarnings", "false"),
-                    3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "javac",
-                    "debug",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "debug", "true"),
-                    3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "javac",
-                    "optimize",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "optimize", "false"),
-                    3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "javac",
-                    "deprecation",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "showDeprecation", "true"),
-                    3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "javac",
-                    "target",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "target", "1.8"),
-                    3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "javac",
-                    "verbose",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "verbose", "false"),
-                    3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "javac",
-                    "fork",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "fork", "false"),
-                    3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "javac",
-                    "memoryMaximumSize",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "meminitial", null),
-                    3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "javac",
-                    "memoryInitialSize",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "maxmem", null),
-                    3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "javac",
-                    "source",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "source", "1.8"),
-                    3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "javac",
-                    "release",
-                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "release", "8"),
-                    3);
+
+            String[][] javacBasicOptions = {
+                {"encoding", "encoding", null},
+                {"nowarn", "showWarnings", "false"},
+                {"debug", "debug", "true"},
+                {"optimize", "optimize", "false"},
+                {"deprecation", "showDeprecation", "true"},
+                {"target", "target", "1.8"},
+                {"verbose", "verbose", "false"},
+                {"fork", "fork", "false"},
+                {"memoryMaximumSize", "meminitial", null},
+                {"memoryInitialSize", "maxmem", null},
+                {"source", "source", "1.8"},
+                {"release", "release", "8"},
+            };
+            for (String[] opt : javacBasicOptions) {
+                AntBuildWriterUtil.addWrapAttribute(
+                        writer,
+                        "javac",
+                        opt[0],
+                        AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, opt[1], opt[2]),
+                        3);
+            }
 
             if (hasSources) {
                 writer.startElement("src");
@@ -1837,25 +1776,12 @@ public class AntBuildWriter {
             return null;
         }
 
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < includes.length; i++) {
-            String s = (String) includes[i].get(key);
-            if (StringUtils.isEmpty(s)) {
-                continue;
-            }
+        String joined = Arrays.stream(includes)
+                .map(m -> (String) m.get(key))
+                .filter(s -> !StringUtils.isEmpty(s))
+                .collect(Collectors.joining(","));
 
-            sb.append(s);
-
-            if (i < (includes.length - 1)) {
-                sb.append(",");
-            }
-        }
-
-        if (sb.length() == 0) {
-            return null;
-        }
-
-        return sb.toString();
+        return joined.isEmpty() ? null : joined;
     }
 
     /**
@@ -1888,6 +1814,18 @@ public class AntBuildWriter {
         return list;
     }
 
+    /**
+     * Write an Ant subant task for the given target in every reactor module, in reactor order.
+     *
+     * @param writer {@link XMLWriter}
+     * @param taskName the Ant target name to invoke in each module
+     */
+    private void writeModuleTasks(XMLWriter writer, String taskName) {
+        for (String moduleSubPath : getSortedModules()) {
+            AntBuildWriterUtil.writeAntTask(writer, project, moduleSubPath, taskName);
+        }
+    }
+
     private List<String> getSortedModules() {
         if (project.getModules() == null) {
             return Collections.emptyList();
@@ -1900,21 +1838,21 @@ public class AntBuildWriter {
         for (int i = 0; i < reactorProjects.size(); i++) {
             MavenProject rp = reactorProjects.get(i);
             if (rp.getBasedir() != null) {
-                try {
-                    orderMap.put(rp.getBasedir().getCanonicalPath(), i);
-                } catch (IOException e) {
-                    orderMap.put(rp.getBasedir().getAbsolutePath(), i);
-                }
+                orderMap.put(canonicalOrAbsolutePath(rp.getBasedir()), i);
             }
         }
         modules.sort(Comparator.comparingInt(m -> {
             File modDir = new File(project.getBasedir(), m);
-            try {
-                return orderMap.getOrDefault(modDir.getCanonicalPath(), Integer.MAX_VALUE);
-            } catch (IOException e) {
-                return orderMap.getOrDefault(modDir.getAbsolutePath(), Integer.MAX_VALUE);
-            }
+            return orderMap.getOrDefault(canonicalOrAbsolutePath(modDir), Integer.MAX_VALUE);
         }));
         return modules;
+    }
+
+    private static String canonicalOrAbsolutePath(File file) {
+        try {
+            return file.getCanonicalPath();
+        } catch (IOException e) {
+            return file.getAbsolutePath();
+        }
     }
 }

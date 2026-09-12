@@ -77,7 +77,13 @@ public class ArtifactResolverWrapper {
      * @param remoteRepositories
      * @param localRepositoryDirectory
      */
-    private ArtifactResolverWrapper(
+    /**
+     * @param repositorySystem
+     * @param repositorySession
+     * @param remoteRepositories
+     * @param localRepositoryDirectory
+     */
+    public ArtifactResolverWrapper(
             RepositorySystem repositorySystem,
             RepositorySystemSession repositorySession,
             List<RemoteRepository> remoteRepositories,
@@ -86,35 +92,6 @@ public class ArtifactResolverWrapper {
         this.repositorySession = repositorySession;
         this.remoteRepositories = remoteRepositories != null ? remoteRepositories : Collections.emptyList();
         this.localRepositoryDirectory = localRepositoryDirectory;
-    }
-
-    /**
-     * @param repositorySystem {@link RepositorySystem}
-     * @param repositorySession {@link RepositorySystemSession}
-     * @param remoteRepositories {@link List}.
-     * @param localRepositoryDirectory {@link File}
-     * @return an instance of ArtifactResolverWrapper
-     */
-    public static ArtifactResolverWrapper getInstance(
-            RepositorySystem repositorySystem,
-            RepositorySystemSession repositorySession,
-            List<RemoteRepository> remoteRepositories,
-            File localRepositoryDirectory) {
-        return new ArtifactResolverWrapper(
-                repositorySystem, repositorySession, remoteRepositories, localRepositoryDirectory);
-    }
-
-    /**
-     * @param repositorySystem {@link RepositorySystem}
-     * @param repositorySession {@link RepositorySystemSession}
-     * @param remoteRepositories {@link List}.
-     * @return an instance of ArtifactResolverWrapper
-     */
-    public static ArtifactResolverWrapper getInstance(
-            RepositorySystem repositorySystem,
-            RepositorySystemSession repositorySession,
-            List<RemoteRepository> remoteRepositories) {
-        return new ArtifactResolverWrapper(repositorySystem, repositorySession, remoteRepositories, null);
     }
 
     private RepositorySystemSession getSession() {
@@ -164,34 +141,6 @@ public class ArtifactResolverWrapper {
     }
 
     /**
-     * @return {@link #repositorySystem}
-     */
-    protected RepositorySystem getRepositorySystem() {
-        return repositorySystem;
-    }
-
-    /**
-     * @param repositorySystem {@link RepositorySystem}
-     */
-    protected void setRepositorySystem(RepositorySystem repositorySystem) {
-        this.repositorySystem = repositorySystem;
-    }
-
-    /**
-     * @return {@link #repositorySession}
-     */
-    protected RepositorySystemSession getRepositorySession() {
-        return repositorySession;
-    }
-
-    /**
-     * @param repositorySession {@link RepositorySystemSession}
-     */
-    protected void setRepositorySession(RepositorySystemSession repositorySession) {
-        this.repositorySession = repositorySession;
-    }
-
-    /**
      * @return {@link #localRepositoryDirectory}
      */
     public File getLocalRepositoryDirectory() {
@@ -211,27 +160,6 @@ public class ArtifactResolverWrapper {
             }
         }
         return null;
-    }
-
-    /**
-     * @param localRepositoryDirectory set {@link #localRepositoryDirectory}
-     */
-    public void setLocalRepositoryDirectory(File localRepositoryDirectory) {
-        this.localRepositoryDirectory = localRepositoryDirectory;
-    }
-
-    /**
-     * @return {@link #remoteRepositories}
-     */
-    protected List<RemoteRepository> getRemoteRepositories() {
-        return remoteRepositories;
-    }
-
-    /**
-     * @param remoteRepositories {@link #remoteRepositories}
-     */
-    protected void setRemoteRepositories(List<RemoteRepository> remoteRepositories) {
-        this.remoteRepositories = remoteRepositories;
     }
 
     /**
