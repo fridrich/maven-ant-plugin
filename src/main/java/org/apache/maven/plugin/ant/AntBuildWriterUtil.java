@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
@@ -63,17 +64,12 @@ public class AntBuildWriterUtil {
      * @return not null list
      */
     public static List<String> removeEmptyCompileSourceRoots(List<String> compileSourceRoots) {
-        List<String> newCompileSourceRootsList = new ArrayList<>();
-        if (compileSourceRoots != null) {
-            // copy as I may be modifying it
-            for (String srcDir : compileSourceRoots) {
-                if (new File(srcDir).exists()) {
-                    newCompileSourceRootsList.add(srcDir);
-                }
-            }
+        if (compileSourceRoots == null) {
+            return new ArrayList<>();
         }
-
-        return newCompileSourceRootsList;
+        return compileSourceRoots.stream()
+                .filter(srcDir -> new File(srcDir).exists())
+                .collect(Collectors.toList());
     }
 
     /**
@@ -419,9 +415,8 @@ public class AntBuildWriterUtil {
         if (manifestFile != null) {
             writer.startElement("mkdir");
             String normalizedPath = manifestFile.replace('\\', '/');
-            int lastSlash = normalizedPath.lastIndexOf('/');
-            String parentDir = lastSlash != -1 ? normalizedPath.substring(0, lastSlash) : ".";
-            writer.addAttribute("dir", parentDir);
+            String parentDir = new File(normalizedPath).getParent();
+            writer.addAttribute("dir", parentDir != null ? parentDir : ".");
             writer.endElement(); // mkdir
 
             writer.startElement("touch");
@@ -755,20 +750,6 @@ public class AntBuildWriterUtil {
     }
 
     /**
-     * Return the map of <code>optionName</code> value defined in a project for the "maven-compiler-plugin" plugin.
-     *
-     * @param project      {@link MavenProject} not null.
-     * @param optionName   the option name wanted
-     * @param defaultValue a default value
-     * @return the map for the option name or the default value. Could be null if not found.
-     * @throws IOException if any
-     */
-    public static Map getMavenCompilerPluginOption(MavenProject project, String optionName, String defaultValue)
-            throws IOException {
-        return getMavenPluginOption(project, "maven-compiler-plugin", optionName, defaultValue);
-    }
-
-    /**
      * Return an array of map of <code>optionName</code> value defined in a project for the "maven-compiler-plugin"
      * plugin.
      *
@@ -781,34 +762,6 @@ public class AntBuildWriterUtil {
     public static Map[] getMavenCompilerPluginOptions(MavenProject project, String optionName, String defaultValue)
             throws IOException {
         return getMavenPluginOptions(project, "maven-compiler-plugin", optionName, defaultValue);
-    }
-
-    /**
-     * Return the <code>optionName</code> value defined in a project for the "maven-surefire-plugin" plugin.
-     *
-     * @param project      not null
-     * @param optionName   the option name wanted
-     * @param defaultValue a default value
-     * @return the value for the option name or the default value. Could be null if not found.
-     * @throws IOException if any
-     */
-    public static String getMavenSurefirePluginBasicOption(MavenProject project, String optionName, String defaultValue)
-            throws IOException {
-        return getMavenPluginBasicOption(project, "maven-surefire-plugin", optionName, defaultValue);
-    }
-
-    /**
-     * Return the map of <code>optionName</code> value defined in a project for the "maven-surefire-plugin" plugin.
-     *
-     * @param project      not null
-     * @param optionName   the option name wanted
-     * @param defaultValue a default value
-     * @return the map for the option name or the default value. Could be null if not found.
-     * @throws IOException if any
-     */
-    public static Map getMavenSurefirePluginOption(MavenProject project, String optionName, String defaultValue)
-            throws IOException {
-        return getMavenPluginOption(project, "maven-surefire-plugin", optionName, defaultValue);
     }
 
     /**
@@ -1833,16 +1786,15 @@ public class AntBuildWriterUtil {
         if (project.getDependencies() != null) {
             for (Dependency dep : project.getDependencies()) {
                 if (!testScopeOnly || Artifact.SCOPE_TEST.equalsIgnoreCase(dep.getScope())) {
-                    String gid = dep.getGroupId();
-                    String aid = dep.getArtifactId();
-                    String ver = dep.getVersion();
-                    if (isJunit5(gid, aid, ver)) {
+                    TestFramework detected =
+                            classifyTestFramework(dep.getGroupId(), dep.getArtifactId(), dep.getVersion());
+                    if (detected == TestFramework.JUNIT5) {
                         hasJunit5 = true;
-                    } else if (isTestng(gid, aid)) {
+                    } else if (detected == TestFramework.TESTNG) {
                         hasTestng = true;
-                    } else if (isJunit4(gid, aid, ver)) {
+                    } else if (detected == TestFramework.JUNIT4) {
                         hasJunit4 = true;
-                    } else if (isJunit3(gid, aid, ver)) {
+                    } else if (detected == TestFramework.JUNIT3) {
                         hasJunit3 = true;
                     }
                 }
@@ -1852,16 +1804,15 @@ public class AntBuildWriterUtil {
         if (project.getArtifacts() != null) {
             for (Artifact art : project.getArtifacts()) {
                 if (!testScopeOnly || Artifact.SCOPE_TEST.equalsIgnoreCase(art.getScope())) {
-                    String gid = art.getGroupId();
-                    String aid = art.getArtifactId();
-                    String ver = art.getVersion();
-                    if (isJunit5(gid, aid, ver)) {
+                    TestFramework detected =
+                            classifyTestFramework(art.getGroupId(), art.getArtifactId(), art.getVersion());
+                    if (detected == TestFramework.JUNIT5) {
                         hasJunit5 = true;
-                    } else if (isTestng(gid, aid)) {
+                    } else if (detected == TestFramework.TESTNG) {
                         hasTestng = true;
-                    } else if (isJunit4(gid, aid, ver)) {
+                    } else if (detected == TestFramework.JUNIT4) {
                         hasJunit4 = true;
-                    } else if (isJunit3(gid, aid, ver)) {
+                    } else if (detected == TestFramework.JUNIT3) {
                         hasJunit3 = true;
                     }
                 }
@@ -1879,6 +1830,22 @@ public class AntBuildWriterUtil {
         }
         if (hasTestng) {
             return TestFramework.TESTNG;
+        }
+        return null;
+    }
+
+    private static TestFramework classifyTestFramework(String groupId, String artifactId, String version) {
+        if (isJunit5(groupId, artifactId, version)) {
+            return TestFramework.JUNIT5;
+        }
+        if (isTestng(groupId, artifactId)) {
+            return TestFramework.TESTNG;
+        }
+        if (isJunit4(groupId, artifactId, version)) {
+            return TestFramework.JUNIT4;
+        }
+        if (isJunit3(groupId, artifactId, version)) {
+            return TestFramework.JUNIT3;
         }
         return null;
     }

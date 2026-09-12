@@ -115,7 +115,7 @@ public class AntMojo extends AbstractMojo {
         }
 
         ArtifactResolverWrapper artifactResolverWrapper =
-                ArtifactResolverWrapper.getInstance(repositorySystem, repoSession, remoteRepositories, localRepoDir);
+                new ArtifactResolverWrapper(repositorySystem, repoSession, remoteRepositories, localRepoDir);
 
         Properties executionProperties = null;
         if (session != null) {

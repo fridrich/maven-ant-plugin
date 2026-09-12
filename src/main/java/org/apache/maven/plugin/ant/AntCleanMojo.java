@@ -35,10 +35,6 @@ import org.apache.maven.project.MavenProject;
 @Mojo(name = "clean")
 public class AntCleanMojo extends AbstractMojo {
     // ----------------------------------------------------------------------
-    // Mojo components
-    // ----------------------------------------------------------------------
-
-    // ----------------------------------------------------------------------
     // Mojo parameters
     // ----------------------------------------------------------------------
 
@@ -72,14 +68,13 @@ public class AntCleanMojo extends AbstractMojo {
             }
         }
 
-        File mavenBuildXml = new File(project.getBasedir(), AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME);
-        if (mavenBuildXml.exists() && !mavenBuildXml.delete()) {
-            throw new MojoExecutionException("Cannot delete " + mavenBuildXml.getAbsolutePath());
-        }
-
-        File mavenBuildProperties = new File(project.getBasedir(), AntBuildWriter.DEFAULT_MAVEN_PROPERTIES_FILENAME);
-        if (mavenBuildProperties.exists() && !mavenBuildProperties.delete()) {
-            throw new MojoExecutionException("Cannot delete " + mavenBuildProperties.getAbsolutePath());
+        for (String filename : new String[] {
+            AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME, AntBuildWriter.DEFAULT_MAVEN_PROPERTIES_FILENAME
+        }) {
+            File file = new File(project.getBasedir(), filename);
+            if (file.exists() && !file.delete()) {
+                throw new MojoExecutionException("Cannot delete " + file.getAbsolutePath());
+            }
         }
 
         getLog().info("Deleted Ant build files for project " + project.getArtifactId() + " in "

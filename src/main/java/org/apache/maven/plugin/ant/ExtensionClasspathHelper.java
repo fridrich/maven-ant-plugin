@@ -67,14 +67,13 @@ class ExtensionClasspathHelper {
         }
 
         if (extensionWriter.isSisuProject() && !sisuInjectPresent) {
-            try {
-                String sisuVer = extensionWriter.getSisuVersion();
-                Set<Artifact> resolved = artifactResolverWrapper.resolveTransitively(
-                        "org.eclipse.sisu", "org.eclipse.sisu.inject", sisuVer);
-                addPathelements(writer, resolved, artifactResolverWrapper, injectedArtifacts);
-            } catch (Exception e) {
-                // ignore
-            }
+            resolveAndAdd(
+                    writer,
+                    artifactResolverWrapper,
+                    injectedArtifacts,
+                    "org.eclipse.sisu",
+                    "org.eclipse.sisu.inject",
+                    extensionWriter.getSisuVersion());
         }
 
         if (extensionWriter.isSisuProject() && !asmPresent) {
@@ -126,13 +125,8 @@ class ExtensionClasspathHelper {
         }
 
         if (extensionWriter.isJavaccProject() && !javaccPresent) {
-            try {
-                Set<Artifact> resolved =
-                        artifactResolverWrapper.resolveTransitively("net.java.dev.javacc", "javacc", "7.0.12");
-                addPathelements(writer, resolved, artifactResolverWrapper, injectedArtifacts);
-            } catch (Exception e) {
-                // ignore
-            }
+            resolveAndAdd(
+                    writer, artifactResolverWrapper, injectedArtifacts, "net.java.dev.javacc", "javacc", "7.0.12");
         }
 
         if (extensionWriter.isJflexProject()) {
@@ -149,14 +143,28 @@ class ExtensionClasspathHelper {
         }
 
         if (extensionWriter.isCupProject()) {
-            try {
-                String cupVer = extensionWriter.getCupVersion();
-                Set<Artifact> resolved =
-                        artifactResolverWrapper.resolveTransitively("com.github.vbmacher", "java-cup", cupVer);
-                addPathelements(writer, resolved, artifactResolverWrapper, injectedArtifacts);
-            } catch (Exception e) {
-                // ignore
-            }
+            resolveAndAdd(
+                    writer,
+                    artifactResolverWrapper,
+                    injectedArtifacts,
+                    "com.github.vbmacher",
+                    "java-cup",
+                    extensionWriter.getCupVersion());
+        }
+    }
+
+    private static void resolveAndAdd(
+            XMLWriter writer,
+            ArtifactResolverWrapper artifactResolverWrapper,
+            Set<Artifact> injectedArtifacts,
+            String groupId,
+            String artifactId,
+            String version) {
+        try {
+            Set<Artifact> resolved = artifactResolverWrapper.resolveTransitively(groupId, artifactId, version);
+            addPathelements(writer, resolved, artifactResolverWrapper, injectedArtifacts);
+        } catch (Exception e) {
+            // ignore
         }
     }
 

@@ -21,12 +21,14 @@ package org.apache.maven.plugin.ant;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
@@ -48,15 +50,22 @@ public class AntExtensionWriter {
         this.project = project;
     }
 
-    public boolean isSisuProject() {
-        if (project.getBuildPlugins() != null) {
-            for (Plugin plugin : project.getBuildPlugins()) {
-                if ("sisu-maven-plugin".equals(plugin.getArtifactId())) {
+    private boolean hasPlugin(String... artifactIds) {
+        if (project.getBuildPlugins() == null) {
+            return false;
+        }
+        for (Plugin plugin : project.getBuildPlugins()) {
+            for (String artifactId : artifactIds) {
+                if (artifactId.equals(plugin.getArtifactId())) {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    public boolean isSisuProject() {
+        return hasPlugin("sisu-maven-plugin");
     }
 
     public String getSisuVersion() {
@@ -189,14 +198,7 @@ public class AntExtensionWriter {
     }
 
     public boolean isJflexProject() {
-        if (project.getBuildPlugins() != null) {
-            for (Plugin plugin : project.getBuildPlugins()) {
-                if ("jflex-maven-plugin".equals(plugin.getArtifactId())) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return hasPlugin("jflex-maven-plugin");
     }
 
     // Pinned, not the jflex-maven-plugin version - separate artifact, unrelated release cycle.
@@ -205,16 +207,10 @@ public class AntExtensionWriter {
     }
 
     public static class JflexExecution {
-        private final String id;
         private final Xpp3Dom configuration;
 
-        public JflexExecution(String id, Xpp3Dom configuration) {
-            this.id = id;
+        public JflexExecution(Xpp3Dom configuration) {
             this.configuration = configuration;
-        }
-
-        public String getId() {
-            return id;
         }
 
         public Xpp3Dom getConfiguration() {
@@ -229,10 +225,10 @@ public class AntExtensionWriter {
                 if ("jflex-maven-plugin".equals(plugin.getArtifactId())) {
                     if (plugin.getExecutions() != null) {
                         for (PluginExecution exec : plugin.getExecutions()) {
-                            executions.add(new JflexExecution(exec.getId(), (Xpp3Dom) exec.getConfiguration()));
+                            executions.add(new JflexExecution((Xpp3Dom) exec.getConfiguration()));
                         }
                     } else if (plugin.getConfiguration() != null) {
-                        executions.add(new JflexExecution("default", (Xpp3Dom) plugin.getConfiguration()));
+                        executions.add(new JflexExecution((Xpp3Dom) plugin.getConfiguration()));
                     }
                 }
             }
@@ -241,15 +237,7 @@ public class AntExtensionWriter {
     }
 
     public boolean isCupProject() {
-        if (project.getBuildPlugins() != null) {
-            for (Plugin plugin : project.getBuildPlugins()) {
-                if ("cup-maven-plugin".equals(plugin.getArtifactId())
-                        || "javacup-maven-plugin".equals(plugin.getArtifactId())) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return hasPlugin("cup-maven-plugin", "javacup-maven-plugin");
     }
 
     // Pinned, not the cup/javacup-maven-plugin version - separate artifact, unrelated versioning.
@@ -258,16 +246,10 @@ public class AntExtensionWriter {
     }
 
     public static class CupExecution {
-        private final String id;
         private final Xpp3Dom configuration;
 
-        public CupExecution(String id, Xpp3Dom configuration) {
-            this.id = id;
+        public CupExecution(Xpp3Dom configuration) {
             this.configuration = configuration;
-        }
-
-        public String getId() {
-            return id;
         }
 
         public Xpp3Dom getConfiguration() {
@@ -283,10 +265,10 @@ public class AntExtensionWriter {
                         || "javacup-maven-plugin".equals(plugin.getArtifactId())) {
                     if (plugin.getExecutions() != null) {
                         for (PluginExecution exec : plugin.getExecutions()) {
-                            executions.add(new CupExecution(exec.getId(), (Xpp3Dom) exec.getConfiguration()));
+                            executions.add(new CupExecution((Xpp3Dom) exec.getConfiguration()));
                         }
                     } else if (plugin.getConfiguration() != null) {
-                        executions.add(new CupExecution("default", (Xpp3Dom) plugin.getConfiguration()));
+                        executions.add(new CupExecution((Xpp3Dom) plugin.getConfiguration()));
                     }
                 }
             }
@@ -295,38 +277,15 @@ public class AntExtensionWriter {
     }
 
     public boolean isBndProject() {
-        if (project.getBuildPlugins() != null) {
-            for (Plugin plugin : project.getBuildPlugins()) {
-                if ("bnd-maven-plugin".equals(plugin.getArtifactId())
-                        || "maven-bundle-plugin".equals(plugin.getArtifactId())) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return hasPlugin("bnd-maven-plugin", "maven-bundle-plugin");
     }
 
     public boolean isJavaccProject() {
-        if (project.getBuildPlugins() != null) {
-            for (Plugin plugin : project.getBuildPlugins()) {
-                if ("javacc-maven-plugin".equals(plugin.getArtifactId())
-                        || "ph-javacc-maven-plugin".equals(plugin.getArtifactId())) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return hasPlugin("javacc-maven-plugin", "ph-javacc-maven-plugin");
     }
 
     public boolean isTemplatingProject() {
-        if (project.getBuildPlugins() != null) {
-            for (Plugin plugin : project.getBuildPlugins()) {
-                if ("templating-maven-plugin".equals(plugin.getArtifactId())) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        return hasPlugin("templating-maven-plugin");
     }
 
     /** Extra source dirs registered via build-helper-maven-plugin's add-source goal. */
@@ -835,7 +794,7 @@ public class AntExtensionWriter {
         if (isDependencyUnpackProject()) {
             names.add("unpack-dependencies");
         }
-        return StringUtils.join(names.iterator(), ",");
+        return String.join(",", names);
     }
 
     public void writeGenSourcesTarget(XMLWriter writer) throws IOException {
@@ -1340,6 +1299,19 @@ public class AntExtensionWriter {
         return sb.toString();
     }
 
+    private void writeJavaccJarCopy(XMLWriter writer, List<String> includes) throws IOException {
+        if (includes.isEmpty()) {
+            return;
+        }
+        writer.startElement("copy");
+        AntBuildWriterUtil.addWrapAttribute(
+                writer, "copy", "file", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc-7.0.12.jar", 3);
+        AntBuildWriterUtil.addWrapAttribute(
+                writer, "copy", "tofile", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc.jar", 3);
+        AntBuildWriterUtil.addWrapAttribute(writer, "copy", "preservelastmodified", "true", 3);
+        writer.endElement(); // copy
+    }
+
     private void writeJjtreeTask(XMLWriter writer, String sourceDirectory, String outputDirectory, Xpp3Dom config)
             throws IOException {
         List<String> includes = new ArrayList<>();
@@ -1350,19 +1322,7 @@ public class AntExtensionWriter {
             includes.addAll(getGrammarFiles(project.getBasedir().getAbsolutePath() + "/" + sourceDirectory, ".jjt"));
         }
 
-        if (!includes.isEmpty()) {
-            writer.startElement("copy");
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "copy",
-                    "file",
-                    "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc-7.0.12.jar",
-                    3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer, "copy", "tofile", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc.jar", 3);
-            AntBuildWriterUtil.addWrapAttribute(writer, "copy", "preservelastmodified", "true", 3);
-            writer.endElement(); // copy
-        }
+        writeJavaccJarCopy(writer, includes);
 
         for (String include : includes) {
             writer.startElement("jjtree");
@@ -1399,19 +1359,7 @@ public class AntExtensionWriter {
             includes.addAll(getGrammarFiles(resolvedInputDir, ".jj"));
         }
 
-        if (!includes.isEmpty()) {
-            writer.startElement("copy");
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer,
-                    "copy",
-                    "file",
-                    "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc-7.0.12.jar",
-                    3);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer, "copy", "tofile", "${maven.repo.local}/net/java/dev/javacc/javacc/7.0.12/javacc.jar", 3);
-            AntBuildWriterUtil.addWrapAttribute(writer, "copy", "preservelastmodified", "true", 3);
-            writer.endElement(); // copy
-        }
+        writeJavaccJarCopy(writer, includes);
 
         for (String include : includes) {
             writer.startElement("javacc");
@@ -1977,24 +1925,11 @@ public class AntExtensionWriter {
             return null;
         }
 
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < includes.length; i++) {
-            String s = (String) includes[i].get(key);
-            if (StringUtils.isEmpty(s)) {
-                continue;
-            }
+        String joined = Arrays.stream(includes)
+                .map(m -> (String) m.get(key))
+                .filter(s -> !StringUtils.isEmpty(s))
+                .collect(Collectors.joining(","));
 
-            sb.append(s);
-
-            if (i < (includes.length - 1)) {
-                sb.append(",");
-            }
-        }
-
-        if (sb.length() == 0) {
-            return null;
-        }
-
-        return sb.toString();
+        return joined.isEmpty() ? null : joined;
     }
 }

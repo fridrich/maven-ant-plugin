@@ -37,13 +37,6 @@ public class AntTestWriter {
 
     /**
      * @param project {@link MavenProject}
-     */
-    public AntTestWriter(MavenProject project) {
-        this(project, null);
-    }
-
-    /**
-     * @param project {@link MavenProject}
      * @param extensionWriter {@link AntExtensionWriter}
      */
     public AntTestWriter(MavenProject project, AntExtensionWriter extensionWriter) {
