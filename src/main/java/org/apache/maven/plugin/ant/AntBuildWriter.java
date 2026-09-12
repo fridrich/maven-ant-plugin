@@ -128,7 +128,7 @@ public class AntBuildWriter {
         this.overwrite = overwrite;
         this.executionProperties = (executionProperties != null) ? executionProperties : new Properties();
         this.extensionWriter = new AntExtensionWriter(project);
-        this.testWriter = new AntTestWriter(project);
+        this.testWriter = new AntTestWriter(project, extensionWriter);
         this.reactorProjects = reactorProjects;
     }
 
@@ -469,6 +469,9 @@ public class AntBuildWriter {
             // ----------------------------------------------------------------------
             if (!AntBuildWriterUtil.isPomPackaging(project) && extensionWriter.isSisuProject()) {
                 extensionWriter.writeSisuTarget(writer);
+                if (!testCompileSourceRoots.isEmpty()) {
+                    extensionWriter.writeSisuTestTarget(writer);
+                }
             }
 
             // ----------------------------------------------------------------------
@@ -476,6 +479,9 @@ public class AntBuildWriter {
             // ----------------------------------------------------------------------
             if (!AntBuildWriterUtil.isPomPackaging(project) && extensionWriter.isPlexusProject()) {
                 extensionWriter.writePlexusTarget(writer, compileSourceRoots);
+                if (!testCompileSourceRoots.isEmpty()) {
+                    extensionWriter.writePlexusTestTarget(writer, testCompileSourceRoots);
+                }
             }
 
             // ----------------------------------------------------------------------
@@ -1623,6 +1629,13 @@ public class AntBuildWriter {
                 AntBuildWriterUtil.writeIncludesExcludes(writer, resource.getIncludes(), resource.getExcludes());
 
                 writer.endElement(); // fileset
+
+                if (resource.isFiltering()) {
+                    writer.startElement("filterchain");
+                    writer.startElement("expandproperties");
+                    writer.endElement(); // expandproperties
+                    writer.endElement(); // filterchain
+                }
 
                 writer.endElement(); // copy
             }

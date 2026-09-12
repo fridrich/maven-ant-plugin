@@ -870,9 +870,6 @@ public class AntExtensionWriter {
             writeTargetSeparator(writer, isJavaccProject() || isJflexProject() || isCupProject() || isModelloProject());
         }
 
-        // no more if="x.present"/<fail> gating here: each of these is now a real, unconditional
-        // depends= of compile/javadoc, so a missing tool fails naturally (and early) at its own
-        // <taskdef>/task use, instead of several targets downstream.
         if (isJavaccProject()) {
             writer.startElement("target");
             writer.addAttribute("name", "javacc");
@@ -1522,65 +1519,134 @@ public class AntExtensionWriter {
         XmlWriterUtil.writeLineBreak(writer);
     }
 
-    public void writePlexusTarget(XMLWriter writer, List<String> compileSourceRoots) {
-        XmlWriterUtil.writeCommentText(writer, "Target to generate Plexus component.xml", 1);
+    public void writeSisuTestTarget(XMLWriter writer) {
+        XmlWriterUtil.writeCommentText(writer, "Sisu javax.inject.Named generation target for test classes", 1);
 
         writer.startElement("target");
-        writer.addAttribute("name", "plexus");
-        AntBuildWriterUtil.addWrapAttribute(writer, "target", "depends", "compile", 2);
-        AntBuildWriterUtil.addWrapAttribute(writer, "target", "description", "Generate Plexus component.xml", 2);
+        writer.addAttribute("name", "sisu-test");
+        writer.addAttribute("depends", "compile-tests");
+        writer.addAttribute("description", "Generate javax.inject.Name test index");
 
-        writer.startElement("typedef");
-        writer.addAttribute("resource", "org/codehaus/plexus/metadata/ant/antlib.xml");
-        writer.endElement(); // typedef
+        writer.startElement("sequential");
 
-        writer.startElement("plexus-metadata");
-        writer.addAttribute("classesDirectory", "${maven.build.outputDir}");
-
-        Plugin activePlugin = findActivePlexusMetadataPlugin();
-        List<Plugin> fallbackPlugins = getPlexusMetadataFallbackPlugins(activePlugin);
-
-        String outputFile = getPlexusOption(activePlugin, fallbackPlugins, "outputFile", "generatedMetadata");
-        if (outputFile != null) {
-            writer.addAttribute("outputFile", outputFile);
-        }
-        String descriptorsDir =
-                getPlexusOption(activePlugin, fallbackPlugins, "descriptorsDirectory", "staticMetadataDirectory");
-        if (descriptorsDir != null) {
-            writer.addAttribute("descriptorsDirectory", descriptorsDir);
-        }
-        String extractors = getPlexusOption(activePlugin, fallbackPlugins, "extractors", null);
-        if (extractors != null) {
-            writer.addAttribute("extractors", extractors);
-        }
-
-        List<String> srcRoots = compileSourceRoots;
-        if (srcRoots == null || srcRoots.isEmpty()) {
-            if (project != null) {
-                srcRoots = project.getCompileSourceRoots();
-            }
-        }
-        if (srcRoots != null && !srcRoots.isEmpty()) {
-            for (int i = 0; i < srcRoots.size(); i++) {
-                writer.startElement("sourceDirectory");
-                writer.addAttribute("location", "${maven.build.srcDir." + i + "}");
-                writer.endElement(); // sourceDirectory
-            }
-        }
+        writer.startElement("java");
+        writer.addAttribute("classname", "org.eclipse.sisu.space.SisuIndex");
+        writer.addAttribute("failonerror", "true");
+        writer.addAttribute("fork", "true");
 
         writer.startElement("classpath");
+        writer.startElement("path");
         writer.addAttribute("refid", "build.classpath");
+        writer.endElement(); // path
+        writer.startElement("path");
+        writer.addAttribute("refid", "build.test.classpath");
+        writer.endElement(); // path
+        writer.startElement("pathelement");
+        writer.addAttribute("location", "${maven.build.outputDir}");
+        writer.endElement(); // pathelement
+        writer.startElement("pathelement");
+        writer.addAttribute("location", "${maven.build.testOutputDir}");
+        writer.endElement(); // pathelement
         writer.endElement(); // classpath
 
-        writer.endElement(); // plexus-metadata
+        writer.startElement("arg");
+        writer.addAttribute("value", "${maven.build.testOutputDir}");
+        writer.endElement(); // arg
 
+        writer.endElement(); // java
+
+        writer.startElement("move");
+        writer.addAttribute("todir", "${maven.build.testOutputDir}/META-INF");
+        writer.addAttribute("failonerror", "false");
+        writer.startElement("fileset");
+        writer.addAttribute("dir", "META-INF");
+        writer.addAttribute("erroronmissingdir", "false");
+        writer.endElement(); // fileset
+        writer.endElement(); // move
+
+        writer.endElement(); // sequential
         writer.endElement(); // target
 
         XmlWriterUtil.writeLineBreak(writer);
     }
 
-    // wraps the already-built jar; unlike <bnd> (Builder mode) it analyzes real jar content, no
-    // -includeresource needed. No present/missing gating - fails naturally at <taskdef> if missing.
+    public void writePlexusTarget(XMLWriter writer, List<String> compileSourceRoots) {
+        writePlexusMetadataTarget(writer, compileSourceRoots, false);
+    }
+
+    public void writePlexusTestTarget(XMLWriter writer, List<String> testCompileSourceRoots) {
+        writePlexusMetadataTarget(writer, testCompileSourceRoots, true);
+    }
+
+    private void writePlexusMetadataTarget(XMLWriter writer, List<String> sourceRoots, boolean isTest) {
+        String name = isTest ? "plexus-test" : "plexus";
+        String depends = isTest ? "compile-tests" : "compile";
+        String desc = isTest ? "Generate Plexus test component.xml" : "Generate Plexus component.xml";
+        String classesDir = isTest ? "${maven.build.testOutputDir}" : "${maven.build.outputDir}";
+        String prefix = isTest ? "testDir" : "srcDir";
+
+        XmlWriterUtil.writeCommentText(
+                writer, "Target to generate Plexus " + (isTest ? "test " : "") + "component.xml", 1);
+        writer.startElement("target");
+        writer.addAttribute("name", name);
+        AntBuildWriterUtil.addWrapAttribute(writer, "target", "depends", depends, 2);
+        AntBuildWriterUtil.addWrapAttribute(writer, "target", "description", desc, 2);
+
+        writer.startElement("typedef");
+        writer.addAttribute("resource", "org/codehaus/plexus/metadata/ant/antlib.xml");
+        writer.endElement();
+
+        writer.startElement("plexus-metadata");
+        writer.addAttribute("classesDirectory", classesDir);
+
+        if (!isTest) {
+            Plugin activePlugin = findActivePlexusMetadataPlugin();
+            List<Plugin> fallbackPlugins = getPlexusMetadataFallbackPlugins(activePlugin);
+            String outputFile = getPlexusOption(activePlugin, fallbackPlugins, "outputFile", "generatedMetadata");
+            if (outputFile != null) {
+                writer.addAttribute("outputFile", outputFile);
+            }
+            String descriptorsDir =
+                    getPlexusOption(activePlugin, fallbackPlugins, "descriptorsDirectory", "staticMetadataDirectory");
+            if (descriptorsDir != null) {
+                writer.addAttribute("descriptorsDirectory", descriptorsDir);
+            }
+            String extractors = getPlexusOption(activePlugin, fallbackPlugins, "extractors", null);
+            if (extractors != null) {
+                writer.addAttribute("extractors", extractors);
+            }
+        }
+
+        List<String> srcRoots = sourceRoots;
+        if ((srcRoots == null || srcRoots.isEmpty()) && project != null) {
+            srcRoots = isTest ? project.getTestCompileSourceRoots() : project.getCompileSourceRoots();
+        }
+        if (srcRoots != null && !srcRoots.isEmpty()) {
+            for (int i = 0; i < srcRoots.size(); i++) {
+                writer.startElement("sourceDirectory");
+                writer.addAttribute("location", "${maven.build." + prefix + "." + i + "}");
+                writer.endElement();
+            }
+        }
+
+        writer.startElement("classpath");
+        if (isTest) {
+            writer.startElement("path");
+            writer.addAttribute("refid", "build.test.classpath");
+            writer.endElement();
+            writer.startElement("pathelement");
+            writer.addAttribute("location", "${maven.build.outputDir}");
+            writer.endElement();
+        } else {
+            writer.addAttribute("refid", "build.classpath");
+        }
+        writer.endElement();
+
+        writer.endElement();
+        writer.endElement();
+        XmlWriterUtil.writeLineBreak(writer);
+    }
+
     public void writeBndWrapSequence(XMLWriter writer) {
         writer.startElement("taskdef");
         writer.addAttribute("resource", "aQute/bnd/ant/taskdef.properties");

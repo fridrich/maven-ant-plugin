@@ -43,7 +43,7 @@ class ExtensionClasspathHelper {
             Set<Artifact> injectedArtifacts,
             Collection<Artifact> artifacts)
             throws IOException {
-        if (!"build.classpath".equals(id)) {
+        if (!"build.classpath".equals(id) && !"build.test.classpath".equals(id)) {
             return;
         }
 

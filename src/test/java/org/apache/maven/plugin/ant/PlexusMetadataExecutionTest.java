@@ -71,6 +71,34 @@ public class PlexusMetadataExecutionTest {
     }
 
     @Test
+    public void testPlexusTestTarget() {
+        MavenProject project = new MavenProject();
+        project.setFile(new File("pom.xml"));
+        Build build = new Build();
+
+        Plugin plugin = new Plugin();
+        plugin.setGroupId("org.codehaus.plexus");
+        plugin.setArtifactId("plexus-component-metadata");
+        build.addPlugin(plugin);
+        project.setBuild(build);
+
+        AntExtensionWriter writer = new AntExtensionWriter(project);
+        assertTrue(writer.isPlexusProject());
+
+        StringWriter sw = new StringWriter();
+        PrettyPrintXMLWriter xmlWriter = new PrettyPrintXMLWriter(sw);
+        writer.writePlexusTestTarget(xmlWriter, Collections.singletonList("src/test/java"));
+
+        String output = sw.toString();
+        assertTrue(output.contains("<target name=\"plexus-test\""));
+        assertTrue(output.contains("<typedef resource=\"org/codehaus/plexus/metadata/ant/antlib.xml\"/>"));
+        assertTrue(output.contains("<plexus-metadata classesDirectory=\"${maven.build.testOutputDir}\">"));
+        assertTrue(output.contains("<sourceDirectory location=\"${maven.build.testDir.0}\"/>"));
+        assertTrue(output.contains("<path refid=\"build.test.classpath\"/>"));
+        assertTrue(output.contains("<pathelement location=\"${maven.build.outputDir}\"/>"));
+    }
+
+    @Test
     public void testPlexusPluginWithCustomConfig() {
         MavenProject project = new MavenProject();
         project.setFile(new File("pom.xml"));

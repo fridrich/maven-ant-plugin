@@ -19,6 +19,7 @@
 package org.apache.maven.plugin.ant;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -32,12 +33,22 @@ import org.codehaus.plexus.util.xml.XmlWriterUtil;
  */
 public class AntTestWriter {
     private final MavenProject project;
+    private final AntExtensionWriter extensionWriter;
 
     /**
      * @param project {@link MavenProject}
      */
     public AntTestWriter(MavenProject project) {
+        this(project, null);
+    }
+
+    /**
+     * @param project {@link MavenProject}
+     * @param extensionWriter {@link AntExtensionWriter}
+     */
+    public AntTestWriter(MavenProject project, AntExtensionWriter extensionWriter) {
         this.project = project;
+        this.extensionWriter = extensionWriter;
     }
 
     /**
@@ -54,9 +65,27 @@ public class AntTestWriter {
             throws IOException {
         AntBuildWriterUtil.TestFramework framework = AntBuildWriterUtil.getTestFramework(project);
 
+        List<String> testDepends = new ArrayList<>();
+        testDepends.add("compile-tests");
+        if (extensionWriter != null) {
+            if (extensionWriter.isSisuProject()) {
+                testDepends.add("sisu");
+                if (!testCompileSourceRoots.isEmpty()) {
+                    testDepends.add("sisu-test");
+                }
+            }
+            if (extensionWriter.isPlexusProject()) {
+                testDepends.add("plexus");
+                if (!testCompileSourceRoots.isEmpty()) {
+                    testDepends.add("plexus-test");
+                }
+            }
+        }
+        testDepends.add("junit-missing");
+
         writer.startElement("target");
         writer.addAttribute("name", "test");
-        AntBuildWriterUtil.addWrapAttribute(writer, "target", "depends", "compile-tests, junit-missing", 2);
+        AntBuildWriterUtil.addWrapAttribute(writer, "target", "depends", String.join(", ", testDepends), 2);
         AntBuildWriterUtil.addWrapAttribute(writer, "target", "unless", "junit.skipped", 2);
         AntBuildWriterUtil.addWrapAttribute(writer, "target", "description", "Run the test cases", 2);
 
@@ -183,6 +212,9 @@ public class AntTestWriter {
         writer.startElement("pathelement");
         writer.addAttribute("location", "${maven.build.testOutputDir}");
         writer.endElement(); // pathelement
+        writer.startElement("pathelement");
+        writer.addAttribute("path", "${java.class.path}");
+        writer.endElement(); // pathelement
         writer.endElement(); // classpath
     }
 
@@ -305,6 +337,14 @@ public class AntTestWriter {
 
         writer.startElement("testclasses");
         writer.addAttribute("outputdir", "${maven.test.reports}");
+
+        writer.startElement("fork");
+        writer.addAttribute("dir", "${basedir}");
+        writer.startElement("sysproperty");
+        writer.addAttribute("key", "basedir");
+        writer.addAttribute("value", "${basedir}");
+        writer.endElement(); // sysproperty
+        writer.endElement(); // fork
 
         writer.startElement("fileset");
         writer.addAttribute("dir", "${maven.build.testOutputDir}");
