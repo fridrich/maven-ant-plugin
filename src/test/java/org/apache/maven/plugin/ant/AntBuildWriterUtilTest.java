@@ -163,4 +163,20 @@ public class AntBuildWriterUtilTest {
         assertEquals("3.0", AntBuildWriterUtil.getSpecificationVersion("3.0.0-SNAPSHOT"));
         assertEquals("2.4", AntBuildWriterUtil.getSpecificationVersion("2.4-beta-1"));
     }
+
+    @Test
+    public void testWriteAntTask() {
+        MavenProject project = new MavenProject();
+        project.setFile(new File("pom.xml"));
+        java.io.StringWriter sw = new java.io.StringWriter();
+        org.codehaus.plexus.util.xml.PrettyPrintXMLWriter writer =
+                new org.codehaus.plexus.util.xml.PrettyPrintXMLWriter(sw);
+        AntBuildWriterUtil.writeAntTask(writer, project, "submodule", "package");
+        String xml = sw.toString();
+        assertTrue(xml.contains("<ant"));
+        assertTrue(xml.contains("antfile=\"build.xml\""));
+        assertTrue(xml.contains("dir=\"submodule\""));
+        assertTrue(xml.contains("target=\"package\""));
+        assertTrue(xml.contains("inheritAll=\"false\""));
+    }
 }
