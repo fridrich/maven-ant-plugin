@@ -1109,18 +1109,24 @@ public class AntExtensionWriter {
         writer.addAttribute("description", "Unpack dependencies");
 
         for (DependencyUnpackItem item : items) {
-            String outDir = item.getOutputDirectory() != null
-                    ? item.getOutputDirectory()
-                    : "${maven.build.dir}/generated-sources/dependency";
+            String outDir =
+                    item.getOutputDirectory() != null ? item.getOutputDirectory() : "${maven.build.dir}/dependency";
             writer.startElement("mkdir");
             writer.addAttribute("dir", outDir);
             writer.endElement(); // mkdir
 
-            writer.startElement("unjar");
+            boolean isTar = Arrays.asList("tar.gz", "tgz", "tar.bz2", "tar").contains(item.getType());
+            String tag = isTar ? "untar" : "unjar";
+            writer.startElement(tag);
             String relPath = getArtifactPath(
                     item.getGroupId(), item.getArtifactId(), item.getVersion(), item.getType(), item.getClassifier());
             writer.addAttribute("src", "${maven.repo.local}/" + relPath);
             writer.addAttribute("dest", outDir);
+            if ("tar.gz".equals(item.getType()) || "tgz".equals(item.getType())) {
+                writer.addAttribute("compression", "gzip");
+            } else if ("tar.bz2".equals(item.getType())) {
+                writer.addAttribute("compression", "bzip2");
+            }
 
             if (!item.getIncludes().isEmpty() || !item.getExcludes().isEmpty()) {
                 writer.startElement("patternset");
@@ -1137,7 +1143,7 @@ public class AntExtensionWriter {
                 writer.endElement(); // patternset
             }
 
-            writer.endElement(); // unjar
+            writer.endElement(); // untar or unjar
         }
 
         writer.endElement(); // target
@@ -1163,6 +1169,11 @@ public class AntExtensionWriter {
                             Xpp3Dom execConfig = (Xpp3Dom) exec.getConfiguration();
                             Xpp3Dom config = mergeConfigurations(execConfig, pluginConfig);
                             items.addAll(extractArtifactItems(config));
+                        }
+                        if (exec.getGoals() != null && exec.getGoals().contains("unpack-dependencies")) {
+                            Xpp3Dom execConfig = (Xpp3Dom) exec.getConfiguration();
+                            Xpp3Dom config = mergeConfigurations(execConfig, pluginConfig);
+                            items.addAll(extractUnpackDependenciesItems(config));
                         }
                     }
                 }
@@ -1205,8 +1216,13 @@ public class AntExtensionWriter {
                     item.setClassifier(classifier.getValue().trim());
                 }
                 Xpp3Dom outDir = itemNode.getChild("outputDirectory");
-                if (outDir != null && outDir.getValue() != null) {
-                    item.setOutputDirectory(toAntOutputDir(outDir.getValue()));
+                String od = (outDir != null && outDir.getValue() != null)
+                        ? outDir.getValue()
+                        : ((config != null && config.getChild("outputDirectory") != null)
+                                ? config.getChild("outputDirectory").getValue()
+                                : null);
+                if (od != null) {
+                    item.setOutputDirectory(toAntOutputDir(od));
                 }
                 Xpp3Dom inc = itemNode.getChild("includes");
                 if (inc != null && inc.getValue() != null) {
@@ -1232,26 +1248,64 @@ public class AntExtensionWriter {
         return result;
     }
 
+    private List<DependencyUnpackItem> extractUnpackDependenciesItems(Xpp3Dom config) {
+        List<DependencyUnpackItem> result = new ArrayList<>();
+        if (config == null || project.getArtifacts() == null) {
+            return result;
+        }
+        Set<String> inc = parseCsvSet(config.getChild("includeArtifactIds"));
+        Set<String> exc = parseCsvSet(config.getChild("excludeArtifactIds"));
+        String outDir = config.getChild("outputDirectory") != null
+                ? toAntOutputDir(config.getChild("outputDirectory").getValue())
+                : "${maven.build.dir}/dependency";
+        for (Artifact a : project.getArtifacts()) {
+            if ((inc.isEmpty() || inc.contains(a.getArtifactId()))
+                    && (exc.isEmpty() || !exc.contains(a.getArtifactId()))) {
+                DependencyUnpackItem item = new DependencyUnpackItem();
+                item.setGroupId(a.getGroupId());
+                item.setArtifactId(a.getArtifactId());
+                item.setVersion(a.getVersion());
+                item.setType(a.getType() != null ? a.getType() : "jar");
+                item.setClassifier(a.getClassifier());
+                item.setOutputDirectory(outDir);
+                result.add(item);
+            }
+        }
+        return result;
+    }
+
+    private Set<String> parseCsvSet(Xpp3Dom node) {
+        Set<String> set = new HashSet<>();
+        if (node != null && node.getValue() != null) {
+            for (String s : node.getValue().split("[,\\s]+")) {
+                if (!s.trim().isEmpty()) {
+                    set.add(s.trim());
+                }
+            }
+        }
+        return set;
+    }
+
     private String resolveDependencyVersion(String groupId, String artifactId) {
         if (groupId == null || artifactId == null) {
             return null;
         }
         if (project.getDependencies() != null) {
             for (Dependency dep : project.getDependencies()) {
-                if (groupId.equals(dep.getGroupId()) && artifactId.equals(dep.getArtifactId())) {
-                    if (dep.getVersion() != null) {
-                        return dep.getVersion();
-                    }
+                if (groupId.equals(dep.getGroupId())
+                        && artifactId.equals(dep.getArtifactId())
+                        && dep.getVersion() != null) {
+                    return dep.getVersion();
                 }
             }
         }
         if (project.getDependencyManagement() != null
                 && project.getDependencyManagement().getDependencies() != null) {
             for (Dependency dep : project.getDependencyManagement().getDependencies()) {
-                if (groupId.equals(dep.getGroupId()) && artifactId.equals(dep.getArtifactId())) {
-                    if (dep.getVersion() != null) {
-                        return dep.getVersion();
-                    }
+                if (groupId.equals(dep.getGroupId())
+                        && artifactId.equals(dep.getArtifactId())
+                        && dep.getVersion() != null) {
+                    return dep.getVersion();
                 }
             }
         }
