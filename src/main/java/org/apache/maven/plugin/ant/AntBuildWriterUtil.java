@@ -145,6 +145,7 @@ public class AntBuildWriterUtil {
         writer.addAttribute("antfile", "build.xml");
         writer.addAttribute("dir", toRelative(project.getBasedir(), moduleSubPath));
         writer.addAttribute("target", tasks);
+        writer.addAttribute("inheritAll", "false");
         writer.endElement(); // ant
     }
 
@@ -424,6 +425,25 @@ public class AntBuildWriterUtil {
             writer.endElement(); // touch
         }
 
+        boolean addMavenDesc =
+                !"false".equals(getMavenJarPluginBasicOption(project, "archive//addMavenDescriptor", "true"));
+        if (addMavenDesc) {
+            String mdir = "${maven.build.outputDir}/META-INF/maven/${project.groupId}/${project.artifactId}";
+            writer.startElement("mkdir");
+            writer.addAttribute("dir", mdir);
+            writer.endElement(); // mkdir
+            writer.startElement("echo");
+            writer.addAttribute("file", mdir + "/pom.properties");
+            writer.writeText("version=" + project.getVersion() + "\ngroupId=" + project.getGroupId() + "\nartifactId="
+                    + project.getArtifactId() + "\n");
+            writer.endElement(); // echo
+            writer.startElement("copy");
+            writer.addAttribute("file", "${basedir}/pom.xml");
+            writer.addAttribute("tofile", mdir + "/pom.xml");
+            writer.addAttribute("failonerror", "false");
+            writer.endElement(); // copy
+        }
+
         writer.startElement("jar");
         writer.addAttribute("jarfile", "${maven.build.dir}/${maven.build.finalName}.jar");
         addWrapAttribute(
@@ -680,6 +700,25 @@ public class AntBuildWriterUtil {
      */
     public static boolean isPomPackaging(MavenProject mavenProject) {
         return "pom".equals(mavenProject.getPackaging());
+    }
+
+    /**
+     * Finds sibling project in the reactor corresponding to the artifact.
+     *
+     * @param artifact artifact to find
+     * @param reactorProjects list of projects in the reactor
+     * @return matching MavenProject or null
+     */
+    public static MavenProject findReactorProject(Artifact artifact, List<MavenProject> reactorProjects) {
+        if (reactorProjects != null && artifact != null) {
+            for (MavenProject reactorProj : reactorProjects) {
+                if (reactorProj.getGroupId().equals(artifact.getGroupId())
+                        && reactorProj.getArtifactId().equals(artifact.getArtifactId())) {
+                    return reactorProj;
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -1872,23 +1911,20 @@ public class AntBuildWriterUtil {
             if (isVersionStartingWith(version, "4")) {
                 return true;
             }
-            if (isVersionStartingWith(version, "3")
-                    || isVersionStartingWith(version, "2")
-                    || isVersionStartingWith(version, "1")) {
-                return false;
-            }
-            return version == null || version.isEmpty();
+            return !isVersionStartingWith(version, "3")
+                    && !isVersionStartingWith(version, "2")
+                    && !isVersionStartingWith(version, "1")
+                    && (version == null || version.isEmpty());
         }
         return false;
     }
 
     private static boolean isJunit3(String groupId, String artifactId, String version) {
-        if (("junit".equals(groupId) || "org.junit".equals(groupId)) && "junit".equals(artifactId)) {
-            return isVersionStartingWith(version, "3")
-                    || isVersionStartingWith(version, "2")
-                    || isVersionStartingWith(version, "1");
-        }
-        return false;
+        return ("junit".equals(groupId) || "org.junit".equals(groupId))
+                && "junit".equals(artifactId)
+                && (isVersionStartingWith(version, "3")
+                        || isVersionStartingWith(version, "2")
+                        || isVersionStartingWith(version, "1"));
     }
 
     private static boolean isVersionStartingWith(String version, String prefix) {
@@ -1941,11 +1977,9 @@ public class AntBuildWriterUtil {
                 qualifier = qualifier.substring(1);
             }
             if (qualifier.length() > 0) {
-                qualifier = qualifier.replaceAll("[^a-zA-Z0-9_-]", "_");
-                return major + minor + micro + "." + qualifier;
-            } else {
-                return major + minor + micro;
+                return major + minor + micro + "." + qualifier.replaceAll("[^a-zA-Z0-9_-]", "_");
             }
+            return major + minor + micro;
         }
 
         return clean;

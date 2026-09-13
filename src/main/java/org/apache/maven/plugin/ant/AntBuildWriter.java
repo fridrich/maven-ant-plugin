@@ -101,6 +101,8 @@ public class AntBuildWriter {
 
     private final AntExtensionWriter extensionWriter;
 
+    private final AntAssemblyWriter assemblyWriter;
+
     private final AntTestWriter testWriter;
 
     private final Set<Artifact> injectedArtifacts = new LinkedHashSet<Artifact>();
@@ -129,6 +131,7 @@ public class AntBuildWriter {
         this.overwrite = overwrite;
         this.executionProperties = (executionProperties != null) ? executionProperties : new Properties();
         this.extensionWriter = new AntExtensionWriter(project);
+        this.assemblyWriter = new AntAssemblyWriter(project, extensionWriter);
         this.testWriter = new AntTestWriter(project, extensionWriter);
         this.reactorProjects = reactorProjects;
     }
@@ -163,7 +166,9 @@ public class AntBuildWriter {
      */
     @SuppressWarnings("checkstyle:MethodLength")
     protected void writeBuildProperties() throws IOException {
-        if (AntBuildWriterUtil.isPomPackaging(project)) {
+        if (AntBuildWriterUtil.isPomPackaging(project)
+                && !assemblyWriter.isAssemblyProject()
+                && !extensionWriter.isDependencyUnpackProject()) {
             return;
         }
 
@@ -427,7 +432,7 @@ public class AntBuildWriter {
             // ----------------------------------------------------------------------
             // <target name="templates|javacc|jflex|cup|mdo" />
             // ----------------------------------------------------------------------
-            if (!AntBuildWriterUtil.isPomPackaging(project)
+            if ((!AntBuildWriterUtil.isPomPackaging(project) || extensionWriter.isDependencyUnpackProject())
                     && (extensionWriter.isJavaccProject()
                             || extensionWriter.isTemplatingProject()
                             || extensionWriter.isJflexProject()
@@ -482,6 +487,13 @@ public class AntBuildWriter {
                 if (!testCompileSourceRoots.isEmpty()) {
                     extensionWriter.writePlexusTestTarget(writer, testCompileSourceRoots);
                 }
+            }
+
+            // ----------------------------------------------------------------------
+            // <target name="assembly" />
+            // ----------------------------------------------------------------------
+            if (assemblyWriter.isAssemblyProject()) {
+                assemblyWriter.writeAssemblyTarget(writer, artifactResolverWrapper, reactorProjects);
             }
 
             // ----------------------------------------------------------------------
@@ -573,7 +585,9 @@ public class AntBuildWriter {
      */
     @SuppressWarnings("checkstyle:MethodLength")
     private void writeProperties(XMLWriter writer) {
-        if (AntBuildWriterUtil.isPomPackaging(project)) {
+        if (AntBuildWriterUtil.isPomPackaging(project)
+                && !assemblyWriter.isAssemblyProject()
+                && !extensionWriter.isDependencyUnpackProject()) {
             return;
         }
 
@@ -880,7 +894,9 @@ public class AntBuildWriter {
      */
     @SuppressWarnings("deprecation")
     private void writeBuildPathDefinition(XMLWriter writer) throws IOException {
-        if (AntBuildWriterUtil.isPomPackaging(project)) {
+        if (AntBuildWriterUtil.isPomPackaging(project)
+                && !assemblyWriter.isAssemblyProject()
+                && !extensionWriter.isDependencyUnpackProject()) {
             return;
         }
 
@@ -981,7 +997,8 @@ public class AntBuildWriter {
 
         if (AntBuildWriterUtil.isPomPackaging(project)) {
             writeModuleTasks(writer, "clean");
-        } else {
+        }
+        if (!AntBuildWriterUtil.isPomPackaging(project) || assemblyWriter.isAssemblyProject()) {
             writer.startElement("delete");
             writer.addAttribute("dir", "${maven.build.dir}");
             writer.endElement(); // delete
@@ -1234,12 +1251,20 @@ public class AntBuildWriter {
                 depends.add("compile");
             }
             depends.add("test");
+            if (assemblyWriter.isAssemblyProject()) {
+                depends.add("assembly");
+            }
             writer.addAttribute("depends", String.join(",", depends));
         }
         writer.addAttribute("description", "Package the application");
 
         if (AntBuildWriterUtil.isPomPackaging(project)) {
             writeModuleTasks(writer, "package");
+            if (assemblyWriter.isAssemblyProject()) {
+                writer.startElement("antcall");
+                writer.addAttribute("target", "assembly");
+                writer.endElement(); // antcall
+            }
         } else {
             if (AntBuildWriterUtil.isJarPackaging(project)) {
                 AntBuildWriterUtil.writeJarTask(writer, project);
@@ -1256,7 +1281,7 @@ public class AntBuildWriter {
             } else if (AntBuildWriterUtil.isWarPackaging(project)) {
                 AntBuildWriterUtil.writeWarTask(writer, project, artifactResolverWrapper);
                 synonym = "war";
-            } else {
+            } else if (!assemblyWriter.isAssemblyProject()) {
                 writer.startElement("echo");
                 writer.addAttribute(
                         "message",
@@ -1587,7 +1612,9 @@ public class AntBuildWriter {
      * @param writer
      */
     private void writeGetDepsTarget(XMLWriter writer) {
-        if (AntBuildWriterUtil.isPomPackaging(project)) {
+        if (AntBuildWriterUtil.isPomPackaging(project)
+                && !assemblyWriter.isAssemblyProject()
+                && !extensionWriter.isDependencyUnpackProject()) {
             return;
         }
 
