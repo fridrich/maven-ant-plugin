@@ -1088,8 +1088,8 @@ public class AntExtensionWriter {
 
         writer.writeMarkup("\n    <!-- Example:\n"
                 + "    <exec executable=\"xmvn\" failonerror=\"true\">\n"
-                + "      <arg value=\"--batch-mode\"/>\n"
-                + "      <arg value=\"--offline\"/>\n"
+                + "      <arg value=\"-B\"/>\n"
+                + "      <arg value=\"-o\"/>\n"
                 + "      <arg value=\"org.apache.maven.plugins:maven-plugin-plugin:helpmojo\"/>\n"
                 + "    </exec>\n"
                 + "    -->\n  ");
