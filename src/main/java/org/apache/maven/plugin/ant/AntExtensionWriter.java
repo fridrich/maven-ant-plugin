@@ -48,14 +48,18 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
  */
 public class AntExtensionWriter {
     private final MavenProject project;
-    private boolean offline;
+    private boolean standalone;
 
     public AntExtensionWriter(MavenProject project) {
         this.project = project;
     }
 
+    public void setStandalone(boolean standalone) {
+        this.standalone = standalone;
+    }
+
     public void setOffline(boolean offline) {
-        this.offline = offline;
+        setStandalone(offline);
     }
 
     private boolean hasPlugin(String... artifactIds) {
@@ -765,7 +769,7 @@ public class AntExtensionWriter {
 
             writer.startElement("target");
             writer.addAttribute("name", "templates");
-            if (!offline) {
+            if (!standalone) {
                 writer.addAttribute("depends", "get-deps");
             }
             writer.addAttribute("description", "Generate the sources");
@@ -796,7 +800,7 @@ public class AntExtensionWriter {
         if (isJavaccProject()) {
             writer.startElement("target");
             writer.addAttribute("name", "javacc");
-            if (!offline) {
+            if (!standalone) {
                 writer.addAttribute("depends", "get-deps");
             }
             writer.addAttribute("description", "Generate the sources");
@@ -873,7 +877,7 @@ public class AntExtensionWriter {
     public void writeJflexCompileTarget(XMLWriter writer) throws IOException {
         writer.startElement("target");
         writer.addAttribute("name", "jflex");
-        if (!offline) {
+        if (!standalone) {
             writer.addAttribute("depends", "get-deps");
         }
         writer.addAttribute("description", "Generate the sources");
@@ -933,7 +937,7 @@ public class AntExtensionWriter {
     public void writeCupCompileTarget(XMLWriter writer) throws IOException {
         writer.startElement("target");
         writer.addAttribute("name", "cup");
-        if (!offline) {
+        if (!standalone) {
             writer.addAttribute("depends", "get-deps");
         }
         writer.addAttribute("description", "Generate the sources");
@@ -994,7 +998,7 @@ public class AntExtensionWriter {
 
         writer.startElement("target");
         writer.addAttribute("name", "mdo");
-        if (!offline) {
+        if (!standalone) {
             writer.addAttribute("depends", "get-deps");
         }
         writer.addAttribute("description", "Generate sources from mdo files");
@@ -1077,7 +1081,7 @@ public class AntExtensionWriter {
 
         writer.startElement("target");
         writer.addAttribute("name", "helpmojo");
-        if (!offline) {
+        if (!standalone) {
             writer.addAttribute("depends", "get-deps");
         }
         writer.addAttribute("description", "Generate help mojo");
@@ -1108,7 +1112,7 @@ public class AntExtensionWriter {
         XmlWriterUtil.writeCommentText(writer, "Unpack dependencies target", 1);
         writer.startElement("target");
         writer.addAttribute("name", "unpack-dependencies");
-        if (!offline) {
+        if (!standalone) {
             writer.addAttribute("depends", "get-deps");
         }
         writer.addAttribute("description", "Unpack dependencies");

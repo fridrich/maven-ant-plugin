@@ -91,6 +91,12 @@ public class AntMojo extends AbstractMojo {
     private boolean overwrite;
 
     /**
+     * Whether to generate standalone Ant build without repository dependencies.
+     */
+    @Parameter(property = "standalone", defaultValue = "false")
+    private boolean standalone;
+
+    /**
      * The current Maven session.
      */
     @Parameter(defaultValue = "${session}", readonly = true, required = true)
@@ -126,6 +132,12 @@ public class AntMojo extends AbstractMojo {
             if (session.getUserProperties() != null) {
                 executionProperties.putAll(session.getUserProperties());
             }
+        }
+        if (executionProperties == null) {
+            executionProperties = new Properties();
+        }
+        if (standalone) {
+            executionProperties.setProperty("standalone", "true");
         }
         if (session != null && session.isOffline() && settings != null) {
             settings.setOffline(true);

@@ -33,6 +33,7 @@ import org.apache.tools.ant.BuildException;
 import org.codehaus.plexus.util.FileUtils;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -457,16 +458,12 @@ public class AntMojoTest {
         assertTrue(buildXmlFile.exists(), "maven-build.xml was not created");
         String mavenBuildXml = FileUtils.fileRead(buildXmlFile);
 
-        assertFalse(mavenBuildXml.contains("<target name=\"get-deps\""), "get-deps target should not be generated");
-        assertFalse(mavenBuildXml.contains("depends=\"get-deps\""), "depends=get-deps should not be generated");
-        assertTrue(mavenBuildXml.contains("<fileset dir="), "lib fileset should be generated");
-        assertTrue(mavenBuildXml.contains("<include name=\"**/*.jar\"/>"), "lib jar include should be generated");
-        assertFalse(
+        assertTrue(mavenBuildXml.contains("<target name=\"get-deps\""), "get-deps target should be generated");
+        assertTrue(mavenBuildXml.contains("depends=\"get-deps\""), "depends=get-deps should be generated");
+        assertTrue(mavenBuildXml.contains("<target name=\"test-offline\""), "test-offline target should be generated");
+        assertTrue(
                 mavenBuildXml.contains("${maven.repo.local}/"),
-                "maven.repo.local should not be referenced in offline classpath");
-        assertFalse(mavenBuildXml.contains("name=\"maven.repo.local\""));
-        assertFalse(mavenBuildXml.contains("name=\"maven.settings.offline\""));
-        assertFalse(mavenBuildXml.contains("name=\"maven.settings.interactiveMode\""));
+                "maven.repo.local should be referenced in non-standalone classpath");
 
         File propertiesFile = new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_PROPERTIES_FILENAME);
         assertTrue(propertiesFile.exists(), "maven-build.properties was not created");
@@ -474,16 +471,37 @@ public class AntMojoTest {
         try (FileInputStream is = new FileInputStream(propertiesFile)) {
             properties.load(is);
         }
-        assertFalse(properties.containsKey("maven.repo.local"));
-        assertFalse(properties.containsKey("maven.settings.offline"));
-        assertFalse(properties.containsKey("maven.settings.interactiveMode"));
+        assertTrue(properties.containsKey("maven.repo.local"));
+        assertEquals("true", properties.getProperty("maven.settings.offline"));
     }
 
     @Test
     @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-test/pom.xml")
-    public void testProjectOfflineWithReactor(AntMojo mojo) throws Exception {
-        Settings settings = MojoExtension.getVariableValueFromObject(mojo, "settings");
-        settings.setOffline(true);
+    public void testProjectStandalone(AntMojo mojo) throws Exception {
+        MojoExtension.setVariableValueToObject(mojo, "standalone", true);
+        mojo.execute();
+
+        File antBasedir = new File("target/test/unit/ant-test/");
+        File buildXmlFile = new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME);
+        assertTrue(buildXmlFile.exists(), "maven-build.xml was not created");
+        String mavenBuildXml = FileUtils.fileRead(buildXmlFile);
+
+        assertFalse(mavenBuildXml.contains("<target name=\"get-deps\""), "get-deps target should not be generated");
+        assertFalse(mavenBuildXml.contains("depends=\"get-deps\""), "depends=get-deps should not be generated");
+        assertTrue(mavenBuildXml.contains("<fileset dir="), "lib fileset should be generated");
+        assertTrue(mavenBuildXml.contains("<include name=\"**/*.jar\"/>"), "lib jar include should be generated");
+        assertFalse(
+                mavenBuildXml.contains("${maven.repo.local}/"),
+                "maven.repo.local should not be referenced in standalone classpath");
+        assertFalse(mavenBuildXml.contains("name=\"maven.repo.local\""));
+        assertFalse(mavenBuildXml.contains("name=\"maven.settings.offline\""));
+        assertFalse(mavenBuildXml.contains("name=\"maven.settings.interactiveMode\""));
+    }
+
+    @Test
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-test/pom.xml")
+    public void testProjectStandaloneWithReactor(AntMojo mojo) throws Exception {
+        MojoExtension.setVariableValueToObject(mojo, "standalone", true);
 
         MavenProject project = MojoExtension.getVariableValueFromObject(mojo, "project");
         MavenSession session = MojoExtension.getVariableValueFromObject(mojo, "session");
@@ -513,7 +531,7 @@ public class AntMojoTest {
                 "sibling project classes pathelement not found");
         assertFalse(
                 mavenBuildXml.contains("${maven.repo.local}/"),
-                "maven.repo.local should not be referenced in offline classpath");
+                "maven.repo.local should not be referenced in standalone classpath");
         assertFalse(mavenBuildXml.contains("name=\"maven.repo.local\""));
         assertFalse(mavenBuildXml.contains("name=\"maven.settings.offline\""));
         assertFalse(mavenBuildXml.contains("name=\"maven.settings.interactiveMode\""));
@@ -555,9 +573,8 @@ public class AntMojoTest {
 
     @Test
     @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-nodep-test/pom.xml")
-    public void testPluginProjectOffline(AntMojo mojo) throws Exception {
-        Settings settings = MojoExtension.getVariableValueFromObject(mojo, "settings");
-        settings.setOffline(true);
+    public void testPluginProjectStandalone(AntMojo mojo) throws Exception {
+        MojoExtension.setVariableValueToObject(mojo, "standalone", true);
         MavenProject project = MojoExtension.getVariableValueFromObject(mojo, "project");
         project.setPackaging("maven-plugin");
 
@@ -569,7 +586,7 @@ public class AntMojoTest {
 
         assertTrue(
                 mavenBuildXml.contains("<target name=\"helpmojo\" description=\"Generate help mojo\">"),
-                "helpmojo should not depend on get-deps in offline mode");
+                "helpmojo should not depend on get-deps in standalone mode");
         assertFalse(mavenBuildXml.contains("<target name=\"helpmojo\" depends=\"get-deps\""));
         assertTrue(mavenBuildXml.contains("depends=\"helpmojo\""), "compile does not depend on helpmojo");
     }

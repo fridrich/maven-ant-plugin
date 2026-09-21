@@ -153,17 +153,15 @@ public class AntBuildWriter {
         this.overwrite = overwrite;
         this.executionProperties = (executionProperties != null) ? executionProperties : new Properties();
         this.extensionWriter = new AntExtensionWriter(project);
-        this.extensionWriter.setOffline(isOffline());
+        this.extensionWriter.setStandalone(isStandalone());
         this.assemblyWriter = new AntAssemblyWriter(project, extensionWriter);
         this.testWriter = new AntTestWriter(project, extensionWriter);
         this.reactorProjects = reactorProjects;
         this.rootProjectDir = (rootProjectDir != null) ? rootProjectDir : new File(System.getProperty("user.dir"));
     }
 
-    private boolean isOffline() {
-        return (settings != null && settings.isOffline())
-                || Boolean.parseBoolean(executionProperties.getProperty("maven.settings.offline", "false"))
-                || Boolean.parseBoolean(executionProperties.getProperty("offline", "false"));
+    private boolean isStandalone() {
+        return Boolean.parseBoolean(executionProperties.getProperty("standalone", "false"));
     }
 
     private MavenProject findReactorProject(Artifact artifact) {
@@ -304,7 +302,7 @@ public class AntBuildWriter {
         // Settings properties
         // ----------------------------------------------------------------------
 
-        if (!isOffline()) {
+        if (!isStandalone()) {
             addProperty(properties, "maven.repo.local", getLocalRepositoryPath());
             addProperty(properties, "maven.settings.offline", String.valueOf(settings.isOffline()));
             addProperty(properties, "maven.settings.interactiveMode", String.valueOf(settings.isInteractiveMode()));
@@ -538,7 +536,7 @@ public class AntBuildWriter {
             // ----------------------------------------------------------------------
             // <target name="get-deps" />
             // ----------------------------------------------------------------------
-            if (!isOffline()) {
+            if (!isStandalone()) {
                 writeGetDepsTarget(writer);
             }
 
@@ -751,7 +749,7 @@ public class AntBuildWriter {
         // Settings properties
         // ----------------------------------------------------------------------
 
-        if (!isOffline()) {
+        if (!isStandalone()) {
             XmlWriterUtil.writeLineBreak(writer, 2, 1);
 
             writeProperty(writer, "maven.repo.local", getLocalRepositoryPath());
@@ -952,7 +950,7 @@ public class AntBuildWriter {
         writer.startElement("path");
         writer.addAttribute("id", id);
 
-        if (isOffline()) {
+        if (isStandalone()) {
             if (artifacts != null) {
                 for (Artifact artifact : artifacts) {
                     MavenProject sibling = findReactorProject(artifact);
@@ -1098,7 +1096,7 @@ public class AntBuildWriter {
             Set<Integer> mrVersions = computeMultiReleaseVersions(compilerExecutions, baseVersion, true);
 
             String genSourceTargets = extensionWriter.getGenSourceTargets();
-            String baseDepends = genSourceTargets.isEmpty() ? (isOffline() ? null : "get-deps") : genSourceTargets;
+            String baseDepends = genSourceTargets.isEmpty() ? (isStandalone() ? null : "get-deps") : genSourceTargets;
 
             if (mrVersions.isEmpty()) {
                 writer.startElement("target");
