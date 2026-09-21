@@ -19,8 +19,10 @@
 package org.apache.maven.plugin.ant;
 
 import java.io.File;
-import java.io.FileReader;
+import java.io.IOException;
 import java.io.Reader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -34,6 +36,7 @@ import org.codehaus.plexus.util.xml.XMLWriter;
 import org.codehaus.plexus.util.xml.XmlWriterUtil;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.codehaus.plexus.util.xml.Xpp3DomBuilder;
+import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
 /**
  * Generates Ant targets for maven-assembly-plugin executions.
@@ -107,11 +110,11 @@ public class AntAssemblyWriter {
                 descFile = new File(descPath);
             }
             if (descFile.exists()) {
-                try (Reader reader = new FileReader(descFile)) {
+                try (Reader reader = Files.newBufferedReader(descFile.toPath(), StandardCharsets.UTF_8)) {
                     Xpp3Dom assemblyDom = Xpp3DomBuilder.build(reader);
                     AssemblyExecution exec = parseAssemblyDom(assemblyDom, config, descFile.getParentFile());
                     result.add(exec);
-                } catch (Exception e) {
+                } catch (IOException | XmlPullParserException e) {
                     // ponytail: ignore unparseable descriptor, fallback to standard targets
                 }
             }
@@ -171,10 +174,10 @@ public class AntAssemblyWriter {
                         compFile = new File(baseDir, compPath);
                     }
                     if (compFile.exists()) {
-                        try (Reader r = new FileReader(compFile)) {
+                        try (Reader r = Files.newBufferedReader(compFile.toPath(), StandardCharsets.UTF_8)) {
                             Xpp3Dom compDom = Xpp3DomBuilder.build(r);
                             parseAssemblyComponents(compDom, exec);
-                        } catch (Exception e) {
+                        } catch (IOException | XmlPullParserException e) {
                             // ponytail: skip unparseable component descriptor
                         }
                     }
@@ -332,9 +335,6 @@ public class AntAssemblyWriter {
         if (project.getArtifacts() != null) {
             allArtifacts.addAll(project.getArtifacts());
         }
-        if (allArtifacts.isEmpty() && project.getRuntimeArtifacts() != null) {
-            allArtifacts.addAll(project.getRuntimeArtifacts());
-        }
 
         for (AssemblyExecution.AssemblyDependencySet ds : exec.getDependencySets()) {
             String outDir = ds.getOutputDirectory();
@@ -354,13 +354,12 @@ public class AntAssemblyWriter {
                         && artifact.getArtifactId().equals(project.getArtifactId())) {
                     continue;
                 }
-                if (Artifact.SCOPE_TEST.equals(artifact.getScope())
-                        || Artifact.SCOPE_PROVIDED.equals(artifact.getScope())) {
-                    if (ds.getScope() == null
-                            || (!ds.getScope().equals(artifact.getScope())
-                                    && !ds.getScope().equals("test"))) {
-                        continue;
-                    }
+                if ((Artifact.SCOPE_TEST.equals(artifact.getScope())
+                                || Artifact.SCOPE_PROVIDED.equals(artifact.getScope()))
+                        && (ds.getScope() == null
+                                || (!ds.getScope().equals(artifact.getScope())
+                                        && !ds.getScope().equals("test")))) {
+                    continue;
                 }
                 if (!ds.getIncludes().isEmpty() && !matchesAssemblyPattern(artifact, ds.getIncludes())) {
                     continue;

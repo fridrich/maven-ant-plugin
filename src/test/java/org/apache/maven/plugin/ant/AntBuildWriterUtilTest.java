@@ -21,6 +21,7 @@ package org.apache.maven.plugin.ant;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -31,6 +32,7 @@ import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.ProjectBuilder;
 import org.apache.maven.project.ProjectBuildingRequest;
 import org.codehaus.plexus.testing.PlexusTest;
+import org.codehaus.plexus.util.xml.PrettyPrintXMLWriter;
 import org.eclipse.aether.DefaultRepositorySystemSession;
 import org.junit.jupiter.api.Test;
 
@@ -168,9 +170,8 @@ public class AntBuildWriterUtilTest {
     public void testWriteAntTask() {
         MavenProject project = new MavenProject();
         project.setFile(new File("pom.xml"));
-        java.io.StringWriter sw = new java.io.StringWriter();
-        org.codehaus.plexus.util.xml.PrettyPrintXMLWriter writer =
-                new org.codehaus.plexus.util.xml.PrettyPrintXMLWriter(sw);
+        StringWriter sw = new StringWriter();
+        PrettyPrintXMLWriter writer = new PrettyPrintXMLWriter(sw);
         AntBuildWriterUtil.writeAntTask(writer, project, "submodule", "package");
         String xml = sw.toString();
         assertTrue(xml.contains("<ant"));

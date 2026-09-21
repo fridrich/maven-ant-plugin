@@ -20,10 +20,12 @@ package org.apache.maven.plugin.ant.stubs;
 
 import java.util.Properties;
 
+import org.apache.maven.model.Model;
+
 public class AntPlexusMetadataTestMavenProjectStub extends AbstractAntTestMavenProjectStub {
     public AntPlexusMetadataTestMavenProjectStub() {
         super();
-        org.apache.maven.model.Model model = getModel();
+        Model model = getModel();
         if (model.getBuild() != null) {
             getBuild().setPlugins(model.getBuild().getPlugins());
         }

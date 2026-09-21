@@ -35,6 +35,7 @@ import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Plugin;
 import org.apache.maven.model.PluginExecution;
 import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.util.FileUtils;
 import org.codehaus.plexus.util.StringUtils;
 import org.codehaus.plexus.util.xml.XMLWriter;
 import org.codehaus.plexus.util.xml.XmlWriterUtil;
@@ -1216,11 +1217,10 @@ public class AntExtensionWriter {
                     item.setClassifier(classifier.getValue().trim());
                 }
                 Xpp3Dom outDir = itemNode.getChild("outputDirectory");
-                String od = (outDir != null && outDir.getValue() != null)
-                        ? outDir.getValue()
-                        : ((config != null && config.getChild("outputDirectory") != null)
-                                ? config.getChild("outputDirectory").getValue()
-                                : null);
+                if (outDir == null || outDir.getValue() == null) {
+                    outDir = config.getChild("outputDirectory");
+                }
+                String od = outDir != null ? outDir.getValue() : null;
                 if (od != null) {
                     item.setOutputDirectory(toAntOutputDir(od));
                 }
@@ -1714,8 +1714,7 @@ public class AntExtensionWriter {
             try {
                 File bndFile = new File(project.getBasedir(), "bnd.bnd");
                 if (bndFile.isFile()) {
-                    hasBundleVersion =
-                            hasBndKey(org.codehaus.plexus.util.FileUtils.fileRead(bndFile), "Bundle-Version");
+                    hasBundleVersion = hasBndKey(FileUtils.fileRead(bndFile), "Bundle-Version");
                 }
             } catch (Exception e) {
                 // ignore

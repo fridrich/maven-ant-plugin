@@ -20,6 +20,8 @@ package org.apache.maven.plugin.ant.stubs;
 
 import java.util.Properties;
 
+import org.apache.maven.model.Model;
+
 /**
  * @author <a href="mailto:vincent.siveton@gmail.com">Vincent Siveton</a>
  * @version $Id: AntTestMavenProjectStub.java 639646 2008-03-21 13:58:11Z bentmann $
@@ -27,7 +29,7 @@ import java.util.Properties;
 public class AntTestMavenProjectStub extends AbstractAntTestMavenProjectStub {
     public AntTestMavenProjectStub() {
         super();
-        org.apache.maven.model.Model model = getModel();
+        Model model = getModel();
         if (model.getBuild() != null) {
             getBuild().setPlugins(model.getBuild().getPlugins());
         }

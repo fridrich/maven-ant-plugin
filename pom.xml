@@ -43,22 +43,6 @@ under the License.
     <maven>${mavenVersion}</maven>
   </prerequisites>
 
-  <scm>
-    <connection>scm:svn:http://svn.apache.org/repos/asf/maven/plugins/tags/maven-ant-plugin-2.4</connection>
-    <developerConnection>scm:svn:https://svn.apache.org/repos/asf/maven/plugins/tags/maven-ant-plugin-2.4</developerConnection>
-    <url>http://svn.apache.org/viewvc/maven/plugins/tags/maven-ant-plugin-2.4</url>
-  </scm>
-  <issueManagement>
-    <system>jira</system>
-    <url>http://jira.codehaus.org/browse/MANT</url>
-  </issueManagement>
-  <distributionManagement>
-    <site>
-      <id>apache.website</id>
-      <url>scm:svn:https://svn.apache.org/repos/infra/websites/production/maven/content/${maven.site.path}</url>
-    </site>
-  </distributionManagement>
-
   <properties>
     <mavenVersion>3.9.16</mavenVersion>
     <resolverVersion>1.9.27</resolverVersion>

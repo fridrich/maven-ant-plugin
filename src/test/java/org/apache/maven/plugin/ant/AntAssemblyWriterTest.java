@@ -22,6 +22,7 @@ import javax.inject.Inject;
 
 import java.io.File;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -172,7 +173,7 @@ public class AntAssemblyWriterTest {
 
     private MavenProject setupAssemblyProject(Path tempDir) throws Exception {
         Path pomFile = tempDir.resolve("pom.xml");
-        Files.write(pomFile, "<project/>".getBytes());
+        Files.write(pomFile, "<project/>".getBytes(StandardCharsets.UTF_8));
 
         Path descFile = tempDir.resolve("assembly-bin.xml");
         String descriptorXml = "<assembly xmlns=\"http://maven.apache.org/ASSEMBLY/2.2.0\">\n"
@@ -220,7 +221,7 @@ public class AntAssemblyWriterTest {
                 + "    </file>\n"
                 + "  </files>\n"
                 + "</assembly>";
-        Files.write(descFile, descriptorXml.getBytes());
+        Files.write(descFile, descriptorXml.getBytes(StandardCharsets.UTF_8));
 
         MavenProject project = new MavenProject();
         project.setFile(pomFile.toFile());
@@ -256,7 +257,7 @@ public class AntAssemblyWriterTest {
     @Test
     public void testComponentDescriptorInclusion(@TempDir Path tempDir) throws Exception {
         Path pomFile = tempDir.resolve("pom.xml");
-        Files.write(pomFile, "<project/>".getBytes());
+        Files.write(pomFile, "<project/>".getBytes(StandardCharsets.UTF_8));
 
         Path compFile = tempDir.resolve("component.xml");
         String compXml = "<component xmlns=\"http://maven.apache.org/ASSEMBLY/2.2.0\">\n"
@@ -267,7 +268,7 @@ public class AntAssemblyWriterTest {
                 + "    </fileSet>\n"
                 + "  </fileSets>\n"
                 + "</component>";
-        Files.write(compFile, compXml.getBytes());
+        Files.write(compFile, compXml.getBytes(StandardCharsets.UTF_8));
 
         Path descFile = tempDir.resolve("assembly-with-comp.xml");
         String descXml = "<assembly xmlns=\"http://maven.apache.org/ASSEMBLY/2.2.0\">\n"
@@ -279,7 +280,7 @@ public class AntAssemblyWriterTest {
                 + "    <componentDescriptor>component.xml</componentDescriptor>\n"
                 + "  </componentDescriptors>\n"
                 + "</assembly>";
-        Files.write(descFile, descXml.getBytes());
+        Files.write(descFile, descXml.getBytes(StandardCharsets.UTF_8));
 
         MavenProject project = new MavenProject();
         project.setFile(pomFile.toFile());
