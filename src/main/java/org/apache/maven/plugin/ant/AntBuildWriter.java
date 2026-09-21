@@ -462,15 +462,10 @@ public class AntBuildWriter {
             writeCleanTarget(writer);
 
             // ----------------------------------------------------------------------
-            // <target name="templates|javacc|jflex|cup|mdo" />
+            // <target name="templates|javacc|jflex|cup|mdo|helpmojo" />
             // ----------------------------------------------------------------------
             if ((!AntBuildWriterUtil.isPomPackaging(project) || extensionWriter.isDependencyUnpackProject())
-                    && (extensionWriter.isJavaccProject()
-                            || extensionWriter.isTemplatingProject()
-                            || extensionWriter.isJflexProject()
-                            || extensionWriter.isCupProject()
-                            || extensionWriter.isModelloProject()
-                            || extensionWriter.isDependencyUnpackProject())) {
+                    && !extensionWriter.getGenSourceTargets().isEmpty()) {
                 extensionWriter.writeGenSourcesTarget(writer);
             }
 
@@ -519,6 +514,13 @@ public class AntBuildWriter {
                 if (!testCompileSourceRoots.isEmpty()) {
                     extensionWriter.writePlexusTestTarget(writer, testCompileSourceRoots);
                 }
+            }
+
+            // ----------------------------------------------------------------------
+            // <target name="plugin-descriptor" />
+            // ----------------------------------------------------------------------
+            if (AntBuildWriterUtil.isMavenPluginPackaging(project)) {
+                writePluginDescriptorTarget(writer);
             }
 
             // ----------------------------------------------------------------------
@@ -1295,6 +1297,21 @@ public class AntBuildWriter {
         XmlWriterUtil.writeLineBreak(writer);
     }
 
+    private void writePluginDescriptorTarget(XMLWriter writer) throws IOException {
+        XmlWriterUtil.writeCommentText(writer, "Plugin descriptor target", 1);
+
+        writer.startElement("target");
+        writer.addAttribute("name", "plugin-descriptor");
+        writer.addAttribute("depends", "compile");
+        writer.addAttribute("description", "Generate plugin descriptor");
+
+        XmlWriterUtil.writeComment(writer, "Fill up with plugin descriptor generation if needed", 2);
+
+        writer.endElement(); // target
+
+        XmlWriterUtil.writeLineBreak(writer);
+    }
+
     /**
      * Write package target in the writer depending the packaging of the project.
      *
@@ -1315,6 +1332,9 @@ public class AntBuildWriter {
             }
             if (extensionWriter.isPlexusProject()) {
                 depends.add("plexus");
+            }
+            if (AntBuildWriterUtil.isMavenPluginPackaging(project)) {
+                depends.add("plugin-descriptor");
             }
             if (depends.isEmpty()) {
                 depends.add("compile");
@@ -1434,6 +1454,13 @@ public class AntBuildWriter {
             String modelloOutputDir = "${maven.build.mdoOutputDir}";
             if (!isCompileSourceRoot(compileSourceRoots, modelloOutputDir) && !dirs.contains(modelloOutputDir)) {
                 dirs.add(modelloOutputDir);
+            }
+        }
+
+        if (AntBuildWriterUtil.isMavenPluginPackaging(project)) {
+            String pluginOutputDir = "${maven.build.dir}/generated-sources/plugin";
+            if (!isCompileSourceRoot(compileSourceRoots, pluginOutputDir) && !dirs.contains(pluginOutputDir)) {
+                dirs.add(pluginOutputDir);
             }
         }
 

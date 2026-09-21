@@ -510,4 +510,56 @@ public class AntMojoTest {
         assertFalse(mavenBuildXml.contains("name=\"maven.settings.offline\""));
         assertFalse(mavenBuildXml.contains("name=\"maven.settings.interactiveMode\""));
     }
+
+    @Test
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-nodep-test/pom.xml")
+    public void testPluginProject(AntMojo mojo) throws Exception {
+        MavenProject project = MojoExtension.getVariableValueFromObject(mojo, "project");
+        project.setPackaging("maven-plugin");
+
+        mojo.execute();
+
+        File antBasedir = new File("target/test/unit/ant-nodep-test/");
+        File buildXmlFile = new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME);
+        assertTrue(buildXmlFile.exists(), "maven-build.xml was not created");
+        String mavenBuildXml = FileUtils.fileRead(buildXmlFile);
+
+        assertTrue(mavenBuildXml.contains("<target name=\"helpmojo\""), "helpmojo target not found");
+        assertTrue(
+                mavenBuildXml.contains("<mkdir dir=\"${maven.build.dir}/generated-sources/plugin\"/>"),
+                "mkdir for plugin generated sources not found");
+        assertTrue(mavenBuildXml.contains("depends=\"helpmojo\""), "compile does not depend on helpmojo");
+        assertTrue(
+                mavenBuildXml.contains("<pathelement location=\"${maven.build.dir}/generated-sources/plugin\"/>"),
+                "generated-sources/plugin not in javac path");
+        assertTrue(mavenBuildXml.contains("<target name=\"plugin-descriptor\""), "plugin-descriptor target not found");
+        assertTrue(mavenBuildXml.contains("depends=\"compile\""), "plugin-descriptor should depend on compile");
+        assertTrue(
+                mavenBuildXml.contains("Fill up with plugin descriptor generation if needed"),
+                "plugin-descriptor comment not found");
+        assertTrue(
+                mavenBuildXml.contains("<target name=\"package\" depends=\"plugin-descriptor,test\""),
+                "package does not depend on plugin-descriptor");
+    }
+
+    @Test
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-nodep-test/pom.xml")
+    public void testPluginProjectOffline(AntMojo mojo) throws Exception {
+        Settings settings = MojoExtension.getVariableValueFromObject(mojo, "settings");
+        settings.setOffline(true);
+        MavenProject project = MojoExtension.getVariableValueFromObject(mojo, "project");
+        project.setPackaging("maven-plugin");
+
+        mojo.execute();
+
+        File antBasedir = new File("target/test/unit/ant-nodep-test/");
+        File buildXmlFile = new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME);
+        String mavenBuildXml = FileUtils.fileRead(buildXmlFile);
+
+        assertTrue(
+                mavenBuildXml.contains("<target name=\"helpmojo\" description=\"Generate help mojo\">"),
+                "helpmojo should not depend on get-deps in offline mode");
+        assertFalse(mavenBuildXml.contains("<target name=\"helpmojo\" depends=\"get-deps\""));
+        assertTrue(mavenBuildXml.contains("depends=\"helpmojo\""), "compile does not depend on helpmojo");
+    }
 }

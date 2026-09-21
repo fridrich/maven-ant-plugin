@@ -27,8 +27,10 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.model.Dependency;
@@ -57,17 +59,9 @@ public class AntExtensionWriter {
     }
 
     private boolean hasPlugin(String... artifactIds) {
-        if (project.getBuildPlugins() == null) {
-            return false;
-        }
-        for (Plugin plugin : project.getBuildPlugins()) {
-            for (String artifactId : artifactIds) {
-                if (artifactId.equals(plugin.getArtifactId())) {
-                    return true;
-                }
-            }
-        }
-        return false;
+        List<String> ids = Arrays.asList(artifactIds);
+        return project.getBuildPlugins() != null
+                && project.getBuildPlugins().stream().anyMatch(p -> ids.contains(p.getArtifactId()));
     }
 
     public boolean isSisuProject() {
@@ -207,22 +201,29 @@ public class AntExtensionWriter {
         }
     }
 
-    public List<JflexExecution> getJflexExecutions() {
-        List<JflexExecution> executions = new ArrayList<>();
+    private List<Xpp3Dom> getPluginConfigurations(String... pluginArtifactIds) {
+        List<Xpp3Dom> configs = new ArrayList<>();
         if (project.getBuildPlugins() != null) {
+            List<String> ids = Arrays.asList(pluginArtifactIds);
             for (Plugin plugin : project.getBuildPlugins()) {
-                if ("jflex-maven-plugin".equals(plugin.getArtifactId())) {
+                if (ids.contains(plugin.getArtifactId())) {
                     if (plugin.getExecutions() != null) {
                         for (PluginExecution exec : plugin.getExecutions()) {
-                            executions.add(new JflexExecution((Xpp3Dom) exec.getConfiguration()));
+                            configs.add((Xpp3Dom) exec.getConfiguration());
                         }
                     } else if (plugin.getConfiguration() != null) {
-                        executions.add(new JflexExecution((Xpp3Dom) plugin.getConfiguration()));
+                        configs.add((Xpp3Dom) plugin.getConfiguration());
                     }
                 }
             }
         }
-        return executions;
+        return configs;
+    }
+
+    public List<JflexExecution> getJflexExecutions() {
+        return getPluginConfigurations("jflex-maven-plugin").stream()
+                .map(JflexExecution::new)
+                .collect(Collectors.toList());
     }
 
     public boolean isCupProject() {
@@ -247,22 +248,13 @@ public class AntExtensionWriter {
     }
 
     public List<CupExecution> getCupExecutions() {
-        List<CupExecution> executions = new ArrayList<>();
-        if (project.getBuildPlugins() != null) {
-            for (Plugin plugin : project.getBuildPlugins()) {
-                if ("cup-maven-plugin".equals(plugin.getArtifactId())
-                        || "javacup-maven-plugin".equals(plugin.getArtifactId())) {
-                    if (plugin.getExecutions() != null) {
-                        for (PluginExecution exec : plugin.getExecutions()) {
-                            executions.add(new CupExecution((Xpp3Dom) exec.getConfiguration()));
-                        }
-                    } else if (plugin.getConfiguration() != null) {
-                        executions.add(new CupExecution((Xpp3Dom) plugin.getConfiguration()));
-                    }
-                }
-            }
-        }
-        return executions;
+        return getPluginConfigurations("cup-maven-plugin", "javacup-maven-plugin").stream()
+                .map(CupExecution::new)
+                .collect(Collectors.toList());
+    }
+
+    public boolean isPluginProject() {
+        return AntBuildWriterUtil.isMavenPluginPackaging(project);
     }
 
     public boolean isBndProject() {
@@ -332,34 +324,25 @@ public class AntExtensionWriter {
         if (dominant == null) {
             return recessive != null ? new Xpp3Dom(recessive) : null;
         }
-        if (recessive == null) {
-            return new Xpp3Dom(dominant);
-        }
-        return Xpp3Dom.mergeXpp3Dom(new Xpp3Dom(dominant), recessive);
+        return recessive == null ? new Xpp3Dom(dominant) : Xpp3Dom.mergeXpp3Dom(new Xpp3Dom(dominant), recessive);
     }
 
     private Plugin findModelloPlugin(List<Plugin> plugins) {
-        if (plugins == null) {
-            return null;
-        }
-        for (Plugin plugin : plugins) {
-            if ("modello-maven-plugin".equals(plugin.getArtifactId())) {
-                return plugin;
-            }
-        }
-        return null;
+        return plugins == null
+                ? null
+                : plugins.stream()
+                        .filter(p -> "modello-maven-plugin".equals(p.getArtifactId()))
+                        .findFirst()
+                        .orElse(null);
     }
 
     private PluginExecution findExecutionById(Plugin plugin, String id) {
-        if (plugin == null || plugin.getExecutions() == null || id == null) {
-            return null;
-        }
-        for (PluginExecution exec : plugin.getExecutions()) {
-            if (id.equals(exec.getId())) {
-                return exec;
-            }
-        }
-        return null;
+        return (plugin == null || plugin.getExecutions() == null || id == null)
+                ? null
+                : plugin.getExecutions().stream()
+                        .filter(e -> id.equals(e.getId()))
+                        .findFirst()
+                        .orElse(null);
     }
 
     private boolean isInactivePhase(String phase) {
@@ -764,26 +747,16 @@ public class AntExtensionWriter {
      * "cup"), for use as a depends= value on compile/javadoc. Empty if none apply.
      */
     public String getGenSourceTargets() {
-        List<String> names = new ArrayList<>();
-        if (isTemplatingProject()) {
-            names.add("templates");
-        }
-        if (isJavaccProject()) {
-            names.add("javacc");
-        }
-        if (isJflexProject()) {
-            names.add("jflex");
-        }
-        if (isCupProject()) {
-            names.add("cup");
-        }
-        if (isModelloProject()) {
-            names.add("mdo");
-        }
-        if (isDependencyUnpackProject()) {
-            names.add("unpack-dependencies");
-        }
-        return String.join(",", names);
+        return Stream.of(
+                        isTemplatingProject() ? "templates" : null,
+                        isJavaccProject() ? "javacc" : null,
+                        isJflexProject() ? "jflex" : null,
+                        isCupProject() ? "cup" : null,
+                        isModelloProject() ? "mdo" : null,
+                        isPluginProject() ? "helpmojo" : null,
+                        isDependencyUnpackProject() ? "unpack-dependencies" : null)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining(","));
     }
 
     public void writeGenSourcesTarget(XMLWriter writer) throws IOException {
@@ -886,6 +859,10 @@ public class AntExtensionWriter {
 
         if (isModelloProject()) {
             writeModelloTarget(writer);
+        }
+
+        if (isPluginProject()) {
+            writeHelpMojoTarget(writer);
         }
 
         if (isDependencyUnpackProject()) {
@@ -1092,7 +1069,26 @@ public class AntExtensionWriter {
 
         writer.endElement(); // target
 
-        writeTargetSeparator(writer, isDependencyUnpackProject());
+        writeTargetSeparator(writer, false);
+    }
+
+    public void writeHelpMojoTarget(XMLWriter writer) {
+        XmlWriterUtil.writeCommentText(writer, "Help mojo target", 1);
+
+        writer.startElement("target");
+        writer.addAttribute("name", "helpmojo");
+        if (!offline) {
+            writer.addAttribute("depends", "get-deps");
+        }
+        writer.addAttribute("description", "Generate help mojo");
+
+        writer.startElement("mkdir");
+        writer.addAttribute("dir", "${maven.build.dir}/generated-sources/plugin");
+        writer.endElement(); // mkdir
+
+        writer.endElement(); // target
+
+        writeTargetSeparator(writer, false);
     }
 
     public void writeDependencyUnpackTarget(XMLWriter writer) {
