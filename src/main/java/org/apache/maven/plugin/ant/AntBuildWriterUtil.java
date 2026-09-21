@@ -425,25 +425,6 @@ public class AntBuildWriterUtil {
             writer.endElement(); // touch
         }
 
-        boolean addMavenDesc =
-                !"false".equals(getMavenJarPluginBasicOption(project, "archive//addMavenDescriptor", "true"));
-        if (addMavenDesc) {
-            String mdir = "${maven.build.outputDir}/META-INF/maven/${project.groupId}/${project.artifactId}";
-            writer.startElement("mkdir");
-            writer.addAttribute("dir", mdir);
-            writer.endElement(); // mkdir
-            writer.startElement("echo");
-            writer.addAttribute("file", mdir + "/pom.properties");
-            writer.writeText("version=" + project.getVersion() + "\ngroupId=" + project.getGroupId() + "\nartifactId="
-                    + project.getArtifactId() + "\n");
-            writer.endElement(); // echo
-            writer.startElement("copy");
-            writer.addAttribute("file", "${basedir}/pom.xml");
-            writer.addAttribute("tofile", mdir + "/pom.xml");
-            writer.addAttribute("failonerror", "false");
-            writer.endElement(); // copy
-        }
-
         writer.startElement("jar");
         writer.addAttribute("jarfile", "${maven.build.dir}/${maven.build.finalName}.jar");
         addWrapAttribute(

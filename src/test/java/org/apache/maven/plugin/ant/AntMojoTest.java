@@ -110,6 +110,7 @@ public class AntMojoTest {
         if (srcDir.exists()) {
             FileUtils.copyDirectoryStructure(srcDir, new File(antBasedir, "src"));
         }
+        FileUtils.copyFile(new File("src/test/resources/unit/ant-nodep-test/pom.xml"), new File(antBasedir, "pom.xml"));
 
         File antBuild = new File(antBasedir, AntBuildWriter.DEFAULT_BUILD_FILENAME);
         AntWrapper.invoke(antBuild);
@@ -171,6 +172,7 @@ public class AntMojoTest {
                 mavenBuildXml.contains("<copy file=\"bnd.bnd\""), "physical bnd.bnd must be copied, not re-serialized");
 
         FileUtils.copyDirectoryStructure(new File(testPom, "src"), new File(antBasedir, "src"));
+        FileUtils.copyFile(new File(testPom, "pom.xml"), new File(antBasedir, "pom.xml"));
 
         try {
             AntWrapper.invoke(new File(antBasedir, AntBuildWriter.DEFAULT_BUILD_FILENAME));
@@ -209,6 +211,7 @@ public class AntMojoTest {
         assertTrue(jarTaskIndex < bndwrapIndex, "bndwrap must run after the jar it wraps");
 
         FileUtils.copyDirectoryStructure(new File(testPom, "src"), new File(antBasedir, "src"));
+        FileUtils.copyFile(new File(testPom, "pom.xml"), new File(antBasedir, "pom.xml"));
 
         try {
             AntWrapper.invoke(new File(antBasedir, AntBuildWriter.DEFAULT_BUILD_FILENAME));
@@ -250,6 +253,7 @@ public class AntMojoTest {
         assertTrue(jarTaskIndex < bndwrapIndex, "bndwrap must run after the jar it wraps");
 
         FileUtils.copyDirectoryStructure(new File(testPom, "src"), new File(antBasedir, "src"));
+        FileUtils.copyFile(new File(testPom, "pom.xml"), new File(antBasedir, "pom.xml"));
 
         try {
             AntWrapper.invoke(new File(antBasedir, AntBuildWriter.DEFAULT_BUILD_FILENAME));
@@ -301,6 +305,10 @@ public class AntMojoTest {
         File bndFile = new File(testPom, "bnd.bnd");
         if (bndFile.exists()) {
             FileUtils.copyFile(bndFile, new File(antBasedir, "bnd.bnd"));
+        }
+        File pomFile = new File(testPom, "pom.xml");
+        if (pomFile.exists()) {
+            FileUtils.copyFile(pomFile, new File(antBasedir, "pom.xml"));
         }
 
         assertNotNull(mojo, "Mojo could not be looked up");
@@ -561,5 +569,33 @@ public class AntMojoTest {
                 "helpmojo should not depend on get-deps in offline mode");
         assertFalse(mavenBuildXml.contains("<target name=\"helpmojo\" depends=\"get-deps\""));
         assertTrue(mavenBuildXml.contains("depends=\"helpmojo\""), "compile does not depend on helpmojo");
+    }
+
+    @Test
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-nodep-test/pom.xml")
+    public void testMavenDescriptorInCompileTarget(AntMojo mojo) throws Exception {
+        mojo.execute();
+
+        File antBasedir = new File("target/test/unit/ant-nodep-test/");
+        File buildXmlFile = new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME);
+        String mavenBuildXml = FileUtils.fileRead(buildXmlFile);
+
+        assertTrue(
+                mavenBuildXml.contains(
+                        "<propertyfile file=\"${maven.build.outputDir}/META-INF/maven/${project.groupId}/${project.artifactId}/pom.properties\">"));
+        assertTrue(mavenBuildXml.contains("<entry key=\"artifactId\" value=\"${project.artifactId}\"/>"));
+        assertTrue(mavenBuildXml.contains("<entry key=\"groupId\" value=\"${project.groupId}\"/>"));
+        assertTrue(mavenBuildXml.contains("<entry key=\"version\" value=\"${project.version}\"/>"));
+        assertTrue(
+                mavenBuildXml.contains(
+                        "<copy file=\"pom.xml\" tofile=\"${maven.build.outputDir}/META-INF/maven/${project.groupId}/${project.artifactId}/pom.xml\"/>"));
+
+        int compileTargetIndex = mavenBuildXml.indexOf("<target name=\"compile\"");
+        int propertyfileIndex = mavenBuildXml.indexOf("<propertyfile");
+        int packageTargetIndex = mavenBuildXml.indexOf("<target name=\"package\"");
+
+        assertTrue(compileTargetIndex >= 0 && propertyfileIndex > compileTargetIndex);
+        assertTrue(packageTargetIndex >= 0 && propertyfileIndex < packageTargetIndex);
+        assertFalse(mavenBuildXml.contains("file=\"${basedir}/pom.xml\""));
     }
 }

@@ -1305,7 +1305,7 @@ public class AntBuildWriter {
         writer.addAttribute("depends", "compile");
         writer.addAttribute("description", "Generate plugin descriptor");
 
-        XmlWriterUtil.writeComment(writer, "Fill up with plugin descriptor generation if needed", 2);
+        writer.writeMarkup("\n    <!-- Fill up with plugin descriptor generation if needed -->\n  ");
 
         writer.endElement(); // target
 
@@ -1419,18 +1419,12 @@ public class AntBuildWriter {
                 if (javaccOutputDir.contains("${project.build.directory}")) {
                     javaccOutputDir = javaccOutputDir.replace("${project.build.directory}", "${maven.build.dir}");
                 }
-
-                if (!isCompileSourceRoot(compileSourceRoots, javaccOutputDir) && !dirs.contains(javaccOutputDir)) {
-                    dirs.add(javaccOutputDir);
-                }
+                addExtraOutputDir(dirs, compileSourceRoots, javaccOutputDir);
             }
         }
 
         if (extensionWriter.isTemplatingProject()) {
-            String templatingOutputDir = "${maven.build.dir}/generated-sources/java-templates";
-            if (!isCompileSourceRoot(compileSourceRoots, templatingOutputDir) && !dirs.contains(templatingOutputDir)) {
-                dirs.add(templatingOutputDir);
-            }
+            addExtraOutputDir(dirs, compileSourceRoots, "${maven.build.dir}/generated-sources/java-templates");
         }
 
         if (extensionWriter.isJflexProject()) {
@@ -1451,34 +1445,31 @@ public class AntBuildWriter {
         }
 
         if (extensionWriter.isModelloProject()) {
-            String modelloOutputDir = "${maven.build.mdoOutputDir}";
-            if (!isCompileSourceRoot(compileSourceRoots, modelloOutputDir) && !dirs.contains(modelloOutputDir)) {
-                dirs.add(modelloOutputDir);
-            }
+            addExtraOutputDir(dirs, compileSourceRoots, "${maven.build.mdoOutputDir}");
         }
 
         if (AntBuildWriterUtil.isMavenPluginPackaging(project)) {
-            String pluginOutputDir = "${maven.build.dir}/generated-sources/plugin";
-            if (!isCompileSourceRoot(compileSourceRoots, pluginOutputDir) && !dirs.contains(pluginOutputDir)) {
-                dirs.add(pluginOutputDir);
-            }
+            addExtraOutputDir(dirs, compileSourceRoots, "${maven.build.dir}/generated-sources/plugin");
         }
 
         return dirs;
     }
 
+    private void addExtraOutputDir(List<String> dirs, List<String> compileSourceRoots, String dir) {
+        if (!isCompileSourceRoot(compileSourceRoots, dir) && !dirs.contains(dir)) {
+            dirs.add(dir);
+        }
+    }
+
     private void addParserOutputDir(
             List<String> dirs, List<String> compileSourceRoots, Xpp3Dom config, String defaultDir) {
-        String outputDir = defaultDir;
-        if (config != null && config.getChild("outputDirectory") != null) {
-            outputDir = config.getChild("outputDirectory").getValue();
-        }
+        String outputDir = (config != null && config.getChild("outputDirectory") != null)
+                ? config.getChild("outputDirectory").getValue()
+                : defaultDir;
         if (outputDir.contains("${project.build.directory}")) {
             outputDir = outputDir.replace("${project.build.directory}", "${maven.build.dir}");
         }
-        if (!isCompileSourceRoot(compileSourceRoots, outputDir) && !dirs.contains(outputDir)) {
-            dirs.add(outputDir);
-        }
+        addExtraOutputDir(dirs, compileSourceRoots, outputDir);
     }
 
     private boolean isCompileSourceRoot(List<String> compileSourceRoots, String dir) {
@@ -1700,6 +1691,37 @@ public class AntBuildWriter {
                 writer.endElement(); // copy
             }
         }
+
+        if (!isTest) {
+            writeMavenDescriptor(writer, outputDirectory);
+        }
+    }
+
+    private void writeMavenDescriptor(XMLWriter writer, String outputDirectory) throws IOException {
+        if ("false"
+                .equals(AntBuildWriterUtil.getMavenJarPluginBasicOption(
+                        project, "archive//addMavenDescriptor", "true"))) {
+            return;
+        }
+        String mdir = outputDirectory + "/META-INF/maven/${project.groupId}/${project.artifactId}";
+        writer.startElement("mkdir");
+        writer.addAttribute("dir", mdir);
+        writer.endElement(); // mkdir
+
+        writer.startElement("propertyfile");
+        writer.addAttribute("file", mdir + "/pom.properties");
+        for (String key : new String[] {"artifactId", "groupId", "version"}) {
+            writer.startElement("entry");
+            writer.addAttribute("key", key);
+            writer.addAttribute("value", "${project." + key + "}");
+            writer.endElement();
+        }
+        writer.endElement(); // propertyfile
+
+        writer.startElement("copy");
+        writer.addAttribute("file", "pom.xml");
+        writer.addAttribute("tofile", mdir + "/pom.xml");
+        writer.endElement(); // copy
     }
 
     /**
@@ -1927,11 +1949,9 @@ public class AntBuildWriter {
      */
     private static List<String> getSelectorList(Map[] options) {
         List<String> list = new ArrayList<>();
-        if (options != null && options.length > 0) {
-            for (Map option : options) {
-                for (Object value : option.values()) {
-                    list.add(String.valueOf(value));
-                }
+        if (options != null) {
+            for (Map<?, ?> option : options) {
+                option.values().forEach(v -> list.add(String.valueOf(v)));
             }
         }
         return list;
@@ -1954,20 +1974,17 @@ public class AntBuildWriter {
             return Collections.emptyList();
         }
         List<String> modules = new ArrayList<>(project.getModules());
-        if (reactorProjects == null || reactorProjects.isEmpty()) {
-            return modules;
-        }
-        Map<String, Integer> orderMap = new HashMap<>();
-        for (int i = 0; i < reactorProjects.size(); i++) {
-            MavenProject rp = reactorProjects.get(i);
-            if (rp.getBasedir() != null) {
-                orderMap.put(canonicalOrAbsolutePath(rp.getBasedir()), i);
+        if (reactorProjects != null && !reactorProjects.isEmpty()) {
+            Map<String, Integer> orderMap = new HashMap<>();
+            for (int i = 0; i < reactorProjects.size(); i++) {
+                File dir = reactorProjects.get(i).getBasedir();
+                if (dir != null) {
+                    orderMap.put(canonicalOrAbsolutePath(dir), i);
+                }
             }
+            modules.sort(Comparator.comparingInt(m -> orderMap.getOrDefault(
+                    canonicalOrAbsolutePath(new File(project.getBasedir(), m)), Integer.MAX_VALUE)));
         }
-        modules.sort(Comparator.comparingInt(m -> {
-            File modDir = new File(project.getBasedir(), m);
-            return orderMap.getOrDefault(canonicalOrAbsolutePath(modDir), Integer.MAX_VALUE);
-        }));
         return modules;
     }
 
