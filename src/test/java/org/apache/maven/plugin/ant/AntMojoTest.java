@@ -20,12 +20,15 @@ package org.apache.maven.plugin.ant;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.Arrays;
 import java.util.Properties;
 
 import org.apache.maven.api.plugin.testing.InjectMojo;
 import org.apache.maven.api.plugin.testing.MojoExtension;
 import org.apache.maven.api.plugin.testing.MojoTest;
+import org.apache.maven.execution.MavenSession;
 import org.apache.maven.project.MavenProject;
+import org.apache.maven.settings.Settings;
 import org.apache.tools.ant.BuildException;
 import org.codehaus.plexus.util.FileUtils;
 import org.junit.jupiter.api.Test;
@@ -34,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.Mockito.when;
 
 @MojoTest
 public class AntMojoTest {
@@ -431,5 +435,79 @@ public class AntMojoTest {
         assertTrue(
                 mavenBuildXml.contains("<target name=\"package\" depends=\"plexus,test\""),
                 "package target should depend on plexus,test");
+    }
+
+    @Test
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-test/pom.xml")
+    public void testProjectOffline(AntMojo mojo) throws Exception {
+        Settings settings = MojoExtension.getVariableValueFromObject(mojo, "settings");
+        settings.setOffline(true);
+        mojo.execute();
+
+        File antBasedir = new File("target/test/unit/ant-test/");
+        File buildXmlFile = new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME);
+        assertTrue(buildXmlFile.exists(), "maven-build.xml was not created");
+        String mavenBuildXml = FileUtils.fileRead(buildXmlFile);
+
+        assertFalse(mavenBuildXml.contains("<target name=\"get-deps\""), "get-deps target should not be generated");
+        assertFalse(mavenBuildXml.contains("depends=\"get-deps\""), "depends=get-deps should not be generated");
+        assertTrue(mavenBuildXml.contains("<fileset dir="), "lib fileset should be generated");
+        assertTrue(mavenBuildXml.contains("<include name=\"**/*.jar\"/>"), "lib jar include should be generated");
+        assertFalse(
+                mavenBuildXml.contains("${maven.repo.local}/"),
+                "maven.repo.local should not be referenced in offline classpath");
+        assertFalse(mavenBuildXml.contains("name=\"maven.repo.local\""));
+        assertFalse(mavenBuildXml.contains("name=\"maven.settings.offline\""));
+        assertFalse(mavenBuildXml.contains("name=\"maven.settings.interactiveMode\""));
+
+        File propertiesFile = new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_PROPERTIES_FILENAME);
+        assertTrue(propertiesFile.exists(), "maven-build.properties was not created");
+        Properties properties = new Properties();
+        try (FileInputStream is = new FileInputStream(propertiesFile)) {
+            properties.load(is);
+        }
+        assertFalse(properties.containsKey("maven.repo.local"));
+        assertFalse(properties.containsKey("maven.settings.offline"));
+        assertFalse(properties.containsKey("maven.settings.interactiveMode"));
+    }
+
+    @Test
+    @InjectMojo(goal = "ant", pom = "src/test/resources/unit/ant-test/pom.xml")
+    public void testProjectOfflineWithReactor(AntMojo mojo) throws Exception {
+        Settings settings = MojoExtension.getVariableValueFromObject(mojo, "settings");
+        settings.setOffline(true);
+
+        MavenProject project = MojoExtension.getVariableValueFromObject(mojo, "project");
+        MavenSession session = MojoExtension.getVariableValueFromObject(mojo, "session");
+
+        MavenProject sibling = new MavenProject();
+        sibling.setGroupId("junit");
+        sibling.setArtifactId("junit");
+        sibling.setVersion("3.8.2");
+        File siblingDir = new File(project.getBasedir().getParentFile(), "junit-sibling");
+        sibling.setFile(new File(siblingDir, "pom.xml"));
+
+        when(session.getProjects()).thenReturn(Arrays.asList(project, sibling));
+
+        mojo.execute();
+
+        File antBasedir = new File("target/test/unit/ant-test/");
+        File buildXmlFile = new File(antBasedir, AntBuildWriter.DEFAULT_MAVEN_BUILD_FILENAME);
+        assertTrue(buildXmlFile.exists(), "maven-build.xml was not created");
+        String mavenBuildXml = FileUtils.fileRead(buildXmlFile);
+
+        assertFalse(mavenBuildXml.contains("<target name=\"get-deps\""));
+        assertFalse(mavenBuildXml.contains("depends=\"get-deps\""));
+        assertTrue(mavenBuildXml.contains("<fileset dir="));
+        assertTrue(mavenBuildXml.contains("<include name=\"**/*.jar\"/>"));
+        assertTrue(
+                mavenBuildXml.contains("<pathelement location=\"../junit-sibling/target/classes\"/>"),
+                "sibling project classes pathelement not found");
+        assertFalse(
+                mavenBuildXml.contains("${maven.repo.local}/"),
+                "maven.repo.local should not be referenced in offline classpath");
+        assertFalse(mavenBuildXml.contains("name=\"maven.repo.local\""));
+        assertFalse(mavenBuildXml.contains("name=\"maven.settings.offline\""));
+        assertFalse(mavenBuildXml.contains("name=\"maven.settings.interactiveMode\""));
     }
 }

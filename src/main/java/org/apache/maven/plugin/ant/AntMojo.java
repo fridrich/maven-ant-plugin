@@ -127,10 +127,24 @@ public class AntMojo extends AbstractMojo {
                 executionProperties.putAll(session.getUserProperties());
             }
         }
+        if (session != null && session.isOffline() && settings != null) {
+            settings.setOffline(true);
+        }
+
+        File rootProjectDir = (session != null && session.getExecutionRootDirectory() != null)
+                ? new File(session.getExecutionRootDirectory())
+                : new File(System.getProperty("user.dir"));
+
         List<MavenProject> reactorProjects = (session != null) ? session.getProjects() : null;
 
         AntBuildWriter antBuildWriter = new AntBuildWriter(
-                project, artifactResolverWrapper, settings, overwrite, executionProperties, reactorProjects);
+                project,
+                artifactResolverWrapper,
+                settings,
+                overwrite,
+                executionProperties,
+                reactorProjects,
+                rootProjectDir);
 
         try {
             antBuildWriter.writeBuildXmls();

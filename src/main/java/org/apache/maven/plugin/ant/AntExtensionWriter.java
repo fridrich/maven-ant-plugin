@@ -46,9 +46,14 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
  */
 public class AntExtensionWriter {
     private final MavenProject project;
+    private boolean offline;
 
     public AntExtensionWriter(MavenProject project) {
         this.project = project;
+    }
+
+    public void setOffline(boolean offline) {
+        this.offline = offline;
     }
 
     private boolean hasPlugin(String... artifactIds) {
@@ -101,17 +106,10 @@ public class AntExtensionWriter {
     }
 
     public Plugin findActivePlexusMetadataPlugin() {
-        if (project == null) {
-            return null;
-        }
-        Plugin childPlugin = findPlexusMetadataPlugin(project.getBuildPlugins());
-        if (childPlugin != null) {
-            return childPlugin;
-        }
-        for (MavenProject p = project.getParent(); p != null; p = p.getParent()) {
-            Plugin parentPlugin = findPlexusMetadataPlugin(p.getBuildPlugins());
-            if (parentPlugin != null) {
-                return parentPlugin;
+        for (MavenProject p = project; p != null; p = p.getParent()) {
+            Plugin plugin = findPlexusMetadataPlugin(p.getBuildPlugins());
+            if (plugin != null) {
+                return plugin;
             }
         }
         return null;
@@ -119,22 +117,12 @@ public class AntExtensionWriter {
 
     private List<Plugin> getPlexusMetadataFallbackPlugins(Plugin activePlugin) {
         List<Plugin> fallbackPlugins = new ArrayList<>();
-        if (project == null) {
-            return fallbackPlugins;
-        }
-        if (project.getBuild() != null && project.getBuild().getPluginManagement() != null) {
-            Plugin p = findPlexusMetadataPlugin(
-                    project.getBuild().getPluginManagement().getPlugins());
-            if (p != null && p != activePlugin) {
-                fallbackPlugins.add(p);
-            }
-        }
-        for (MavenProject parent = project.getParent(); parent != null; parent = parent.getParent()) {
-            if (parent.getBuild() != null && parent.getBuild().getPluginManagement() != null) {
-                Plugin p = findPlexusMetadataPlugin(
-                        parent.getBuild().getPluginManagement().getPlugins());
-                if (p != null && p != activePlugin) {
-                    fallbackPlugins.add(p);
+        for (MavenProject p = project; p != null; p = p.getParent()) {
+            if (p.getBuild() != null && p.getBuild().getPluginManagement() != null) {
+                Plugin plugin = findPlexusMetadataPlugin(
+                        p.getBuild().getPluginManagement().getPlugins());
+                if (plugin != null && plugin != activePlugin) {
+                    fallbackPlugins.add(plugin);
                 }
             }
         }
@@ -142,12 +130,11 @@ public class AntExtensionWriter {
     }
 
     private Plugin findPlexusMetadataPlugin(List<Plugin> plugins) {
-        if (plugins == null) {
-            return null;
-        }
-        for (Plugin plugin : plugins) {
-            if ("plexus-component-metadata".equals(plugin.getArtifactId())) {
-                return plugin;
+        if (plugins != null) {
+            for (Plugin plugin : plugins) {
+                if ("plexus-component-metadata".equals(plugin.getArtifactId())) {
+                    return plugin;
+                }
             }
         }
         return null;
@@ -170,32 +157,33 @@ public class AntExtensionWriter {
     }
 
     private String getPlexusOption(Plugin plugin, String name, String alias) {
-        if (plugin == null) {
-            return null;
-        }
-        Xpp3Dom config = (Xpp3Dom) plugin.getConfiguration();
-        if (config != null) {
-            if (config.getChild(name) != null) {
-                return config.getChild(name).getValue();
+        if (plugin != null) {
+            String val = getDomValue((Xpp3Dom) plugin.getConfiguration(), name, alias);
+            if (val != null) {
+                return val;
             }
-            if (alias != null && config.getChild(alias) != null) {
-                return config.getChild(alias).getValue();
-            }
-        }
-        if (plugin.getExecutions() != null) {
-            for (PluginExecution exec : plugin.getExecutions()) {
-                Xpp3Dom execConfig = (Xpp3Dom) exec.getConfiguration();
-                if (execConfig != null) {
-                    if (execConfig.getChild(name) != null) {
-                        return execConfig.getChild(name).getValue();
-                    }
-                    if (alias != null && execConfig.getChild(alias) != null) {
-                        return execConfig.getChild(alias).getValue();
+            if (plugin.getExecutions() != null) {
+                for (PluginExecution exec : plugin.getExecutions()) {
+                    val = getDomValue((Xpp3Dom) exec.getConfiguration(), name, alias);
+                    if (val != null) {
+                        return val;
                     }
                 }
             }
         }
         return null;
+    }
+
+    private static String getDomValue(Xpp3Dom config, String name, String alias) {
+        if (config == null) {
+            return null;
+        }
+        if (config.getChild(name) != null) {
+            return config.getChild(name).getValue();
+        }
+        return (alias != null && config.getChild(alias) != null)
+                ? config.getChild(alias).getValue()
+                : null;
     }
 
     public boolean isJflexProject() {
@@ -804,7 +792,9 @@ public class AntExtensionWriter {
 
             writer.startElement("target");
             writer.addAttribute("name", "templates");
-            writer.addAttribute("depends", "get-deps");
+            if (!offline) {
+                writer.addAttribute("depends", "get-deps");
+            }
             writer.addAttribute("description", "Generate the sources");
 
             writer.startElement("mkdir");
@@ -833,7 +823,9 @@ public class AntExtensionWriter {
         if (isJavaccProject()) {
             writer.startElement("target");
             writer.addAttribute("name", "javacc");
-            writer.addAttribute("depends", "get-deps");
+            if (!offline) {
+                writer.addAttribute("depends", "get-deps");
+            }
             writer.addAttribute("description", "Generate the sources");
 
             writer.startElement("sequential");
@@ -904,7 +896,9 @@ public class AntExtensionWriter {
     public void writeJflexCompileTarget(XMLWriter writer) throws IOException {
         writer.startElement("target");
         writer.addAttribute("name", "jflex");
-        writer.addAttribute("depends", "get-deps");
+        if (!offline) {
+            writer.addAttribute("depends", "get-deps");
+        }
         writer.addAttribute("description", "Generate the sources");
 
         writer.startElement("sequential");
@@ -962,7 +956,9 @@ public class AntExtensionWriter {
     public void writeCupCompileTarget(XMLWriter writer) throws IOException {
         writer.startElement("target");
         writer.addAttribute("name", "cup");
-        writer.addAttribute("depends", "get-deps");
+        if (!offline) {
+            writer.addAttribute("depends", "get-deps");
+        }
         writer.addAttribute("description", "Generate the sources");
 
         writer.startElement("sequential");
@@ -1021,7 +1017,9 @@ public class AntExtensionWriter {
 
         writer.startElement("target");
         writer.addAttribute("name", "mdo");
-        writer.addAttribute("depends", "get-deps");
+        if (!offline) {
+            writer.addAttribute("depends", "get-deps");
+        }
         writer.addAttribute("description", "Generate sources from mdo files");
 
         writer.startElement("mkdir");
@@ -1106,7 +1104,9 @@ public class AntExtensionWriter {
         XmlWriterUtil.writeCommentText(writer, "Unpack dependencies target", 1);
         writer.startElement("target");
         writer.addAttribute("name", "unpack-dependencies");
-        writer.addAttribute("depends", "get-deps");
+        if (!offline) {
+            writer.addAttribute("depends", "get-deps");
+        }
         writer.addAttribute("description", "Unpack dependencies");
 
         for (DependencyUnpackItem item : items) {

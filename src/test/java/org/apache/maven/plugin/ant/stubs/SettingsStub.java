@@ -29,7 +29,7 @@ public class SettingsStub extends Settings {
      * @see org.apache.maven.settings.Settings#isOffline()
      */
     public boolean isOffline() {
-        return false;
+        return super.isOffline();
     }
 
     /**

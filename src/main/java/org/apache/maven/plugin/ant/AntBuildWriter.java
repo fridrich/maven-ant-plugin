@@ -109,6 +109,8 @@ public class AntBuildWriter {
 
     private final List<MavenProject> reactorProjects;
 
+    private final File rootProjectDir;
+
     /**
      * @param project {@link MavenProject}
      * @param artifactResolverWrapper {@link ArtifactResolverWrapper}
@@ -124,6 +126,26 @@ public class AntBuildWriter {
             boolean overwrite,
             Properties executionProperties,
             List<MavenProject> reactorProjects) {
+        this(project, artifactResolverWrapper, settings, overwrite, executionProperties, reactorProjects, null);
+    }
+
+    /**
+     * @param project {@link MavenProject}
+     * @param artifactResolverWrapper {@link ArtifactResolverWrapper}
+     * @param settings {@link Settings}
+     * @param overwrite true/false to overwrite or not.
+     * @param executionProperties {@link Properties}
+     * @param reactorProjects {@link List}
+     * @param rootProjectDir {@link File}
+     */
+    public AntBuildWriter(
+            MavenProject project,
+            ArtifactResolverWrapper artifactResolverWrapper,
+            Settings settings,
+            boolean overwrite,
+            Properties executionProperties,
+            List<MavenProject> reactorProjects,
+            File rootProjectDir) {
         this.project = project;
         this.artifactResolverWrapper = artifactResolverWrapper;
         this.localRepository = artifactResolverWrapper.getLocalRepositoryDirectory();
@@ -131,9 +153,17 @@ public class AntBuildWriter {
         this.overwrite = overwrite;
         this.executionProperties = (executionProperties != null) ? executionProperties : new Properties();
         this.extensionWriter = new AntExtensionWriter(project);
+        this.extensionWriter.setOffline(isOffline());
         this.assemblyWriter = new AntAssemblyWriter(project, extensionWriter);
         this.testWriter = new AntTestWriter(project, extensionWriter);
         this.reactorProjects = reactorProjects;
+        this.rootProjectDir = (rootProjectDir != null) ? rootProjectDir : new File(System.getProperty("user.dir"));
+    }
+
+    private boolean isOffline() {
+        return (settings != null && settings.isOffline())
+                || Boolean.parseBoolean(executionProperties.getProperty("maven.settings.offline", "false"))
+                || Boolean.parseBoolean(executionProperties.getProperty("offline", "false"));
     }
 
     private MavenProject findReactorProject(Artifact artifact) {
@@ -274,9 +304,11 @@ public class AntBuildWriter {
         // Settings properties
         // ----------------------------------------------------------------------
 
-        addProperty(properties, "maven.repo.local", getLocalRepositoryPath());
-        addProperty(properties, "maven.settings.offline", String.valueOf(settings.isOffline()));
-        addProperty(properties, "maven.settings.interactiveMode", String.valueOf(settings.isInteractiveMode()));
+        if (!isOffline()) {
+            addProperty(properties, "maven.repo.local", getLocalRepositoryPath());
+            addProperty(properties, "maven.settings.offline", String.valueOf(settings.isOffline()));
+            addProperty(properties, "maven.settings.interactiveMode", String.valueOf(settings.isInteractiveMode()));
+        }
 
         // ----------------------------------------------------------------------
         // Project metadata and aliases
@@ -504,7 +536,9 @@ public class AntBuildWriter {
             // ----------------------------------------------------------------------
             // <target name="get-deps" />
             // ----------------------------------------------------------------------
-            writeGetDepsTarget(writer);
+            if (!isOffline()) {
+                writeGetDepsTarget(writer);
+            }
 
             XmlWriterUtil.writeLineBreak(writer);
 
@@ -715,11 +749,13 @@ public class AntBuildWriter {
         // Settings properties
         // ----------------------------------------------------------------------
 
-        XmlWriterUtil.writeLineBreak(writer, 2, 1);
+        if (!isOffline()) {
+            XmlWriterUtil.writeLineBreak(writer, 2, 1);
 
-        writeProperty(writer, "maven.repo.local", getLocalRepositoryPath());
-        writeProperty(writer, "maven.settings.offline", String.valueOf(settings.isOffline()));
-        writeProperty(writer, "maven.settings.interactiveMode", String.valueOf(settings.isInteractiveMode()));
+            writeProperty(writer, "maven.repo.local", getLocalRepositoryPath());
+            writeProperty(writer, "maven.settings.offline", String.valueOf(settings.isOffline()));
+            writeProperty(writer, "maven.settings.interactiveMode", String.valueOf(settings.isInteractiveMode()));
+        }
 
         // ----------------------------------------------------------------------
         // Project metadata and aliases
@@ -914,27 +950,56 @@ public class AntBuildWriter {
         writer.startElement("path");
         writer.addAttribute("id", id);
 
-        for (Artifact artifact : artifacts) {
-            writer.startElement("pathelement");
-
-            String path;
-            MavenProject sibling = findReactorProject(artifact);
-            if (sibling != null) {
-                String relativePath = AntBuildWriterUtil.toRelative(
-                        project.getBasedir(), sibling.getBasedir().getAbsolutePath());
-                path = relativePath + "/target/classes";
-            } else if (Artifact.SCOPE_SYSTEM.equals(artifact.getScope())) {
-                path = getUninterpolatedSystemPath(artifact);
-            } else {
-                path = "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(artifact);
+        if (isOffline()) {
+            if (artifacts != null) {
+                for (Artifact artifact : artifacts) {
+                    MavenProject sibling = findReactorProject(artifact);
+                    if (sibling != null) {
+                        writer.startElement("pathelement");
+                        String relativePath = AntBuildWriterUtil.toRelative(
+                                project.getBasedir(), sibling.getBasedir().getAbsolutePath());
+                        writer.addAttribute("location", relativePath + "/target/classes");
+                        writer.endElement(); // pathelement
+                    } else if (Artifact.SCOPE_SYSTEM.equals(artifact.getScope())) {
+                        writer.startElement("pathelement");
+                        writer.addAttribute("location", getUninterpolatedSystemPath(artifact));
+                        writer.endElement(); // pathelement
+                    }
+                }
             }
-            writer.addAttribute("location", path);
 
-            writer.endElement(); // pathelement
+            File rootLibDir = new File(rootProjectDir, "lib");
+            String libRelPath = AntBuildWriterUtil.toRelative(project.getBasedir(), rootLibDir.getAbsolutePath());
+
+            writer.startElement("fileset");
+            writer.addAttribute("dir", libRelPath);
+            writer.startElement("include");
+            writer.addAttribute("name", "**/*.jar");
+            writer.endElement(); // include
+            writer.endElement(); // fileset
+        } else {
+            for (Artifact artifact : artifacts) {
+                writer.startElement("pathelement");
+
+                String path;
+                MavenProject sibling = findReactorProject(artifact);
+                if (sibling != null) {
+                    String relativePath = AntBuildWriterUtil.toRelative(
+                            project.getBasedir(), sibling.getBasedir().getAbsolutePath());
+                    path = relativePath + "/target/classes";
+                } else if (Artifact.SCOPE_SYSTEM.equals(artifact.getScope())) {
+                    path = getUninterpolatedSystemPath(artifact);
+                } else {
+                    path = "${maven.repo.local}/" + artifactResolverWrapper.getLocalArtifactPath(artifact);
+                }
+                writer.addAttribute("location", path);
+
+                writer.endElement(); // pathelement
+            }
+
+            ExtensionClasspathHelper.writeExtensionClasspaths(
+                    writer, id, project, extensionWriter, artifactResolverWrapper, injectedArtifacts, artifacts);
         }
-
-        ExtensionClasspathHelper.writeExtensionClasspaths(
-                writer, id, project, extensionWriter, artifactResolverWrapper, injectedArtifacts, artifacts);
 
         writer.endElement(); // path
     }
@@ -1031,12 +1096,14 @@ public class AntBuildWriter {
             Set<Integer> mrVersions = computeMultiReleaseVersions(compilerExecutions, baseVersion, true);
 
             String genSourceTargets = extensionWriter.getGenSourceTargets();
-            String baseDepends = genSourceTargets.isEmpty() ? "get-deps" : genSourceTargets;
+            String baseDepends = genSourceTargets.isEmpty() ? (isOffline() ? null : "get-deps") : genSourceTargets;
 
             if (mrVersions.isEmpty()) {
                 writer.startElement("target");
                 writer.addAttribute("name", "compile");
-                writer.addAttribute("depends", baseDepends);
+                if (baseDepends != null) {
+                    writer.addAttribute("depends", baseDepends);
+                }
                 writer.addAttribute("description", "Compile the code");
 
                 writeCompileTasks(
@@ -1051,7 +1118,9 @@ public class AntBuildWriter {
             } else {
                 writer.startElement("target");
                 writer.addAttribute("name", "compile-base");
-                writer.addAttribute("depends", baseDepends);
+                if (baseDepends != null) {
+                    writer.addAttribute("depends", baseDepends);
+                }
                 writer.addAttribute("description", "Compile the base code");
 
                 writeCompileTasks(
