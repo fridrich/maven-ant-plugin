@@ -1297,18 +1297,20 @@ public class AntBuildWriter {
         XmlWriterUtil.writeLineBreak(writer);
     }
 
-    private void writePluginDescriptorTarget(XMLWriter writer) throws IOException {
+    private void writePluginDescriptorTarget(XMLWriter writer) {
         XmlWriterUtil.writeCommentText(writer, "Plugin descriptor target", 1);
-
         writer.startElement("target");
         writer.addAttribute("name", "plugin-descriptor");
         writer.addAttribute("depends", "compile");
         writer.addAttribute("description", "Generate plugin descriptor");
-
-        writer.writeMarkup("\n    <!-- Fill up with plugin descriptor generation if needed -->\n  ");
-
+        writer.writeMarkup("\n    <!-- Example:\n"
+                + "    <exec executable=\"xmvn\" failonerror=\"true\">\n"
+                + "      <arg value=\"--batch-mode\"/>\n"
+                + "      <arg value=\"--offline\"/>\n"
+                + "      <arg value=\"org.apache.maven.plugins:maven-plugin-plugin:descriptor\"/>\n"
+                + "    </exec>\n"
+                + "    -->\n  ");
         writer.endElement(); // target
-
         XmlWriterUtil.writeLineBreak(writer);
     }
 
@@ -1409,17 +1411,9 @@ public class AntBuildWriter {
 
         if (extensionWriter.isJavaccProject()) {
             for (JavaccExecution exec : extensionWriter.getJavaccExecutions()) {
-                Xpp3Dom config = exec.getConfiguration();
-                String goal = exec.getGoal();
-                String javaccOutputDir = config.getChild("outputDirectory") != null
-                        ? config.getChild("outputDirectory").getValue()
-                        : "${project.build.directory}/generated-sources/"
-                                + (goal.contains("jjtree") ? "jjtree" : "javacc");
-
-                if (javaccOutputDir.contains("${project.build.directory}")) {
-                    javaccOutputDir = javaccOutputDir.replace("${project.build.directory}", "${maven.build.dir}");
-                }
-                addExtraOutputDir(dirs, compileSourceRoots, javaccOutputDir);
+                String def = "${maven.build.dir}/generated-sources/"
+                        + (exec.getGoal().contains("jjtree") ? "jjtree" : "javacc");
+                addParserOutputDir(dirs, compileSourceRoots, exec.getConfiguration(), def);
             }
         }
 

@@ -543,8 +543,11 @@ public class AntMojoTest {
         assertTrue(mavenBuildXml.contains("<target name=\"plugin-descriptor\""), "plugin-descriptor target not found");
         assertTrue(mavenBuildXml.contains("depends=\"compile\""), "plugin-descriptor should depend on compile");
         assertTrue(
-                mavenBuildXml.contains("Fill up with plugin descriptor generation if needed"),
-                "plugin-descriptor comment not found");
+                mavenBuildXml.contains("org.apache.maven.plugins:maven-plugin-plugin:helpmojo"),
+                "helpmojo example comment not found");
+        assertTrue(
+                mavenBuildXml.contains("org.apache.maven.plugins:maven-plugin-plugin:descriptor"),
+                "plugin-descriptor example comment not found");
         assertTrue(
                 mavenBuildXml.contains("<target name=\"package\" depends=\"plugin-descriptor,test\""),
                 "package does not depend on plugin-descriptor");

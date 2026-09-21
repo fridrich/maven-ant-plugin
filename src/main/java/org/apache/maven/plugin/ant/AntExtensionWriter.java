@@ -1086,6 +1086,14 @@ public class AntExtensionWriter {
         writer.addAttribute("dir", "${maven.build.dir}/generated-sources/plugin");
         writer.endElement(); // mkdir
 
+        writer.writeMarkup("\n    <!-- Example:\n"
+                + "    <exec executable=\"xmvn\" failonerror=\"true\">\n"
+                + "      <arg value=\"--batch-mode\"/>\n"
+                + "      <arg value=\"--offline\"/>\n"
+                + "      <arg value=\"org.apache.maven.plugins:maven-plugin-plugin:helpmojo\"/>\n"
+                + "    </exec>\n"
+                + "    -->\n  ");
+
         writer.endElement(); // target
 
         writeTargetSeparator(writer, false);
