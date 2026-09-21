@@ -152,12 +152,13 @@ public class AntBuildWriter {
         this.settings = settings;
         this.overwrite = overwrite;
         this.executionProperties = (executionProperties != null) ? executionProperties : new Properties();
+        this.rootProjectDir = (rootProjectDir != null) ? rootProjectDir : new File(System.getProperty("user.dir"));
         this.extensionWriter = new AntExtensionWriter(project);
         this.extensionWriter.setStandalone(isStandalone());
+        this.extensionWriter.setRootProjectDir(this.rootProjectDir);
         this.assemblyWriter = new AntAssemblyWriter(project, extensionWriter);
         this.testWriter = new AntTestWriter(project, extensionWriter);
         this.reactorProjects = reactorProjects;
-        this.rootProjectDir = (rootProjectDir != null) ? rootProjectDir : new File(System.getProperty("user.dir"));
     }
 
     private boolean isStandalone() {

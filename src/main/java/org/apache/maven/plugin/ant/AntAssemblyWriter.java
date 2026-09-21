@@ -299,6 +299,13 @@ public class AntAssemblyWriter {
         XmlWriterUtil.writeCommentText(writer, "Assembly target", 1);
         writer.startElement("target");
         writer.addAttribute("name", "assembly");
+        if (extensionWriter != null && extensionWriter.isStandalone()) {
+            writer.addAttribute("description", "Create assembly artifacts (no-op in standalone mode)");
+            writer.endElement(); // target
+            XmlWriterUtil.writeLineBreak(writer);
+            return;
+        }
+
         String depends = (extensionWriter != null && extensionWriter.isDependencyUnpackProject())
                 ? "compile, unpack-dependencies"
                 : "compile";

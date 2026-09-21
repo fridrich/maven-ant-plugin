@@ -49,6 +49,7 @@ import org.codehaus.plexus.util.xml.Xpp3Dom;
 public class AntExtensionWriter {
     private final MavenProject project;
     private boolean standalone;
+    private File rootProjectDir;
 
     public AntExtensionWriter(MavenProject project) {
         this.project = project;
@@ -58,8 +59,16 @@ public class AntExtensionWriter {
         this.standalone = standalone;
     }
 
-    public void setOffline(boolean offline) {
-        setStandalone(offline);
+    public boolean isStandalone() {
+        return standalone;
+    }
+
+    public void setRootProjectDir(File rootProjectDir) {
+        this.rootProjectDir = rootProjectDir;
+    }
+
+    public File getRootProjectDir() {
+        return rootProjectDir;
     }
 
     private boolean hasPlugin(String... artifactIds) {
@@ -1127,9 +1136,15 @@ public class AntExtensionWriter {
             boolean isTar = Arrays.asList("tar.gz", "tgz", "tar.bz2", "tar").contains(item.getType());
             String tag = isTar ? "untar" : "unjar";
             writer.startElement(tag);
-            String relPath = getArtifactPath(
-                    item.getGroupId(), item.getArtifactId(), item.getVersion(), item.getType(), item.getClassifier());
-            writer.addAttribute("src", "${maven.repo.local}/" + relPath);
+            if (!standalone) {
+                String relPath = getArtifactPath(
+                        item.getGroupId(),
+                        item.getArtifactId(),
+                        item.getVersion(),
+                        item.getType(),
+                        item.getClassifier());
+                writer.addAttribute("src", "${maven.repo.local}/" + relPath);
+            }
             writer.addAttribute("dest", outDir);
             if ("tar.gz".equals(item.getType()) || "tgz".equals(item.getType())) {
                 writer.addAttribute("compression", "gzip");
@@ -1137,17 +1152,34 @@ public class AntExtensionWriter {
                 writer.addAttribute("compression", "bzip2");
             }
 
+            if (standalone) {
+                File rootLib = (rootProjectDir != null) ? new File(rootProjectDir, "lib") : new File("lib");
+                String libRelPath = (project.getBasedir() != null)
+                        ? AntBuildWriterUtil.toRelative(project.getBasedir(), rootLib.getAbsolutePath())
+                        : "lib";
+                writer.startElement("fileset");
+                writer.addAttribute("dir", libRelPath);
+                String ext = item.getType() != null ? item.getType() : "jar";
+                boolean hasClassifier =
+                        item.getClassifier() != null && !item.getClassifier().isEmpty();
+                if (hasClassifier) {
+                    writePattern(
+                            writer, "include", "*" + item.getArtifactId() + "*" + item.getClassifier() + "*." + ext);
+                } else {
+                    writePattern(writer, "include", "*" + item.getArtifactId() + "*." + ext);
+                    writePattern(writer, "exclude", "*" + item.getArtifactId() + "*sources*." + ext);
+                    writePattern(writer, "exclude", "*" + item.getArtifactId() + "*tests*." + ext);
+                }
+                writer.endElement(); // fileset
+            }
+
             if (!item.getIncludes().isEmpty() || !item.getExcludes().isEmpty()) {
                 writer.startElement("patternset");
                 for (String inc : item.getIncludes()) {
-                    writer.startElement("include");
-                    writer.addAttribute("name", inc);
-                    writer.endElement(); // include
+                    writePattern(writer, "include", inc);
                 }
                 for (String exc : item.getExcludes()) {
-                    writer.startElement("exclude");
-                    writer.addAttribute("name", exc);
-                    writer.endElement(); // exclude
+                    writePattern(writer, "exclude", exc);
                 }
                 writer.endElement(); // patternset
             }
@@ -1200,35 +1232,19 @@ public class AntExtensionWriter {
         if (itemsNode != null) {
             for (Xpp3Dom itemNode : itemsNode.getChildren("artifactItem")) {
                 DependencyUnpackItem item = new DependencyUnpackItem();
-                Xpp3Dom gid = itemNode.getChild("groupId");
-                if (gid != null) {
-                    item.setGroupId(gid.getValue());
+                item.setGroupId(getChildValue(itemNode, "groupId"));
+                item.setArtifactId(getChildValue(itemNode, "artifactId"));
+                String ver = getChildValue(itemNode, "version");
+                item.setVersion(
+                        (ver != null && !ver.isEmpty())
+                                ? ver
+                                : resolveDependencyVersion(item.getGroupId(), item.getArtifactId()));
+                item.setType(getChildValue(itemNode, "type"));
+                item.setClassifier(getChildValue(itemNode, "classifier"));
+                String od = getChildValue(itemNode, "outputDirectory");
+                if (od == null) {
+                    od = getChildValue(config, "outputDirectory");
                 }
-                Xpp3Dom aid = itemNode.getChild("artifactId");
-                if (aid != null) {
-                    item.setArtifactId(aid.getValue());
-                }
-                Xpp3Dom ver = itemNode.getChild("version");
-                if (ver != null
-                        && ver.getValue() != null
-                        && !ver.getValue().trim().isEmpty()) {
-                    item.setVersion(ver.getValue().trim());
-                } else {
-                    item.setVersion(resolveDependencyVersion(item.getGroupId(), item.getArtifactId()));
-                }
-                Xpp3Dom type = itemNode.getChild("type");
-                if (type != null && type.getValue() != null) {
-                    item.setType(type.getValue().trim());
-                }
-                Xpp3Dom classifier = itemNode.getChild("classifier");
-                if (classifier != null && classifier.getValue() != null) {
-                    item.setClassifier(classifier.getValue().trim());
-                }
-                Xpp3Dom outDir = itemNode.getChild("outputDirectory");
-                if (outDir == null || outDir.getValue() == null) {
-                    outDir = config.getChild("outputDirectory");
-                }
-                String od = outDir != null ? outDir.getValue() : null;
                 if (od != null) {
                     item.setOutputDirectory(toAntOutputDir(od));
                 }
@@ -1931,13 +1947,7 @@ public class AntExtensionWriter {
     }
 
     private void writeMRJavacAttributes(XMLWriter writer, CompilerExecution exec, int intVer) throws IOException {
-        AntBuildWriterUtil.addWrapAttribute(
-                writer,
-                "javac",
-                "includeantruntime",
-                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "includeantruntime", "false"),
-                3);
-
+        writeMRJavacBasicOption(writer, "includeantruntime", "includeantruntime", "false");
         if (exec.getIncludes() != null) {
             AntBuildWriterUtil.addWrapAttribute(
                     writer, "javac", "includes", getCommaSeparatedList(exec.getIncludes(), "include"), 3);
@@ -1946,39 +1956,17 @@ public class AntExtensionWriter {
             AntBuildWriterUtil.addWrapAttribute(
                     writer, "javac", "excludes", getCommaSeparatedList(exec.getExcludes(), "exclude"), 3);
         }
-
         AntBuildWriterUtil.addWrapAttribute(writer, "javac", "release", String.valueOf(intVer), 3);
+        writeMRJavacBasicOption(writer, "encoding", "encoding", null);
+        writeMRJavacBasicOption(writer, "nowarn", "showWarnings", "false");
+        writeMRJavacBasicOption(writer, "debug", "debug", "true");
+        writeMRJavacBasicOption(writer, "optimize", "optimize", "false");
+        writeMRJavacBasicOption(writer, "deprecation", "showDeprecation", "true");
+    }
 
-        AntBuildWriterUtil.addWrapAttribute(
-                writer,
-                "javac",
-                "encoding",
-                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "encoding", null),
-                3);
-        AntBuildWriterUtil.addWrapAttribute(
-                writer,
-                "javac",
-                "nowarn",
-                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "showWarnings", "false"),
-                3);
-        AntBuildWriterUtil.addWrapAttribute(
-                writer,
-                "javac",
-                "debug",
-                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "debug", "true"),
-                3);
-        AntBuildWriterUtil.addWrapAttribute(
-                writer,
-                "javac",
-                "optimize",
-                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "optimize", "false"),
-                3);
-        AntBuildWriterUtil.addWrapAttribute(
-                writer,
-                "javac",
-                "deprecation",
-                AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "showDeprecation", "true"),
-                3);
+    private void writeMRJavacBasicOption(XMLWriter writer, String name, String opt, String def) throws IOException {
+        String val = AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, opt, def);
+        AntBuildWriterUtil.addWrapAttribute(writer, "javac", name, val, 3);
     }
 
     private static String getCommaSeparatedList(Map[] includes, String key) {
@@ -1992,5 +1980,16 @@ public class AntExtensionWriter {
                 .collect(Collectors.joining(","));
 
         return joined.isEmpty() ? null : joined;
+    }
+
+    private void writePattern(XMLWriter writer, String tag, String name) {
+        writer.startElement(tag);
+        writer.addAttribute("name", name);
+        writer.endElement();
+    }
+
+    private static String getChildValue(Xpp3Dom node, String child) {
+        Xpp3Dom c = node != null ? node.getChild(child) : null;
+        return (c != null && c.getValue() != null) ? c.getValue().trim() : null;
     }
 }

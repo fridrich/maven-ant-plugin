@@ -171,6 +171,30 @@ public class AntAssemblyWriterTest {
         assertTrue(xml.contains("prefix=\"${maven.build.finalName}\""));
     }
 
+    @Test
+    public void testWriteAssemblyTargetStandalone(@TempDir Path tempDir) throws Exception {
+        MavenProject project = setupAssemblyProject(tempDir);
+        AntExtensionWriter extWriter = new AntExtensionWriter(project);
+        extWriter.setStandalone(true);
+        extWriter.setRootProjectDir(tempDir.toFile());
+        AntAssemblyWriter assemblyWriter = new AntAssemblyWriter(project, extWriter);
+
+        DefaultRepositorySystemSession session = MavenRepositorySystemUtils.newSession();
+        session.setLocalRepositoryManager(repositorySystem.newLocalRepositoryManager(
+                session, new LocalRepository(tempDir.resolve("local-repo").toFile())));
+        ArtifactResolverWrapper wrapper = new ArtifactResolverWrapper(repositorySystem, session, null, null);
+
+        StringWriter sw = new StringWriter();
+        PrettyPrintXMLWriter xmlWriter = new PrettyPrintXMLWriter(sw);
+        assemblyWriter.writeAssemblyTarget(xmlWriter, wrapper, Collections.emptyList());
+        String xml = sw.toString();
+
+        assertTrue(xml.contains(
+                "<target name=\"assembly\" description=\"Create assembly artifacts (no-op in standalone mode)\"/>"));
+        assertFalse(xml.contains("<macrodef name=\"copy-dep\">"));
+        assertFalse(xml.contains("<copy-dep"));
+    }
+
     private MavenProject setupAssemblyProject(Path tempDir) throws Exception {
         Path pomFile = tempDir.resolve("pom.xml");
         Files.write(pomFile, "<project/>".getBytes(StandardCharsets.UTF_8));
