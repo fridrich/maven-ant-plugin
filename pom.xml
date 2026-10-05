@@ -44,7 +44,7 @@ under the License.
   </prerequisites>
 
   <properties>
-    <mavenVersion>3.9.16</mavenVersion>
+    <mavenVersion>3.10.0</mavenVersion>
     <resolverVersion>1.9.27</resolverVersion>
     <antVersion>1.10.18</antVersion>
     <annotationsVersion>3.16.0</annotationsVersion>
