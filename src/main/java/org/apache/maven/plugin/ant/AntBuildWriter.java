@@ -156,6 +156,7 @@ public class AntBuildWriter {
         this.extensionWriter = new AntExtensionWriter(project);
         this.extensionWriter.setStandalone(isStandalone());
         this.extensionWriter.setRootProjectDir(this.rootProjectDir);
+        this.extensionWriter.setReactorProjects(reactorProjects);
         this.assemblyWriter = new AntAssemblyWriter(project, extensionWriter);
         this.testWriter = new AntTestWriter(project, extensionWriter);
         this.reactorProjects = reactorProjects;
@@ -959,7 +960,7 @@ public class AntBuildWriter {
                         writer.startElement("pathelement");
                         String relativePath = AntBuildWriterUtil.toRelative(
                                 project.getBasedir(), sibling.getBasedir().getAbsolutePath());
-                        writer.addAttribute("location", relativePath + "/target/classes");
+                        writer.addAttribute("location", relativePath + ReactorPaths.classesDir(artifact));
                         writer.endElement(); // pathelement
                     } else if (Artifact.SCOPE_SYSTEM.equals(artifact.getScope())) {
                         writer.startElement("pathelement");
@@ -987,7 +988,7 @@ public class AntBuildWriter {
                 if (sibling != null) {
                     String relativePath = AntBuildWriterUtil.toRelative(
                             project.getBasedir(), sibling.getBasedir().getAbsolutePath());
-                    path = relativePath + "/target/classes";
+                    path = relativePath + ReactorPaths.classesDir(artifact);
                 } else if (Artifact.SCOPE_SYSTEM.equals(artifact.getScope())) {
                     path = getUninterpolatedSystemPath(artifact);
                 } else {
@@ -1627,22 +1628,15 @@ public class AntBuildWriter {
                 writer.endElement(); // src
             }
 
+            String classpathRef = isTest ? "build.test.classpath" : "build.classpath";
             if (additionalClassesDirectory == null) {
                 writer.startElement("classpath");
-                if (isTest) {
-                    writer.addAttribute("refid", "build.test.classpath");
-                } else {
-                    writer.addAttribute("refid", "build.classpath");
-                }
+                writer.addAttribute("refid", classpathRef);
                 writer.endElement(); // classpath
             } else {
                 writer.startElement("classpath");
                 writer.startElement("path");
-                if (isTest) {
-                    writer.addAttribute("refid", "build.test.classpath");
-                } else {
-                    writer.addAttribute("refid", "build.classpath");
-                }
+                writer.addAttribute("refid", classpathRef);
                 writer.endElement(); // path
                 writer.startElement("pathelement");
                 writer.addAttribute("location", additionalClassesDirectory);
@@ -1657,7 +1651,10 @@ public class AntBuildWriter {
         for (int i = 0; i < resources.size(); i++) {
             Resource resource = resources.get(i);
 
-            if (new File(resource.getDirectory()).exists()) {
+            // dirs under the build dir are produced by earlier targets (unpack, antrun), not there yet
+            String buildDir = project.getBuild().getDirectory();
+            boolean generated = buildDir != null && resource.getDirectory().startsWith(buildDir);
+            if (generated || new File(resource.getDirectory()).exists()) {
                 String outputDir = outputDirectory;
                 if (resource.getTargetPath() != null
                         && !resource.getTargetPath().isEmpty()) {
@@ -1672,10 +1669,9 @@ public class AntBuildWriter {
                 writer.addAttribute("todir", outputDir);
 
                 writer.startElement("fileset");
-                if (isTest) {
-                    writer.addAttribute("dir", "${maven.build.testResourceDir." + i + "}");
-                } else {
-                    writer.addAttribute("dir", "${maven.build.resourceDir." + i + "}");
+                writer.addAttribute("dir", "${maven.build." + (isTest ? "testResourceDir." : "resourceDir.") + i + "}");
+                if (generated) {
+                    writer.addAttribute("erroronmissingdir", "false");
                 }
 
                 AntBuildWriterUtil.writeIncludesExcludes(writer, resource.getIncludes(), resource.getExcludes());

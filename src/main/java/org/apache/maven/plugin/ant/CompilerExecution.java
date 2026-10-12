@@ -35,6 +35,7 @@ public class CompilerExecution {
     private final List<String> compileSourceRoots;
     private final Map[] includes;
     private final Map[] excludes;
+    private boolean multiReleaseOutput;
 
     public CompilerExecution(
             String id,
@@ -71,6 +72,14 @@ public class CompilerExecution {
 
     public List<String> getCompileSourceRoots() {
         return compileSourceRoots;
+    }
+
+    public boolean isMultiReleaseOutput() {
+        return multiReleaseOutput;
+    }
+
+    public void setMultiReleaseOutput(boolean multiReleaseOutput) {
+        this.multiReleaseOutput = multiReleaseOutput;
     }
 
     public Map[] getIncludes() {

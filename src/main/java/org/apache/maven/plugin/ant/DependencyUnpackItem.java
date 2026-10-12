@@ -33,6 +33,8 @@ public class DependencyUnpackItem {
     private String outputDirectory;
     private final List<String> includes = new ArrayList<>();
     private final List<String> excludes = new ArrayList<>();
+    // reactor sibling dirs copied instead of unpacking a jar
+    private final List<String> sourceDirs = new ArrayList<>();
 
     public String getGroupId() {
         return groupId;
@@ -88,5 +90,9 @@ public class DependencyUnpackItem {
 
     public List<String> getExcludes() {
         return excludes;
+    }
+
+    public List<String> getSourceDirs() {
+        return sourceDirs;
     }
 }

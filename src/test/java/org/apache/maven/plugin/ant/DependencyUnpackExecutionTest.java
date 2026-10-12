@@ -195,6 +195,74 @@ public class DependencyUnpackExecutionTest {
         assertTrue(xml.contains("dest=\"${maven.build.dir}/jline-out\""));
     }
 
+    @Test
+    public void testUnpackDependenciesSourcesOfReactorSibling() {
+        MavenProject project = new MavenProject();
+        project.setFile(new File("/tmp/r/gwt/pom.xml"));
+        Build build = new Build();
+        build.setDirectory("/tmp/r/gwt/target");
+
+        MavenProject sibling = new MavenProject();
+        sibling.setGroupId("g");
+        sibling.setArtifactId("lib");
+        sibling.setFile(new File("/tmp/r/lib/pom.xml"));
+        Build siblingBuild = new Build();
+        siblingBuild.setDirectory("/tmp/r/lib/target");
+        sibling.setBuild(siblingBuild);
+        sibling.addCompileSourceRoot("/tmp/r/lib/src");
+        sibling.addCompileSourceRoot("/tmp/r/lib/target/generated-sources/x");
+
+        // main + test-jar of the sibling collapse to one "sources" item; transitive one is dropped
+        Artifact transitive = createArtifact("g", "other", "1", "jar");
+        transitive.setDependencyTrail(java.util.Arrays.asList("g:gwt:1", "g:lib:1", "g:other:1"));
+        Set<Artifact> artifacts = new java.util.LinkedHashSet<>();
+        artifacts.add(createArtifact("g", "lib", "1", "jar"));
+        artifacts.add(new DefaultArtifact(
+                "g",
+                "lib",
+                VersionRange.createFromVersion("1"),
+                Artifact.SCOPE_TEST,
+                "test-jar",
+                "tests",
+                new DefaultArtifactHandler("test-jar")));
+        artifacts.add(transitive);
+        project.setArtifacts(artifacts);
+
+        Plugin plugin = new Plugin();
+        plugin.setArtifactId("maven-dependency-plugin");
+        PluginExecution exec = new PluginExecution();
+        exec.setId("unpack-sources");
+        exec.setGoals(Collections.singletonList("unpack-dependencies"));
+        Xpp3Dom config = new Xpp3Dom("configuration");
+        addChild(config, "classifier", "sources");
+        addChild(config, "type", "java-source");
+        addChild(config, "excludeTransitive", "true");
+        addChild(config, "excludes", "META-INF/MANIFEST.MF");
+        addChild(config, "outputDirectory", "/tmp/r/gwt/target/lib-sources");
+        exec.setConfiguration(config);
+        plugin.addExecution(exec);
+        build.addPlugin(plugin);
+        project.setBuild(build);
+
+        AntExtensionWriter writer = new AntExtensionWriter(project);
+        writer.setStandalone(true);
+        writer.setReactorProjects(Collections.singletonList(sibling));
+
+        List<DependencyUnpackItem> items = writer.getDependencyUnpackItems();
+        assertEquals(1, items.size());
+        assertEquals("sources", items.get(0).getClassifier());
+        assertEquals(Collections.singletonList("../lib/src"), items.get(0).getSourceDirs());
+        assertEquals("${maven.build.dir}/lib-sources", items.get(0).getOutputDirectory());
+
+        StringWriter sw = new StringWriter();
+        writer.writeDependencyUnpackTarget(new PrettyPrintXMLWriter(sw));
+        String xml = sw.toString();
+        assertTrue(xml.contains("<copy todir=\"${maven.build.dir}/lib-sources\">"), xml);
+        assertTrue(xml.contains("<fileset dir=\"../lib/src\">"), xml);
+        assertTrue(xml.contains("<exclude name=\"META-INF/MANIFEST.MF\"/>"), xml);
+        assertFalse(xml.contains("unjar"), xml);
+    }
+
     private static void addChild(Xpp3Dom parent, String name, String value) {
         Xpp3Dom child = new Xpp3Dom(name);
         child.setValue(value);
