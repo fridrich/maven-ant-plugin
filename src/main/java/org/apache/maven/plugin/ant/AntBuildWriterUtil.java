@@ -254,29 +254,13 @@ public class AntBuildWriterUtil {
                 3);
 
         // Nested arg
-        String doctitle = getMavenJavadocPluginBasicOption(project, "doctitle", null);
-        if (doctitle != null) {
-            writer.startElement("doctitle");
-            writer.writeText(doctitle); // writeText escapes; CDATA would end up literal
-            writer.endElement(); // doctitle
-        }
-        String header = getMavenJavadocPluginBasicOption(project, "header", null);
-        if (header != null) {
-            writer.startElement("header");
-            writer.writeText(header);
-            writer.endElement(); // header
-        }
-        String footer = getMavenJavadocPluginBasicOption(project, "footer", null);
-        if (footer != null) {
-            writer.startElement("footer");
-            writer.writeText(footer);
-            writer.endElement(); // footer
-        }
-        String bottom = getMavenJavadocPluginBasicOption(project, "bottom", null);
-        if (bottom != null) {
-            writer.startElement("bottom");
-            writer.writeText(bottom);
-            writer.endElement(); // bottom
+        for (String nested : new String[] {"doctitle", "header", "footer", "bottom"}) {
+            String text = getMavenJavadocPluginBasicOption(project, nested, null);
+            if (text != null) {
+                writer.startElement(nested);
+                writer.writeText(text); // writeText escapes; CDATA would end up literal
+                writer.endElement();
+            }
         }
 
         writer.startElement("classpath");
@@ -465,7 +449,12 @@ public class AntBuildWriterUtil {
             addWrapAttribute(writer, "jar", "manifest", manifestFile, 3);
         }
         addWrapAttribute(writer, "jar", "basedir", "${maven.build.outputDir}", 3);
-        addWrapAttribute(writer, "jar", "excludes", "**/package.html", 3);
+        StringBuilder excludes = new StringBuilder("**/package.html");
+        Map[] jarExcludes = getMavenPluginOptions(project, "maven-jar-plugin", "excludes", null);
+        for (Map exclude : jarExcludes != null ? jarExcludes : new Map[0]) {
+            excludes.append(',').append(exclude.get("exclude"));
+        }
+        addWrapAttribute(writer, "jar", "excludes", excludes.toString(), 3);
 
         boolean hasMultiRelease = false;
         List<CompilerExecution> compilerExecutions = getCompilerExecutions(project);
@@ -1546,7 +1535,9 @@ public class AntBuildWriterUtil {
             Map[] includes = parseCompilerPluginOptions(doc, "includes");
             Map[] excludes = parseCompilerPluginOptions(doc, "excludes");
 
-            return new CompilerExecution(id, release, source, target, roots, includes, excludes);
+            CompilerExecution exec = new CompilerExecution(id, release, source, target, roots, includes, excludes);
+            exec.setMultiReleaseOutput("true".equals(getElementText(doc, "multiReleaseOutput")));
+            return exec;
         } catch (ParserConfigurationException | SAXException | IOException e) {
             return null;
         }
