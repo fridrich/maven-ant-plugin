@@ -1566,9 +1566,17 @@ public class AntBuildWriter {
             AntBuildWriterUtil.addWrapAttribute(
                     writer, "javac", "includes", getCommaSeparatedList(includes, "include"), 3);
             Map[] excludes = AntBuildWriterUtil.getMavenCompilerPluginOptions(project, "excludes", null);
-            AntBuildWriterUtil.addWrapAttribute(
-                    writer, "javac", "excludes", getCommaSeparatedList(excludes, "exclude"), 3);
+            String excludeList = getCommaSeparatedList(excludes, "exclude");
+            List<CompilerExecution> execs = AntBuildWriterUtil.getCompilerExecutions(project);
+            if (!isTest && AntBuildWriterUtil.getBaseCompileVersion(project, execs) < 9) {
+                // maven-compiler-plugin silently skips it below 9; javac errors out
+                excludeList = excludeList == null ? "module-info.java" : excludeList + ",module-info.java";
+            }
+            AntBuildWriterUtil.addWrapAttribute(writer, "javac", "excludes", excludeList, 3);
 
+            boolean sourceOrTargetSet =
+                    AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "source", null) != null
+                            || AntBuildWriterUtil.getMavenCompilerPluginBasicOption(project, "target", null) != null;
             String[][] javacBasicOptions = {
                 {"encoding", "encoding", null},
                 {"nowarn", "showWarnings", "false"},
@@ -1581,7 +1589,7 @@ public class AntBuildWriter {
                 {"memoryMaximumSize", "meminitial", null},
                 {"memoryInitialSize", "maxmem", null},
                 {"source", "source", "1.8"},
-                {"release", "release", "8"},
+                {"release", "release", sourceOrTargetSet ? null : "8"}, // --release 8 hides sun.misc etc.
             };
             for (String[] opt : javacBasicOptions) {
                 AntBuildWriterUtil.addWrapAttribute(

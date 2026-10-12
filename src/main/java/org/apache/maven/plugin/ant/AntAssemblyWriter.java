@@ -41,8 +41,8 @@ import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 /**
  * Generates Ant targets for maven-assembly-plugin executions.
  *
- * // ponytail: Generates work staging directory and archive targets for assembly descriptors.
- * // Upgrade path: full Plexus Assembly Reader if external component interpolation is needed.
+ * Writes work staging directory and archive targets for assembly descriptors.
+ * Upgrade path: full Plexus Assembly Reader if external component interpolation is needed.
  */
 public class AntAssemblyWriter {
 
@@ -115,7 +115,7 @@ public class AntAssemblyWriter {
                     AssemblyExecution exec = parseAssemblyDom(assemblyDom, config, descFile.getParentFile());
                     result.add(exec);
                 } catch (IOException | XmlPullParserException e) {
-                    // ponytail: ignore unparseable descriptor, fallback to standard targets
+                    // ignore unparseable descriptor, fallback to standard targets
                 }
             }
         }
@@ -178,7 +178,7 @@ public class AntAssemblyWriter {
                             Xpp3Dom compDom = Xpp3DomBuilder.build(r);
                             parseAssemblyComponents(compDom, exec);
                         } catch (IOException | XmlPullParserException e) {
-                            // ponytail: skip unparseable component descriptor
+                            // skip unparseable component descriptor
                         }
                     }
                 }

@@ -1733,27 +1733,19 @@ public class AntExtensionWriter {
         Xpp3Dom[] bundleInstructions = AntBuildWriterUtil.getBundlePluginInstructions(project);
         boolean hasBndFile = AntBuildWriterUtil.hasBndFile(project);
 
-        boolean hasBundleVersion = false;
+        // every source of keys, as bnd.bnd text, to tell which defaults the plugins would add
+        StringBuilder defined = new StringBuilder(bndTaskInstructions != null ? bndTaskInstructions : "");
         if (hasBndFile) {
             try {
-                File bndFile = new File(project.getBasedir(), "bnd.bnd");
-                if (bndFile.isFile()) {
-                    hasBundleVersion = hasBndKey(FileUtils.fileRead(bndFile), "Bundle-Version");
-                }
+                defined.append('\n').append(FileUtils.fileRead(new File(project.getBasedir(), "bnd.bnd")));
             } catch (Exception e) {
                 // ignore
             }
         }
         if (bundleInstructions != null) {
             for (Xpp3Dom entry : bundleInstructions) {
-                if ("Bundle-Version".equals(entry.getName())) {
-                    hasBundleVersion = true;
-                    break;
-                }
+                defined.append('\n').append(entry.getName()).append(':');
             }
-        }
-        if (hasBndKey(bndTaskInstructions, "Bundle-Version")) {
-            hasBundleVersion = true;
         }
 
         if (hasBndFile) {
@@ -1763,37 +1755,47 @@ public class AntExtensionWriter {
             writer.endElement(); // copy
         }
 
-        if (bundleInstructions != null) {
+        StringBuilder defaults = new StringBuilder();
+        if (!hasBndKey(defined.toString(), "Bundle-SymbolicName")) {
+            // else bnd derives it from the output dir name ("target")
+            defaults.append("\nBundle-SymbolicName: ").append(getDefaultBundleSymbolicName());
+        }
+        if (!hasBndKey(defined.toString(), "Bundle-Version")) {
+            defaults.append("\nBundle-Version: ")
+                    .append(AntBuildWriterUtil.getNormalizedOSGiVersion(project.getVersion()));
+        }
+        String text = (bundleInstructions != null
+                        ? getBndPropertiesTextFromInstructions(bundleInstructions, hasBndFile)
+                        : bndTaskInstructions != null || !hasBndFile
+                                ? getBndPropertiesText(bndTaskInstructions, hasBndFile)
+                                : "")
+                + (defaults.length() > 0 ? defaults + "\n" : "");
+        if (!text.isEmpty()) {
             writer.startElement("echo");
             writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
             if (hasBndFile) {
                 writer.addAttribute("append", "true");
             }
-            writer.writeText(getBndPropertiesTextFromInstructions(bundleInstructions, hasBndFile));
-            writer.endElement(); // echo
-        } else if (bndTaskInstructions != null) {
-            writer.startElement("echo");
-            writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
-            if (hasBndFile) {
-                writer.addAttribute("append", "true");
-            }
-            writer.writeText(getBndPropertiesText(bndTaskInstructions, hasBndFile));
-            writer.endElement(); // echo
-        } else if (!hasBndFile) {
-            writer.startElement("echo");
-            writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
-            writer.writeText(getBndPropertiesText((String) null, false));
+            writer.writeText(text);
             writer.endElement(); // echo
         }
+    }
 
-        if (!hasBundleVersion) {
-            String normalizedVersion = AntBuildWriterUtil.getNormalizedOSGiVersion(project.getVersion());
-            writer.startElement("echo");
-            writer.addAttribute("file", "${maven.build.dir}/bnd.bnd");
-            writer.addAttribute("append", "true");
-            writer.writeText("\nBundle-Version: " + normalizedVersion + "\n");
-            writer.endElement(); // echo
+    // dotless groupId: maven-bundle-plugin uses jar's first package; not handled
+    private String getDefaultBundleSymbolicName() {
+        String groupId = project.getGroupId();
+        String artifactId = project.getArtifactId();
+        if (!hasPlugin("maven-bundle-plugin")) {
+            return artifactId; // bnd-maven-plugin
         }
+        String last = groupId.substring(groupId.lastIndexOf('.') + 1);
+        if (artifactId.equals(last)) {
+            return groupId;
+        }
+        if (artifactId.startsWith(last + "-") || artifactId.startsWith(last + ".")) {
+            return groupId + "." + artifactId.substring(last.length() + 1);
+        }
+        return groupId + "." + artifactId;
     }
 
     private String getBndPropertiesTextFromInstructions(Xpp3Dom[] bundleInstructions, boolean appending) {

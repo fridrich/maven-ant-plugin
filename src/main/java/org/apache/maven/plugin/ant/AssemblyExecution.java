@@ -24,7 +24,7 @@ import java.util.List;
 /**
  * Data model representing a maven-assembly-plugin assembly descriptor and execution.
  */
-// ponytail: minimal descriptor model supporting fileSets, dependencySets, files, and common archive formats. Upgrade
+// Minimal descriptor model supporting fileSets, dependencySets, files, and common archive formats. Upgrade
 // path: Plexus Assembly descriptor parser.
 public class AssemblyExecution {
     private String id;

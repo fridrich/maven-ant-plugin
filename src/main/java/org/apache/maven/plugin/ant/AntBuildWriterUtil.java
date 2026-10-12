@@ -257,25 +257,25 @@ public class AntBuildWriterUtil {
         String doctitle = getMavenJavadocPluginBasicOption(project, "doctitle", null);
         if (doctitle != null) {
             writer.startElement("doctitle");
-            writer.writeText("<![CDATA[" + doctitle + "]]>");
+            writer.writeText(doctitle); // writeText escapes; CDATA would end up literal
             writer.endElement(); // doctitle
         }
         String header = getMavenJavadocPluginBasicOption(project, "header", null);
         if (header != null) {
             writer.startElement("header");
-            writer.writeText("<![CDATA[" + header + "]]>");
+            writer.writeText(header);
             writer.endElement(); // header
         }
         String footer = getMavenJavadocPluginBasicOption(project, "footer", null);
         if (footer != null) {
             writer.startElement("footer");
-            writer.writeText("<![CDATA[" + footer + "]]>");
+            writer.writeText(footer);
             writer.endElement(); // footer
         }
         String bottom = getMavenJavadocPluginBasicOption(project, "bottom", null);
         if (bottom != null) {
             writer.startElement("bottom");
-            writer.writeText("<![CDATA[" + bottom + "]]>");
+            writer.writeText(bottom);
             writer.endElement(); // bottom
         }
 
@@ -288,9 +288,15 @@ public class AntBuildWriterUtil {
             // sourcepath/packagenames which require each dir to match its package name - native
             // <javacc> output doesn't, so package-based discovery silently skips it. A patternless
             // fileset gets **/*.java applied by Ant's own addFileset(), no need to repeat it here.
+            String javadocSource = getMavenJavadocPluginBasicOption(project, "source", null);
+            int sourceVersion = javadocSource != null
+                    ? (int) Double.parseDouble(javadocSource)
+                    : getBaseCompileVersion(project, getCompilerExecutions(project));
             for (int i = 0; i < sources.size(); i++) {
                 writer.startElement("fileset");
                 writer.addAttribute("dir", "${maven.build.srcDir." + i + "}");
+                // javadoc rejects module-info.java below source 9; maven-javadoc-plugin skips it
+                addWrapAttribute(writer, "fileset", "excludes", sourceVersion < 9 ? "module-info.java" : null, -1);
                 writer.endElement(); // fileset
             }
             for (String extraDir : extraSourceDirs) {
@@ -311,10 +317,17 @@ public class AntBuildWriterUtil {
 
         Map[] offlineLinks = getMavenJavadocPluginOptions(project, "offlineLinks", null);
         if (offlineLinks != null) {
-            for (Map offlineLink : offlineLinks) {
+            for (Map offlineLink1 : offlineLinks) {
+                Map<?, ?> offlineLink = (Map<?, ?>) offlineLink1.get("offlineLink");
                 writer.startElement("link");
                 writer.addAttribute("href", (String) offlineLink.get("url"));
                 addWrapAttribute(writer, "javadoc", "offline", "true", 4);
+                // Ant requires packagelistLoc with offline="true"
+                String location = (String) offlineLink.get("location");
+                if (location != null) {
+                    addWrapAttribute(
+                            writer, "javadoc", "packagelistLoc", toRelative(project.getBasedir(), location), 4);
+                }
                 writer.endElement(); // link
             }
         }
@@ -388,13 +401,31 @@ public class AntBuildWriterUtil {
                 Map<?, ?> props = (Map<?, ?>) tag.get("tag");
                 writer.startElement("tag");
                 writer.addAttribute("name", (String) props.get("name"));
-                addWrapAttribute(writer, "javadoc", "scope", (String) props.get("placement"), 4);
+                String placement = (String) props.get("placement");
+                if (placement != null && placement.contains("X")) {
+                    addWrapAttribute(writer, "javadoc", "enabled", "false", 4);
+                } else {
+                    addWrapAttribute(writer, "javadoc", "scope", toAntTagScope(placement), 4);
+                }
                 addWrapAttribute(writer, "javadoc", "description", (String) props.get("head"), 4);
                 writer.endElement(); // tag
             }
         }
 
         writer.endElement(); // javadoc
+    }
+
+    // javadoc -tag placement letters (aoptcmf) to Ant <tag scope> words
+    private static String toAntTagScope(String placement) {
+        if (placement == null || placement.contains("a")) {
+            return placement == null ? null : "all";
+        }
+        String[] words = {"overview", "packages", "types", "constructors", "methods", "fields"};
+        return "optcmf"
+                .chars()
+                .filter(c -> placement.indexOf(c) >= 0)
+                .mapToObj(c -> words["optcmf".indexOf(c)])
+                .collect(Collectors.joining(","));
     }
 
     /**
