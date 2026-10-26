@@ -52,7 +52,7 @@ under the License.
     <plexusUtilsVersion>4.1.0</plexusUtilsVersion>
     <plexusXmlVersion>3.1.0</plexusXmlVersion>
     <xalanVersion>2.7.3</xalanVersion>
-    <sisuVersion>1.1.0</sisuVersion>
+    <sisuVersion>1.1.1</sisuVersion>
     <testingHarnessVersion>3.5.1</testingHarnessVersion>
     <plexusTestingVersion>2.2.0</plexusTestingVersion>
     <mockitoVersion>5.24.0</mockitoVersion>
