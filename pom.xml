@@ -49,7 +49,7 @@ under the License.
     <resolverVersion>2.0.24</resolverVersion>
     <antVersion>1.10.18</antVersion>
     <annotationsVersion>3.16.0</annotationsVersion>
-    <plexusUtilsVersion>4.1.0</plexusUtilsVersion>
+    <plexusUtilsVersion>4.2.0</plexusUtilsVersion>
     <plexusXmlVersion>3.1.0</plexusXmlVersion>
     <xalanVersion>2.7.3</xalanVersion>
     <sisuVersion>1.1.1</sisuVersion>
